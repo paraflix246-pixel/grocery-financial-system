@@ -1,5 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { Image } from 'expo-image';
+import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -8,21 +9,29 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  TextInput,
   View,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
+import { ItemPicker, TargetPricePicker } from '@/src/components/ItemPicker';
 import type { PriceAlert } from '@/src/services/analyticsService';
 import { getAllPriceAlerts } from '@/src/services/priceAlertService';
 import {
   deletePriceAlertRule,
-  getDistinctItemNames,
   getPriceAlertRules,
   savePriceAlertRule,
 } from '@/src/services/storageService';
+import {
+  getPopularPickerOptions,
+  loadItemPickerOptions,
+  optionToSelection,
+  type ItemPickerOption,
+  type ItemPickerSelection,
+} from '@/src/services/itemPickerService';
+import { resolveCanonicalName } from '@/src/services/itemNormalizationService';
 import type { PriceAlertRule } from '@/src/models/types';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { getProductImageUrl } from '@/src/theme/productImages';
 import { generateId } from '@/src/utils/id';
 import { formatCurrency } from '@/src/utils/priceParser';
 
@@ -75,7 +84,7 @@ function RuleRow({
   return (
     <View style={styles.ruleRow}>
       <View style={styles.ruleInfo}>
-        <Text style={styles.ruleName}>{rule.itemName}</Text>
+        <Text style={styles.ruleName}>{rule.canonicalName ?? rule.itemName}</Text>
         <Text style={styles.ruleTarget}>Notify at {formatCurrency(rule.targetPrice)} or below</Text>
       </View>
       <Switch
@@ -102,29 +111,49 @@ function RuleRow({
   );
 }
 
+function PopularItemCard({
+  item,
+  onPress,
+}: {
+  item: ItemPickerOption;
+  onPress: () => void;
+}) {
+  const price = item.lastPrice ?? item.catalogPrice;
+  return (
+    <Pressable style={styles.popularCard} onPress={onPress}>
+      <Image source={{ uri: getProductImageUrl(item.canonicalName) }} style={styles.popularImage} />
+      <Text style={styles.popularEmoji}>{item.emoji}</Text>
+      <Text style={styles.popularName} numberOfLines={1}>
+        {item.canonicalName}
+      </Text>
+      {price != null && <Text style={styles.popularPrice}>{formatCurrency(price)}</Text>}
+    </Pressable>
+  );
+}
+
 export default function PriceAlertsScreen() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [rules, setRules] = useState<PriceAlertRule[]>([]);
-  const [itemSuggestions, setItemSuggestions] = useState<string[]>([]);
+  const [popularItems, setPopularItems] = useState<ItemPickerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
-  const [itemName, setItemName] = useState('');
+  const [itemSelection, setItemSelection] = useState<ItemPickerSelection | null>(null);
   const [targetPrice, setTargetPrice] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [alertData, ruleData, names] = await Promise.all([
+      const [alertData, ruleData, pickerOptions] = await Promise.all([
         getAllPriceAlerts(50),
         getPriceAlertRules(),
-        getDistinctItemNames(),
+        loadItemPickerOptions(),
       ]);
       setAlerts(alertData);
       setRules(ruleData);
-      setItemSuggestions(names);
+      setPopularItems(getPopularPickerOptions(pickerOptions));
     } finally {
       setLoading(false);
     }
@@ -136,33 +165,41 @@ export default function PriceAlertsScreen() {
     }, [load])
   );
 
-  const filteredSuggestions = useMemo(() => {
-    const query = itemName.trim().toLowerCase();
-    if (!query) return itemSuggestions.slice(0, 6);
-    return itemSuggestions.filter((name) => name.toLowerCase().includes(query)).slice(0, 6);
-  }, [itemName, itemSuggestions]);
-
   const resetForm = () => {
-    setItemName('');
+    setItemSelection(null);
     setTargetPrice('');
     setEditingRuleId(null);
     setShowForm(false);
   };
 
-  const openAddForm = () => {
+  const openAddForm = (prefill?: ItemPickerSelection) => {
     resetForm();
+    if (prefill) {
+      setItemSelection(prefill);
+      if (prefill.suggestedTargetPrice != null) {
+        setTargetPrice(prefill.suggestedTargetPrice.toFixed(2));
+      }
+    }
     setShowForm(true);
   };
 
   const openEditForm = (rule: PriceAlertRule) => {
     setEditingRuleId(rule.id);
-    setItemName(rule.itemName);
+    setItemSelection({
+      itemName: rule.itemName,
+      canonicalName: rule.canonicalName ?? resolveCanonicalName(rule.itemName),
+    });
     setTargetPrice(rule.targetPrice.toFixed(2));
     setShowForm(true);
   };
 
+  const handlePopularSelect = (option: ItemPickerOption) => {
+    const selection = optionToSelection(option);
+    openAddForm(selection);
+  };
+
   const confirmDelete = (rule: PriceAlertRule) => {
-    const message = `Remove alert for "${rule.itemName}" at ${formatCurrency(rule.targetPrice)}?`;
+    const message = `Remove alert for "${rule.canonicalName ?? rule.itemName}" at ${formatCurrency(rule.targetPrice)}?`;
     if (Platform.OS === 'web') {
       if (window.confirm(message)) {
         void deletePriceAlertRule(rule.id).then(load);
@@ -182,10 +219,10 @@ export default function PriceAlertsScreen() {
   };
 
   const handleSaveRule = async () => {
-    const trimmedName = itemName.trim();
+    const trimmedName = itemSelection?.itemName.trim() ?? '';
     const price = parseFloat(targetPrice.replace(/[^0-9.]/g, ''));
     if (!trimmedName) {
-      Alert.alert('Missing item', 'Enter an item name for your alert.');
+      Alert.alert('Missing item', 'Select an item for your alert.');
       return;
     }
     if (!Number.isFinite(price) || price <= 0) {
@@ -195,9 +232,12 @@ export default function PriceAlertsScreen() {
 
     setSaving(true);
     try {
+      const canonicalName =
+        itemSelection?.canonicalName ?? resolveCanonicalName(trimmedName) ?? undefined;
       await savePriceAlertRule({
         id: editingRuleId ?? generateId(),
         itemName: trimmedName,
+        canonicalName,
         targetPrice: price,
         enabled: true,
       });
@@ -211,6 +251,13 @@ export default function PriceAlertsScreen() {
   const handleToggleRule = async (rule: PriceAlertRule, enabled: boolean) => {
     await savePriceAlertRule({ ...rule, enabled });
     await load();
+  };
+
+  const handleItemSelect = (selection: ItemPickerSelection) => {
+    setItemSelection(selection);
+    if (selection.suggestedTargetPrice != null && !targetPrice.trim()) {
+      setTargetPrice(selection.suggestedTargetPrice.toFixed(2));
+    }
   };
 
   return (
@@ -237,10 +284,10 @@ export default function PriceAlertsScreen() {
             </View>
             <Text style={styles.bellTitle}>Notify me when price drops</Text>
             <Text style={styles.bellBody}>
-              Set a target price for any item. We&apos;ll alert you when your receipt history shows it at or below that price.
+              Pick items from your receipts or our grocery catalog. We&apos;ll match similar receipt names and alert you when prices hit your target.
             </Text>
             {!showForm && (
-              <Pressable style={styles.ctaBtn} onPress={openAddForm}>
+              <Pressable style={styles.ctaBtn} onPress={() => openAddForm()}>
                 <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} tintColor="#fff" size={16} />
                 <Text style={styles.ctaText}>Add price alert</Text>
               </Pressable>
@@ -250,36 +297,16 @@ export default function PriceAlertsScreen() {
           {showForm && (
             <View style={styles.formCard}>
               <Text style={styles.formTitle}>{editingRuleId ? 'Edit alert' : 'New alert'}</Text>
-              <Text style={styles.inputLabel}>Item name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g. Whole Milk"
-                placeholderTextColor={SmartCartColors.textMuted}
-                value={itemName}
-                onChangeText={setItemName}
-                autoCapitalize="words"
+              <ItemPicker
+                selection={itemSelection}
+                onSelect={handleItemSelect}
+                onClear={() => setItemSelection(null)}
               />
-              {filteredSuggestions.length > 0 && (
-                <View style={styles.suggestions}>
-                  {filteredSuggestions.map((name) => (
-                    <Pressable key={name} style={styles.suggestionChip} onPress={() => setItemName(name)}>
-                      <Text style={styles.suggestionText}>{name}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-              <Text style={styles.inputLabel}>Target price</Text>
-              <View style={styles.priceInputRow}>
-                <Text style={styles.currencyPrefix}>$</Text>
-                <TextInput
-                  style={[styles.input, styles.priceInput]}
-                  placeholder="4.00"
-                  placeholderTextColor={SmartCartColors.textMuted}
-                  value={targetPrice}
-                  onChangeText={setTargetPrice}
-                  keyboardType="decimal-pad"
-                />
-              </View>
+              <TargetPricePicker
+                value={targetPrice}
+                suggestedPrice={itemSelection?.suggestedTargetPrice}
+                onChange={setTargetPrice}
+              />
               <View style={styles.formActions}>
                 <Pressable style={styles.cancelBtn} onPress={resetForm}>
                   <Text style={styles.cancelText}>Cancel</Text>
@@ -319,13 +346,25 @@ export default function PriceAlertsScreen() {
                 <Text style={styles.emptyTitle}>No price drops yet</Text>
                 <Text style={styles.emptyBody}>
                   {rules.length === 0
-                    ? 'Add a custom alert above, or scan receipts over time to detect automatic price drops.'
+                    ? 'Tap a popular item below to set your first alert, or scan receipts to track prices automatically.'
                     : 'None of your alerts have been triggered yet. Keep scanning receipts — we compare prices automatically.'}
                 </Text>
                 {rules.length === 0 && (
-                  <Pressable style={styles.secondaryBtn} onPress={openAddForm}>
-                    <Text style={styles.secondaryBtnText}>Create your first alert</Text>
-                  </Pressable>
+                  <>
+                    <Text style={styles.popularTitle}>Popular items</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.popularRow}>
+                      {popularItems.map((item) => (
+                        <PopularItemCard
+                          key={item.canonicalName}
+                          item={item}
+                          onPress={() => handlePopularSelect(item)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
                 )}
               </View>
             ) : (
@@ -407,29 +446,6 @@ const styles = StyleSheet.create({
     ...SmartCartShadow.card,
   },
   formTitle: { fontSize: 16, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12 },
-  inputLabel: { fontSize: 13, fontWeight: '600', color: SmartCartColors.textSecondary, marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    borderRadius: SmartCartRadius.sm,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: SmartCartColors.text,
-    backgroundColor: SmartCartColors.background,
-    marginBottom: 12,
-  },
-  priceInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  currencyPrefix: { fontSize: 18, fontWeight: '700', color: SmartCartColors.text, marginRight: 6 },
-  priceInput: { flex: 1, marginBottom: 0 },
-  suggestions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12, marginTop: -4 },
-  suggestionChip: {
-    backgroundColor: SmartCartColors.badge,
-    borderRadius: SmartCartRadius.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  suggestionText: { fontSize: 12, fontWeight: '600', color: SmartCartColors.primaryDark },
   formActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   cancelBtn: {
     flex: 1,
@@ -494,15 +510,28 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: SmartCartColors.text },
   emptyBody: { fontSize: 14, color: SmartCartColors.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
-  secondaryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: SmartCartRadius.pill,
-    borderWidth: 1,
-    borderColor: SmartCartColors.primary,
+  popularTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: SmartCartColors.text,
+    marginTop: 20,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
   },
-  secondaryBtnText: { fontSize: 14, fontWeight: '600', color: SmartCartColors.primary },
+  popularRow: { gap: 10, paddingBottom: 4 },
+  popularCard: {
+    width: 108,
+    backgroundColor: SmartCartColors.background,
+    borderRadius: SmartCartRadius.md,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+  },
+  popularImage: { width: 52, height: 52, borderRadius: 10, marginBottom: 6 },
+  popularEmoji: { fontSize: 16, position: 'absolute', top: 8, right: 8 },
+  popularName: { fontSize: 13, fontWeight: '700', color: SmartCartColors.text, textAlign: 'center' },
+  popularPrice: { fontSize: 12, color: SmartCartColors.primaryMid, fontWeight: '600', marginTop: 4 },
   historyLink: {
     flexDirection: 'row',
     alignItems: 'center',

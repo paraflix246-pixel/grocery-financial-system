@@ -101,6 +101,7 @@ export type AppSettings = {
 export type PriceAlertRule = {
   id: string;
   itemName: string;
+  canonicalName?: string;
   targetPrice: number;
   enabled: boolean;
   createdAt: string;

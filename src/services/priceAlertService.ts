@@ -1,8 +1,6 @@
-import Fuse from 'fuse.js';
-
 import type { PriceAlertRule } from '@/src/models/types';
 import { getPriceAlerts, type PriceAlert } from '@/src/services/analyticsService';
-import { FUZZY_MATCH_THRESHOLD } from '@/src/services/matchingService';
+import { itemMatchesAlertRule } from '@/src/services/itemNormalizationService';
 import {
   getPriceAlertRules,
   getReceiptItemsWithStore,
@@ -20,16 +18,6 @@ function itemEmoji(name: string): string {
   return '🛒';
 }
 
-export function fuzzyMatchItemName(ruleName: string, itemName: string): boolean {
-  const fuse = new Fuse([{ name: itemName.trim() }], {
-    keys: ['name'],
-    threshold: 1 - FUZZY_MATCH_THRESHOLD,
-    includeScore: true,
-  });
-  const results = fuse.search(ruleName.trim());
-  return results.length > 0 && results[0].score != null && results[0].score <= 1 - FUZZY_MATCH_THRESHOLD;
-}
-
 export async function getCustomRuleAlerts(): Promise<PriceAlert[]> {
   const rules = await getPriceAlertRules();
   const enabledRules = rules.filter((rule) => rule.enabled);
@@ -39,7 +27,7 @@ export async function getCustomRuleAlerts(): Promise<PriceAlert[]> {
   const alerts: PriceAlert[] = [];
 
   for (const rule of enabledRules) {
-    const matching = items.filter((item) => fuzzyMatchItemName(rule.itemName, item.name));
+    const matching = items.filter((item) => itemMatchesAlertRule(rule, item.name));
     if (matching.length === 0) continue;
 
     matching.sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
@@ -87,7 +75,7 @@ export async function checkPriceAlertsAfterReceiptSave(
 
   for (const rule of enabled) {
     for (const item of items) {
-      if (!fuzzyMatchItemName(rule.itemName, item.name)) continue;
+      if (!itemMatchesAlertRule(rule, item.name)) continue;
       if (item.price > rule.targetPrice) continue;
 
       triggered.push({

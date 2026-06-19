@@ -605,6 +605,7 @@ export async function savePriceAlertRule(
   const saved: PriceAlertRule = {
     id: rule.id || generateId(),
     itemName: rule.itemName,
+    canonicalName: rule.canonicalName,
     targetPrice: rule.targetPrice,
     enabled: rule.enabled,
     createdAt,

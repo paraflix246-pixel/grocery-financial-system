@@ -140,6 +140,13 @@ async function migrateSchema(db: SQLite.SQLiteDatabase, fromVersion: number): Pr
       );`
     );
   }
+  if (fromVersion < 5) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(price_alert_rules)');
+    const hasCanonicalName = columns.some((column) => column.name === 'canonical_name');
+    if (!hasCanonicalName) {
+      await db.execAsync('ALTER TABLE price_alert_rules ADD COLUMN canonical_name TEXT');
+    }
+  }
 }
 
 function parseCategoryLimits(raw: unknown, weeklyBudget: number): CategoryLimits | undefined {
@@ -832,6 +839,7 @@ function mapPriceAlertRule(row: Record<string, unknown>): PriceAlertRule {
   return {
     id: row.id as string,
     itemName: row.item_name as string,
+    canonicalName: (row.canonical_name as string | null) ?? undefined,
     targetPrice: row.target_price as number,
     enabled: Boolean(row.enabled),
     createdAt: row.created_at as string,
@@ -855,16 +863,23 @@ export async function savePriceAlertRule(
   const existing = await db.getFirstAsync('SELECT id FROM price_alert_rules WHERE id = ?', [id]);
   if (existing) {
     await db.runAsync(
-      'UPDATE price_alert_rules SET item_name = ?, target_price = ?, enabled = ? WHERE id = ?',
-      [rule.itemName, rule.targetPrice, rule.enabled ? 1 : 0, id]
+      'UPDATE price_alert_rules SET item_name = ?, canonical_name = ?, target_price = ?, enabled = ? WHERE id = ?',
+      [rule.itemName, rule.canonicalName ?? null, rule.targetPrice, rule.enabled ? 1 : 0, id]
     );
   } else {
     await db.runAsync(
-      'INSERT INTO price_alert_rules (id, item_name, target_price, enabled, created_at) VALUES (?, ?, ?, ?, ?)',
-      [id, rule.itemName, rule.targetPrice, rule.enabled ? 1 : 0, createdAt]
+      'INSERT INTO price_alert_rules (id, item_name, canonical_name, target_price, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, rule.itemName, rule.canonicalName ?? null, rule.targetPrice, rule.enabled ? 1 : 0, createdAt]
     );
   }
-  return { id, itemName: rule.itemName, targetPrice: rule.targetPrice, enabled: rule.enabled, createdAt };
+  return {
+    id,
+    itemName: rule.itemName,
+    canonicalName: rule.canonicalName,
+    targetPrice: rule.targetPrice,
+    enabled: rule.enabled,
+    createdAt,
+  };
 }
 
 export async function deletePriceAlertRule(id: string): Promise<void> {
