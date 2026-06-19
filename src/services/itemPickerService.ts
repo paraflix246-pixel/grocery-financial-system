@@ -6,12 +6,9 @@ import {
   type CommonGroceryItem,
 } from '@/src/data/commonGroceryItems';
 import {
-  WALMART_CATALOG_LABEL,
-  WALMART_CATEGORIES,
-  WALMART_GROCERY_CATALOG,
-  type WalmartGroceryCategory,
-  type WalmartGroceryItem,
-} from '@/src/data/walmartGroceryCatalog';
+  GROCERY_CATALOG_LABEL,
+  searchGroceryCatalog,
+} from '@/src/data/groceryCatalog';
 import { resolveCanonicalName, suggestTargetPrice } from '@/src/services/itemNormalizationService';
 import { getReceiptItemsWithStore } from '@/src/services/storageService';
 
@@ -39,7 +36,7 @@ export type ItemPickerSelection = {
   suggestedTargetPrice?: number;
 };
 
-export { WALMART_CATALOG_LABEL, WALMART_CATEGORIES, type WalmartGroceryCategory };
+export { GROCERY_CATALOG_LABEL };
 
 function toOptionFromCatalog(item: CommonGroceryItem, source: ItemPickerOption['source']): ItemPickerOption {
   return {
@@ -52,20 +49,17 @@ function toOptionFromCatalog(item: CommonGroceryItem, source: ItemPickerOption['
   };
 }
 
-function toOptionFromWalmart(item: WalmartGroceryItem): ItemPickerOption {
-  const catalog = getCatalogItem(item.canonicalName);
-  return {
-    canonicalName: item.canonicalName,
-    displayName: item.canonicalName,
-    source: 'catalog',
-    catalogPrice: catalog?.expectedPrice,
-    category: item.category,
-    emoji: item.emoji,
-  };
-}
-
-export function getWalmartCatalogOptions(): ItemPickerOption[] {
-  return WALMART_GROCERY_CATALOG.map(toOptionFromWalmart);
+function matchesQuery(option: ItemPickerOption, query: string): boolean {
+  const catalog = getCatalogItem(option.canonicalName);
+  const haystack = [
+    option.displayName,
+    option.canonicalName,
+    option.category ?? '',
+    ...(catalog?.aliases ?? []),
+  ]
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
 }
 
 export async function loadItemPickerOptions(): Promise<ItemPickerOption[]> {
@@ -119,27 +113,26 @@ export async function loadItemPickerOptions(): Promise<ItemPickerOption[]> {
 
 export function searchItemPickerOptions(options: ItemPickerOption[], query: string): ItemPickerOption[] {
   const trimmed = query.trim().toLowerCase();
-  if (!trimmed) return options.slice(0, 12);
+  if (!trimmed) return [];
 
-  return options
-    .filter((option) => {
-      const catalog = getCatalogItem(option.canonicalName);
-      const haystack = [
-        option.displayName,
-        option.canonicalName,
-        option.category ?? '',
-        ...(catalog?.aliases ?? []),
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(trimmed);
-    })
-    .slice(0, 12);
-}
+  const results = new Map<string, ItemPickerOption>();
 
-export function filterWalmartOptions(options: ItemPickerOption[]): ItemPickerOption[] {
-  const walmartNames = new Set(WALMART_GROCERY_CATALOG.map((item) => item.canonicalName.toLowerCase()));
-  return options.filter((option) => walmartNames.has(option.canonicalName.toLowerCase()));
+  for (const option of options) {
+    if (matchesQuery(option, trimmed)) {
+      results.set(option.canonicalName.toLowerCase(), option);
+    }
+  }
+
+  for (const item of searchGroceryCatalog(query, 20)) {
+    const key = item.canonicalName.toLowerCase();
+    if (results.has(key)) continue;
+    const catalog = getCatalogItem(item.canonicalName);
+    if (catalog) {
+      results.set(key, toOptionFromCatalog(catalog, 'catalog'));
+    }
+  }
+
+  return Array.from(results.values()).slice(0, 12);
 }
 
 export function getChipSuggestions(options: ItemPickerOption[]): ItemPickerOption[] {
@@ -147,11 +140,11 @@ export function getChipSuggestions(options: ItemPickerOption[]): ItemPickerOptio
     options.find((option) => option.canonicalName.toLowerCase() === name.toLowerCase())
   ).filter((option): option is ItemPickerOption => option != null);
 
-  if (popular.length >= 4) return popular.slice(0, 6);
+  if (popular.length >= 8) return popular.slice(0, 12);
 
   const fillers = options
     .filter((option) => option.source !== 'history' || option.lastPrice != null)
-    .slice(0, 6 - popular.length);
+    .slice(0, 12 - popular.length);
 
   const seen = new Set(popular.map((item) => item.canonicalName.toLowerCase()));
   for (const item of fillers) {
@@ -162,18 +155,11 @@ export function getChipSuggestions(options: ItemPickerOption[]): ItemPickerOptio
     }
   }
 
-  return popular.slice(0, 6);
+  return popular.slice(0, 12);
 }
 
 export function getPopularPickerOptions(options: ItemPickerOption[]): ItemPickerOption[] {
-  const popular = POPULAR_ALERT_ITEMS.map((name) => {
-    const match = options.find((option) => option.canonicalName.toLowerCase() === name.toLowerCase());
-    if (match) return match;
-    const catalog = getCatalogItem(name);
-    return catalog ? toOptionFromCatalog(catalog, 'catalog') : null;
-  }).filter((option): option is ItemPickerOption => option != null);
-
-  return popular;
+  return getChipSuggestions(options);
 }
 
 export function optionToSelection(option: ItemPickerOption): ItemPickerSelection {

@@ -17,7 +17,7 @@ import { Text } from '@/components/Themed';
 import { CategoryPills } from '@/src/components/CategoryPills';
 import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
-import { getPopularWalmartItems, getWalmartTypicalPrice } from '@/src/data/walmartGroceryCatalog';
+import { getGroceryTypicalPrice, getPopularGroceryItems } from '@/src/data/groceryCatalog';
 import { STARTER_CATEGORIES, getQuantityLabel } from '@/src/data/starterListItems';
 import type { ListItem } from '@/src/models/types';
 import {
@@ -123,7 +123,7 @@ export default function ListDetailScreen() {
     setNewItemQty('1');
   }
 
-  const quickAddItems = useMemo(() => getPopularWalmartItems(), []);
+  const quickAddItems = useMemo(() => getPopularGroceryItems(), []);
 
   async function handleAddItem() {
     const name = newItemName.trim();
@@ -256,13 +256,13 @@ export default function ListDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Add Item</Text>
-            <Text style={styles.quickAddLabel}>Common Walmart items</Text>
+            <Text style={styles.quickAddLabel}>Common items</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickAddRow}>
               {quickAddItems.map((item) => (
                 <Pressable
                   key={item.id}
                   style={styles.quickAddTile}
-                  onPress={() => selectCatalogItem(item.canonicalName, item.category, getWalmartTypicalPrice(item))}>
+                  onPress={() => selectCatalogItem(item.canonicalName, item.category, getGroceryTypicalPrice(item))}>
                   <ItemEmojiAvatar emoji={item.emoji} size="md" />
                   <Text style={styles.quickAddName} numberOfLines={2}>
                     {item.canonicalName}

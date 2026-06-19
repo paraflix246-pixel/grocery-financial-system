@@ -5,15 +5,12 @@ import { Text } from '@/components/Themed';
 import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
 import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import {
-  filterWalmartOptions,
   getChipSuggestions,
   getQuickPriceButtons,
-  getWalmartCatalogOptions,
+  GROCERY_CATALOG_LABEL,
   loadItemPickerOptions,
   optionToSelection,
   searchItemPickerOptions,
-  WALMART_CATALOG_LABEL,
-  WALMART_CATEGORIES,
   type ItemPickerOption,
   type ItemPickerSelection,
 } from '@/src/services/itemPickerService';
@@ -28,13 +25,17 @@ type Props = {
   onClear?: () => void;
 };
 
-type CatalogFilter = 'all' | 'walmart';
+function sourceLabel(source: ItemPickerOption['source']): string {
+  if (source === 'both') return 'Yours';
+  if (source === 'history') return 'Receipt';
+  return 'Common';
+}
 
 export function ItemPicker({ selection, onSelect, onClear }: Props) {
   const [query, setQuery] = useState(selection?.itemName ?? '');
   const [options, setOptions] = useState<ItemPickerOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [catalogFilter, setCatalogFilter] = useState<CatalogFilter>('all');
+  const [inputFocused, setInputFocused] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -53,27 +54,21 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
     setQuery(selection?.itemName ?? '');
   }, [selection?.itemName]);
 
-  const filtered = useMemo(() => {
-    const base = catalogFilter === 'walmart' ? filterWalmartOptions(options) : options;
-    return searchItemPickerOptions(base, query);
-  }, [options, query, catalogFilter]);
-
+  const filtered = useMemo(() => searchItemPickerOptions(options, query), [options, query]);
   const chips = useMemo(() => getChipSuggestions(options), [options]);
-  const walmartBrowse = useMemo(() => getWalmartCatalogOptions(), []);
   const matchExamples = useMemo(
     () => getMatchExamples(selection?.canonicalName, selection?.itemName),
     [selection?.canonicalName, selection?.itemName]
   );
-  const showResults = query.trim().length > 0 && !selection;
-  const showWalmartBrowse = !selection && query.trim().length === 0;
+  const showTypeahead = !selection && query.trim().length > 0;
 
   const selectionEmoji =
-    selection?.emoji ??
-    getItemEmoji(selection?.canonicalName, selection?.itemName);
+    selection?.emoji ?? getItemEmoji(selection?.canonicalName, selection?.itemName);
 
   const handleSelectOption = (option: ItemPickerOption) => {
     const next = optionToSelection(option);
     setQuery(next.itemName);
+    setInputFocused(false);
     onSelect(next);
   };
 
@@ -105,29 +100,8 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
 
       {!selection && (
         <>
-          <TextInput
-            style={styles.input}
-            placeholder="Search milk, eggs, bread…"
-            placeholderTextColor={SmartCartColors.textMuted}
-            value={query}
-            onChangeText={handleChangeText}
-            autoCapitalize="words"
-          />
-
-          <View style={styles.filterRow}>
-            <Pressable
-              style={[styles.filterPill, catalogFilter === 'all' && styles.filterPillActive]}
-              onPress={() => setCatalogFilter('all')}>
-              <Text style={[styles.filterText, catalogFilter === 'all' && styles.filterTextActive]}>All items</Text>
-            </Pressable>
-            <Pressable
-              style={[styles.filterPill, catalogFilter === 'walmart' && styles.filterPillActive]}
-              onPress={() => setCatalogFilter('walmart')}>
-              <Text style={[styles.filterText, catalogFilter === 'walmart' && styles.filterTextActive]}>
-                {WALMART_CATALOG_LABEL}
-              </Text>
-            </Pressable>
-          </View>
+          <Text style={styles.catalogTitle}>{GROCERY_CATALOG_LABEL}</Text>
+          <Text style={styles.catalogSubtitle}>Start typing to search groceries</Text>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
             {chips.map((chip) => (
@@ -137,6 +111,17 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
               </Pressable>
             ))}
           </ScrollView>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Search milk, eggs, bread…"
+            placeholderTextColor={SmartCartColors.textMuted}
+            value={query}
+            onChangeText={handleChangeText}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
+            autoCapitalize="words"
+          />
         </>
       )}
 
@@ -155,7 +140,7 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
         </Text>
       )}
 
-      {showResults && (
+      {showTypeahead && (
         <View style={styles.results}>
           {loading ? (
             <Text style={styles.emptyResults}>Loading items…</Text>
@@ -179,9 +164,7 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
                   </Text>
                 </View>
                 <View style={styles.sourceBadge}>
-                  <Text style={styles.sourceBadgeText}>
-                    {option.source === 'both' ? 'Yours' : option.source === 'history' ? 'Receipt' : 'Walmart'}
-                  </Text>
+                  <Text style={styles.sourceBadgeText}>{sourceLabel(option.source)}</Text>
                 </View>
               </Pressable>
             ))
@@ -189,36 +172,8 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
         </View>
       )}
 
-      {showWalmartBrowse && (
-        <View style={styles.catalogSection}>
-          <Text style={styles.catalogTitle}>{WALMART_CATALOG_LABEL}</Text>
-          <Text style={styles.catalogSubtitle}>Tap an item to select it for your alert</Text>
-          {WALMART_CATEGORIES.map((category) => {
-            const categoryItems = walmartBrowse.filter((item) => item.category === category);
-            if (categoryItems.length === 0) return null;
-            return (
-              <View key={category} style={styles.categoryBlock}>
-                <Text style={styles.categoryLabel}>{category}</Text>
-                <View style={styles.catalogGrid}>
-                  {categoryItems.map((item) => (
-                    <Pressable
-                      key={item.canonicalName}
-                      style={styles.catalogTile}
-                      onPress={() => handleSelectOption(item)}>
-                      <ItemEmojiAvatar emoji={item.emoji} size="md" />
-                      <Text style={styles.catalogName} numberOfLines={2}>
-                        {item.canonicalName}
-                      </Text>
-                      {item.catalogPrice != null && (
-                        <Text style={styles.catalogPrice}>{formatCurrency(item.catalogPrice)}</Text>
-                      )}
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            );
-          })}
-        </View>
+      {!selection && !showTypeahead && inputFocused && query.trim().length === 0 && (
+        <Text style={styles.searchHint}>Type an item name to see matches</Text>
       )}
     </View>
   );
@@ -309,21 +264,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   clearBtnText: { fontSize: 14, color: SmartCartColors.textMuted, fontWeight: '700' },
-  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  filterPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: SmartCartRadius.pill,
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    backgroundColor: SmartCartColors.background,
-  },
-  filterPillActive: {
-    borderColor: SmartCartColors.primary,
-    backgroundColor: SmartCartColors.badge,
-  },
-  filterText: { fontSize: 12, fontWeight: '600', color: SmartCartColors.textSecondary },
-  filterTextActive: { color: SmartCartColors.primaryDark },
+  catalogTitle: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  catalogSubtitle: { fontSize: 12, color: SmartCartColors.textMuted, marginTop: 2, marginBottom: 10 },
   chipRow: { gap: 8, paddingBottom: 10 },
   chip: {
     flexDirection: 'row',
@@ -337,6 +279,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   chipText: { fontSize: 12, fontWeight: '600', color: SmartCartColors.primaryDark },
+  searchHint: { fontSize: 12, color: SmartCartColors.textMuted, marginBottom: 8 },
   lastSeenCard: {
     backgroundColor: SmartCartColors.badge,
     borderRadius: SmartCartRadius.sm,
@@ -372,31 +315,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   sourceBadgeText: { fontSize: 10, fontWeight: '700', color: SmartCartColors.textMuted },
-  catalogSection: { marginTop: 4, marginBottom: 8 },
-  catalogTitle: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
-  catalogSubtitle: { fontSize: 12, color: SmartCartColors.textMuted, marginTop: 2, marginBottom: 12 },
-  categoryBlock: { marginBottom: 14 },
-  categoryLabel: { fontSize: 13, fontWeight: '700', color: SmartCartColors.primaryDark, marginBottom: 8 },
-  catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  catalogTile: {
-    width: '31%',
-    minWidth: 96,
-    backgroundColor: SmartCartColors.card,
-    borderRadius: SmartCartRadius.sm,
-    padding: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-  },
-  catalogName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: SmartCartColors.text,
-    textAlign: 'center',
-    marginTop: 6,
-    minHeight: 28,
-  },
-  catalogPrice: { fontSize: 10, color: SmartCartColors.primaryMid, fontWeight: '600', marginTop: 2 },
   priceInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   currencyPrefix: { fontSize: 18, fontWeight: '700', color: SmartCartColors.text, marginRight: 6 },
   priceInput: { flex: 1, marginBottom: 0 },

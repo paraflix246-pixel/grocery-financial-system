@@ -1,10 +1,10 @@
 import {
-  getWalmartItemByCanonical,
-  getWalmartItemEmoji,
-  getWalmartTypicalPrice,
-  POPULAR_WALMART_ITEM_NAMES,
-  WALMART_GROCERY_CATALOG,
-} from '@/src/data/walmartGroceryCatalog';
+  getGroceryItemByCanonical,
+  getGroceryItemEmoji,
+  getGroceryTypicalPrice,
+  GROCERY_CATALOG,
+  POPULAR_ITEM_NAMES,
+} from '@/src/data/groceryCatalog';
 
 export type CommonGroceryItem = {
   id: string;
@@ -16,23 +16,23 @@ export type CommonGroceryItem = {
   emoji: string;
 };
 
-export const COMMON_GROCERY_ITEMS: CommonGroceryItem[] = WALMART_GROCERY_CATALOG.map((item) => ({
+export const COMMON_GROCERY_ITEMS: CommonGroceryItem[] = GROCERY_CATALOG.map((item) => ({
   id: item.id,
   canonicalName: item.canonicalName,
   category: item.category,
-  expectedPrice: getWalmartTypicalPrice(item),
+  expectedPrice: getGroceryTypicalPrice(item),
   quantityLabel: item.unit ?? '1 unit',
   aliases: item.aliases ?? [],
   emoji: item.emoji,
 }));
 
-export const POPULAR_ALERT_ITEMS = POPULAR_WALMART_ITEM_NAMES;
+export const POPULAR_ALERT_ITEMS = POPULAR_ITEM_NAMES;
 
 export function getCatalogItem(canonicalName: string): CommonGroceryItem | undefined {
-  const walmart = getWalmartItemByCanonical(canonicalName);
-  if (!walmart) return undefined;
+  const grocery = getGroceryItemByCanonical(canonicalName);
+  if (!grocery) return undefined;
   return COMMON_GROCERY_ITEMS.find(
-    (item) => item.canonicalName.toLowerCase() === walmart.canonicalName.toLowerCase()
+    (item) => item.canonicalName.toLowerCase() === grocery.canonicalName.toLowerCase()
   );
 }
 
@@ -41,5 +41,5 @@ export function getCatalogCanonicalNames(): string[] {
 }
 
 export function getItemEmoji(canonicalName?: string, itemName?: string): string {
-  return getWalmartItemEmoji(canonicalName, itemName);
+  return getGroceryItemEmoji(canonicalName, itemName);
 }

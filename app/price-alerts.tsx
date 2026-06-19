@@ -21,14 +21,7 @@ import {
   getPriceAlertRules,
   savePriceAlertRule,
 } from '@/src/services/storageService';
-import {
-  getPopularPickerOptions,
-  loadItemPickerOptions,
-  optionToSelection,
-  WALMART_CATALOG_LABEL,
-  type ItemPickerOption,
-  type ItemPickerSelection,
-} from '@/src/services/itemPickerService';
+import type { ItemPickerSelection } from '@/src/services/itemPickerService';
 import { resolveCanonicalName } from '@/src/services/itemNormalizationService';
 import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import type { PriceAlertRule } from '@/src/models/types';
@@ -114,30 +107,10 @@ function RuleRow({
   );
 }
 
-function PopularItemCard({
-  item,
-  onPress,
-}: {
-  item: ItemPickerOption;
-  onPress: () => void;
-}) {
-  const price = item.lastPrice ?? item.catalogPrice;
-  return (
-    <Pressable style={styles.popularCard} onPress={onPress}>
-      <ItemEmojiAvatar emoji={item.emoji} size="lg" />
-      <Text style={styles.popularName} numberOfLines={2}>
-        {item.canonicalName}
-      </Text>
-      {price != null && <Text style={styles.popularPrice}>{formatCurrency(price)}</Text>}
-    </Pressable>
-  );
-}
-
 export default function PriceAlertsScreen() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [rules, setRules] = useState<PriceAlertRule[]>([]);
-  const [popularItems, setPopularItems] = useState<ItemPickerOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -148,14 +121,9 @@ export default function PriceAlertsScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [alertData, ruleData, pickerOptions] = await Promise.all([
-        getAllPriceAlerts(50),
-        getPriceAlertRules(),
-        loadItemPickerOptions(),
-      ]);
+      const [alertData, ruleData] = await Promise.all([getAllPriceAlerts(50), getPriceAlertRules()]);
       setAlerts(alertData);
       setRules(ruleData);
-      setPopularItems(getPopularPickerOptions(pickerOptions));
     } finally {
       setLoading(false);
     }
@@ -194,11 +162,6 @@ export default function PriceAlertsScreen() {
     });
     setTargetPrice(rule.targetPrice.toFixed(2));
     setShowForm(true);
-  };
-
-  const handlePopularSelect = (option: ItemPickerOption) => {
-    const selection = optionToSelection(option);
-    openAddForm(selection);
   };
 
   const confirmDelete = (rule: PriceAlertRule) => {
@@ -290,7 +253,7 @@ export default function PriceAlertsScreen() {
             </View>
             <Text style={styles.bellTitle}>Notify me when price drops</Text>
             <Text style={styles.bellBody}>
-              Pick items from your receipts or our {`"${WALMART_CATALOG_LABEL.toLowerCase()}"`} catalog. We&apos;ll match similar receipt names and alert you when prices hit your target.
+              Pick items from your receipts or common groceries. We&apos;ll match similar receipt names and alert you when prices hit your target.
             </Text>
             {!showForm && (
               <Pressable style={styles.ctaBtn} onPress={() => openAddForm()}>
@@ -352,26 +315,9 @@ export default function PriceAlertsScreen() {
                 <Text style={styles.emptyTitle}>No price drops yet</Text>
                 <Text style={styles.emptyBody}>
                   {rules.length === 0
-                    ? 'Tap a popular item below to set your first alert, or scan receipts to track prices automatically.'
+                    ? 'Tap Add price alert to pick a common item or search groceries by name.'
                     : 'None of your alerts have been triggered yet. Keep scanning receipts — we compare prices automatically.'}
                 </Text>
-                {rules.length === 0 && (
-                  <>
-                    <Text style={styles.popularTitle}>Popular Walmart items</Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.popularRow}>
-                      {popularItems.map((item) => (
-                        <PopularItemCard
-                          key={item.canonicalName}
-                          item={item}
-                          onPress={() => handlePopularSelect(item)}
-                        />
-                      ))}
-                    </ScrollView>
-                  </>
-                )}
               </View>
             ) : (
               <View style={styles.listCard}>
@@ -516,27 +462,6 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: SmartCartColors.text },
   emptyBody: { fontSize: 14, color: SmartCartColors.textSecondary, textAlign: 'center', marginTop: 8, lineHeight: 20 },
-  popularTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: SmartCartColors.text,
-    marginTop: 20,
-    marginBottom: 12,
-    alignSelf: 'flex-start',
-  },
-  popularRow: { gap: 10, paddingBottom: 4 },
-  popularCard: {
-    width: 108,
-    backgroundColor: SmartCartColors.background,
-    borderRadius: SmartCartRadius.md,
-    padding: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    gap: 6,
-  },
-  popularName: { fontSize: 12, fontWeight: '700', color: SmartCartColors.text, textAlign: 'center' },
-  popularPrice: { fontSize: 12, color: SmartCartColors.primaryMid, fontWeight: '600', marginTop: 4 },
   historyLink: {
     flexDirection: 'row',
     alignItems: 'center',
