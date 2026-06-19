@@ -1,4 +1,4 @@
-import { Platform, Pressable, StyleSheet } from 'react-native';
+import { Platform, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useNavigation, useRouter, type Href } from 'expo-router';
 
@@ -9,6 +9,9 @@ type Props = {
   /** Used only when there is no navigation history (e.g. deep link). */
   fallbackHref?: Href;
   onPress?: () => void;
+  showLabel?: boolean;
+  tintColor?: string;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function canNavigateBack(navigation: { canGoBack: () => boolean }): boolean {
@@ -21,7 +24,25 @@ export function canNavigateBack(navigation: { canGoBack: () => boolean }): boole
   return false;
 }
 
-export function BackButton({ fallbackHref = '/(tabs)', onPress }: Props) {
+export function navigateBack(
+  navigation: { canGoBack: () => boolean },
+  router: { back: () => void; replace: (href: Href) => void },
+  fallbackHref: Href = '/(tabs)',
+) {
+  if (canNavigateBack(navigation)) {
+    router.back();
+    return;
+  }
+  router.replace(fallbackHref);
+}
+
+export function BackButton({
+  fallbackHref = '/(tabs)',
+  onPress,
+  showLabel = true,
+  tintColor = SmartCartColors.text,
+  style,
+}: Props) {
   const router = useRouter();
   const navigation = useNavigation();
 
@@ -30,26 +51,22 @@ export function BackButton({ fallbackHref = '/(tabs)', onPress }: Props) {
       onPress();
       return;
     }
-    if (canNavigateBack(navigation as { canGoBack: () => boolean })) {
-      router.back();
-      return;
-    }
-    router.replace(fallbackHref);
+    navigateBack(navigation as { canGoBack: () => boolean }, router, fallbackHref);
   };
 
   return (
     <Pressable
       onPress={handlePress}
       hitSlop={8}
-      style={styles.row}
+      style={[styles.row, style]}
       accessibilityRole="button"
       accessibilityLabel="Go back">
       <SymbolView
         name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-        tintColor={SmartCartColors.text}
+        tintColor={tintColor}
         size={22}
       />
-      <Text style={styles.label}>Back</Text>
+      {showLabel ? <Text style={[styles.label, { color: tintColor }]}>Back</Text> : null}
     </Pressable>
   );
 }
@@ -62,6 +79,5 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 17,
-    color: SmartCartColors.text,
   },
 });

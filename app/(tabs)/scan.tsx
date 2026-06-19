@@ -18,6 +18,7 @@ import {
   usePhotoOutput,
 } from 'react-native-vision-camera';
 
+import { BackButton } from '@/src/components/BackButton';
 import { CameraOverlay } from '@/src/components/CameraOverlay';
 import { recognizeTextFromImage } from '@/src/services/ocrService';
 import { parseReceiptText } from '@/src/services/receiptParser';
@@ -80,32 +81,42 @@ export default function ScanScreen() {
 
   if (processing) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#fff" />
-        <Text style={styles.processingText}>Processing receipt...</Text>
+      <View style={styles.container}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+          <BackButton showLabel={false} tintColor="#fff" />
+        </View>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.processingText}>Processing receipt...</Text>
+        </View>
       </View>
     );
   }
 
   if (!device || !hasPermission) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.title}>Scan Receipt</Text>
-        <Text style={styles.subtitle}>Camera permission required</Text>
-        <Pressable style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
-        </Pressable>
-        <Pressable style={styles.secondaryButton} onPress={pickImage}>
-          <Text style={styles.secondaryText}>Or pick from gallery</Text>
-        </Pressable>
-        <Pressable
-          style={styles.secondaryButton}
-          onPress={() => {
-            startManualEntry();
-            router.push('/receipt/edit');
-          }}>
-          <Text style={styles.secondaryText}>Add receipt manually</Text>
-        </Pressable>
+      <View style={styles.container}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+          <BackButton showLabel={false} tintColor="#fff" />
+        </View>
+        <View style={styles.center}>
+          <Text style={styles.title}>Scan Receipt</Text>
+          <Text style={styles.subtitle}>Camera permission required</Text>
+          <Pressable style={styles.button} onPress={requestPermission}>
+            <Text style={styles.buttonText}>Grant Permission</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={pickImage}>
+            <Text style={styles.secondaryText}>Or pick from gallery</Text>
+          </Pressable>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => {
+              startManualEntry();
+              router.push('/receipt/edit');
+            }}>
+            <Text style={styles.secondaryText}>Add receipt manually</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -121,9 +132,7 @@ export default function ScanScreen() {
       <CameraOverlay />
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-        <Pressable style={styles.topBtn} onPress={() => router.back()}>
-          <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor="#fff" size={22} />
-        </Pressable>
+        <BackButton showLabel={false} tintColor="#fff" style={styles.topBtn} />
         <Pressable style={styles.topBtn} onPress={() => setFlashOn((f) => !f)}>
           <SymbolView
             name={{ ios: flashOn ? 'bolt.fill' : 'bolt.slash', android: 'flash_on', web: 'flash_on' }}

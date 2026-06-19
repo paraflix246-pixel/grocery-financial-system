@@ -1,39 +1,23 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useNavigation, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 
 import { Text } from '@/components/Themed';
-import { BackButton, canNavigateBack } from '@/src/components/BackButton';
+import { BackButton } from '@/src/components/BackButton';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
 type Props = {
   notificationCount?: number;
-  onMenuPress?: () => void;
   onNotificationPress?: () => void;
 };
 
-export function AppHeader({ notificationCount = 0, onMenuPress, onNotificationPress }: Props) {
+export function AppHeader({ notificationCount = 0, onNotificationPress }: Props) {
   const router = useRouter();
-  const navigation = useNavigation();
-  const showBack = canNavigateBack(navigation as { canGoBack: () => boolean });
 
   return (
     <View style={styles.row}>
       <View style={styles.leftSlot}>
-        {showBack ? (
-          <BackButton />
-        ) : (
-          <Pressable
-            style={styles.iconBtn}
-            onPress={onMenuPress ?? (() => router.push('/settings/budget'))}
-            accessibilityLabel="Menu">
-            <SymbolView
-              name={{ ios: 'line.3.horizontal', android: 'menu', web: 'menu' }}
-              tintColor={SmartCartColors.text}
-              size={22}
-            />
-          </Pressable>
-        )}
+        <BackButton />
       </View>
 
       <View style={styles.logoRow}>

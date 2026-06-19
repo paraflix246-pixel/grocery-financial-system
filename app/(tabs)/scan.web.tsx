@@ -56,14 +56,19 @@ export default function ScanScreen() {
 
   if (processing) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={SmartCartColors.primary} />
-        <Text style={styles.processingText}>Processing receipt...</Text>
-        <Text style={styles.processingHint}>
-          {ocrSource === 'tesseract'
-            ? 'Reading text with Tesseract OCR — review and edit before saving'
-            : 'OCR fallback — sample data used; edit all fields before saving'}
-        </Text>
+      <View style={styles.container}>
+        <View style={[styles.processingHeader, { paddingTop: insets.top + 12 }]}>
+          <AppHeader notificationCount={0} />
+        </View>
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={SmartCartColors.primary} />
+          <Text style={styles.processingText}>Processing receipt...</Text>
+          <Text style={styles.processingHint}>
+            {ocrSource === 'tesseract'
+              ? 'Reading text with Tesseract OCR — review and edit before saving'
+              : 'OCR fallback — sample data used; edit all fields before saving'}
+          </Text>
+        </View>
       </View>
     );
   }
@@ -129,6 +134,7 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
   content: { paddingHorizontal: 16 },
+  processingHeader: { paddingHorizontal: 16 },
   center: {
     flex: 1,
     justifyContent: 'center',
