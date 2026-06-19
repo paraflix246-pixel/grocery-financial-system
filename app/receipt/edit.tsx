@@ -11,10 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/components/Themed';
-import { BackButton } from '@/src/components/BackButton';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import {
   findDuplicateReceipt,
@@ -43,7 +40,6 @@ async function confirmDuplicateSave(message: string): Promise<boolean> {
 export default function EditReceiptScreen() {
   const router = useRouter();
   const { id: routeId } = useLocalSearchParams<{ id?: string }>();
-  const insets = useSafeAreaInsets();
   const {
     draft,
     imageUri,
@@ -89,7 +85,6 @@ export default function EditReceiptScreen() {
     return (
       <View style={styles.center}>
         <Text>No receipt to edit.</Text>
-        <BackButton fallbackHref="/(tabs)/scan" />
       </View>
     );
   }
@@ -152,9 +147,9 @@ export default function EditReceiptScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton fallbackHref="/(tabs)/scan" />
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>
           {isEditingSaved ? 'Edit Receipt' : isManualEntry ? 'Add Receipt' : 'Review Receipt'}
         </Text>
@@ -267,6 +262,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
+  headerSpacer: { width: 72 },
   saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
   storeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20 },

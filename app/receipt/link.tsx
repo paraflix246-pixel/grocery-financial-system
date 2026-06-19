@@ -1,7 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ComparisonSummary } from '@/src/components/ComparisonSummary';
@@ -16,7 +15,6 @@ import type { ComparisonResult } from '@/src/models/types';
 export default function LinkListScreen() {
   const { receiptId } = useLocalSearchParams<{ receiptId: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { lists, activeListId, loadLists } = useListStore();
   const resetScan = useScanStore((s) => s.reset);
   const [loading, setLoading] = useState(false);
@@ -53,8 +51,8 @@ export default function LinkListScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: SmartCartColors.background }]}>
-      <ScreenHeader title="Link to List" fallbackHref="/(tabs)/receipts" />
+    <View style={[styles.container, { backgroundColor: SmartCartColors.background }]}>
+      <ScreenHeader title="Link to List" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.subtitle}>
           Compare your receipt against a planned list to see plan vs actual.

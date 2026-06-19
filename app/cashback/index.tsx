@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -15,10 +14,8 @@ const OFFERS = [
 
 export default function CashbackScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Cashback" />
 
       <ScrollView contentContainerStyle={styles.content}>

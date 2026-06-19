@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
@@ -18,11 +17,10 @@ const ENDPOINTS = [
 
 export default function ApiAccessScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { unlocked } = useFeatureGate('api_access');
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="API Access" />
 
       <ScrollView contentContainerStyle={styles.content}>

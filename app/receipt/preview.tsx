@@ -1,10 +1,7 @@
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/components/Themed';
-import { BackButton } from '@/src/components/BackButton';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
@@ -13,14 +10,12 @@ import { formatCurrency } from '@/src/utils/priceParser';
 
 export default function ReceiptPreviewScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { draft, updateDraftItem } = useScanStore();
 
   if (!draft) {
     return (
       <View style={styles.center}>
         <Text>No receipt draft. Go scan a receipt first.</Text>
-        <BackButton fallbackHref="/(tabs)/scan" />
       </View>
     );
   }
@@ -30,9 +25,9 @@ export default function ReceiptPreviewScreen() {
     : formatDisplayDate(new Date().toISOString().split('T')[0]);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton fallbackHref="/(tabs)/scan" />
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Review Receipt</Text>
         <Pressable onPress={() => router.push('/receipt/edit')}>
           <Text style={styles.saveLink}>Save</Text>
@@ -101,6 +96,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
+  headerSpacer: { width: 72 },
   saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
   storeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },

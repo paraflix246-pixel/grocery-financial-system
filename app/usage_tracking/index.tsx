@@ -1,7 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { InsightCard } from '@/src/components/InsightCard';
@@ -16,7 +15,6 @@ import { formatDisplayDate } from '@/src/utils/dateParser';
 
 export default function UsageTrackingScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { unlocked } = useFeatureGate('usage_analytics');
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [community, setCommunity] = useState({ totalPoints: 0, uniqueItems: 0, uniqueStores: 0 });
@@ -36,7 +34,7 @@ export default function UsageTrackingScreen() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Usage Stats" />
 
       {loading ? (

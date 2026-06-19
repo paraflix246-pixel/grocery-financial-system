@@ -1,7 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { InsightCard } from '@/src/components/InsightCard';
@@ -15,7 +14,6 @@ import { formatCurrency } from '@/src/utils/priceParser';
 
 export default function InsightsProScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { unlocked, requestAccess } = useFeatureGate('insights_pro');
   const monthlyBudget = useBudgetStore((s) => (s.settings?.weeklyBudget ?? 200) * 4.33);
   const categoryLimits = useBudgetStore((s) => s.settings?.categoryLimits);
@@ -36,7 +34,7 @@ export default function InsightsProScreen() {
   const showGated = !unlocked;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="AI Insights Pro" />
 
       {loading ? (

@@ -2,7 +2,6 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, View } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
@@ -13,7 +12,6 @@ import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/s
 
 export default function InflationTrackerScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { unlocked } = useFeatureGate('inflation_tracker');
   const [data, setData] = useState<PersonalInflation | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,7 +36,7 @@ export default function InflationTrackerScreen() {
     })) ?? [];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Inflation Tracker" />
 
       {loading ? (

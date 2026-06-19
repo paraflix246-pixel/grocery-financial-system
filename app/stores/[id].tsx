@@ -8,10 +8,7 @@ import {
   View,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/components/Themed';
-import { BackButton } from '@/src/components/BackButton';
 import { ReceiptRow } from '@/src/components/ReceiptRow';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { getStoreById } from '@/src/services/storeService';
@@ -23,7 +20,6 @@ import { formatCurrency } from '@/src/utils/priceParser';
 export default function StoreReceiptsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [storeName, setStoreName] = useState('');
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,9 +46,9 @@ export default function StoreReceiptsScreen() {
   const totalSpent = receipts.reduce((sum, receipt) => sum + receipt.total, 0);
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton fallbackHref="/stores" />
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle} numberOfLines={1}>
           {storeName || 'Store'}
         </Text>

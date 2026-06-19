@@ -2,10 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/components/Themed';
-import { BackButton } from '@/src/components/BackButton';
 import { ComparisonSummary } from '@/src/components/ComparisonSummary';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { getComparisonForReceipt } from '@/src/services/analyticsService';
@@ -52,7 +49,6 @@ function ReceiptLineItem({ item }: { item: ReceiptItem }) {
 export default function ReceiptDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -136,9 +132,9 @@ export default function ReceiptDetailScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton fallbackHref="/(tabs)/receipts" />
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Receipt Details</Text>
         <Pressable
           onPress={() => {
@@ -218,6 +214,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
+  headerSpacer: { width: 72 },
   editLink: { fontSize: 16, fontWeight: '600', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
   storeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },

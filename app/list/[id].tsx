@@ -13,9 +13,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/components/Themed';
-import { BackButton } from '@/src/components/BackButton';
 import { CategoryPills } from '@/src/components/CategoryPills';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
 import { STARTER_CATEGORIES, getQuantityLabel } from '@/src/data/starterListItems';
@@ -150,9 +148,9 @@ export default function ListDetailScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton fallbackHref="/(tabs)/shopping-lists" />
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>My Grocery List</Text>
         <View style={styles.headerActions}>
           <Pressable style={styles.iconBtn} onPress={() => openAddModal()}>
@@ -293,6 +291,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: SmartCartColors.text, textAlign: 'center' },
+  headerSpacer: { width: 72 },
   headerActions: { flexDirection: 'row', gap: 8 },
   iconBtn: {
     width: 36,

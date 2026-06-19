@@ -2,7 +2,6 @@ import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -18,10 +17,9 @@ const PARTNERS = [
 
 export default function AffiliateLinksScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Delivery Partners" />
 
       <ScrollView contentContainerStyle={styles.content}>

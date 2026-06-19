@@ -7,7 +7,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { BackButton } from '@/src/components/BackButton';
 import { OnboardingModal } from '@/src/components/OnboardingModal';
+import { SmartCartColors } from '@/src/theme/smartCart';
 import { initStorage } from '@/src/services/storageService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
@@ -128,32 +130,18 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack
+        screenOptions={{
+          headerShown: true,
+          headerBackVisible: false,
+          headerLeft: () => <BackButton />,
+          headerTitle: '',
+          headerShadowVisible: false,
+          headerStyle: { backgroundColor: SmartCartColors.background },
+          contentStyle: { backgroundColor: SmartCartColors.background },
+        }}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="list/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="receipt/preview" options={{ headerShown: false }} />
-        <Stack.Screen name="receipt/manual" options={{ headerShown: false }} />
-        <Stack.Screen name="receipt/edit" options={{ headerShown: false }} />
-        <Stack.Screen name="receipt/link" options={{ headerShown: false }} />
-        <Stack.Screen name="receipt/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/index" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/budget" options={{ headerShown: false }} />
-        <Stack.Screen name="price-alerts" options={{ headerShown: false }} />
-        <Stack.Screen name="stores" options={{ headerShown: false }} />
-        <Stack.Screen name="stores/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="paywall/index" options={{ headerShown: false }} />
-        <Stack.Screen name="subscriptions/index" options={{ headerShown: false }} />
-        <Stack.Screen name="marketplace/index" options={{ headerShown: false }} />
-        <Stack.Screen name="affiliate_links/index" options={{ headerShown: false }} />
-        <Stack.Screen name="cashback/index" options={{ headerShown: false }} />
-        <Stack.Screen name="sponsored_offers/index" options={{ headerShown: false }} />
-        <Stack.Screen name="enterprise/index" options={{ headerShown: false }} />
-        <Stack.Screen name="api_access/index" options={{ headerShown: false }} />
-        <Stack.Screen name="usage_tracking/index" options={{ headerShown: false }} />
-        <Stack.Screen name="insights_pro/index" options={{ headerShown: false }} />
-        <Stack.Screen name="inflation_tracker/index" options={{ headerShown: false }} />
-        <Stack.Screen name="family_plans/index" options={{ headerShown: false }} />
-        <Stack.Screen name="list/share" options={{ headerShown: false }} />
+        <Stack.Screen name="lists" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

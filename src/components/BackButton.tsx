@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useNavigation, useRouter, type Href } from 'expo-router';
 
@@ -6,9 +6,20 @@ import { Text } from '@/components/Themed';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
 type Props = {
+  /** Used only when there is no navigation history (e.g. deep link). */
   fallbackHref?: Href;
   onPress?: () => void;
 };
+
+function canNavigateBack(navigation: { canGoBack: () => boolean }): boolean {
+  if (navigation.canGoBack()) {
+    return true;
+  }
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history.length > 1) {
+    return true;
+  }
+  return false;
+}
 
 export function BackButton({ fallbackHref = '/(tabs)', onPress }: Props) {
   const router = useRouter();
@@ -19,11 +30,11 @@ export function BackButton({ fallbackHref = '/(tabs)', onPress }: Props) {
       onPress();
       return;
     }
-    if (navigation.canGoBack()) {
+    if (canNavigateBack(navigation as { canGoBack: () => boolean })) {
       router.back();
-    } else {
-      router.replace(fallbackHref);
+      return;
     }
+    router.replace(fallbackHref);
   };
 
   return (

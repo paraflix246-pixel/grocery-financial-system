@@ -1,6 +1,5 @@
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -14,10 +13,9 @@ const SPONSORED = [
 
 export default function SponsoredOffersScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Sponsored Offers" />
 
       <ScrollView contentContainerStyle={styles.content}>

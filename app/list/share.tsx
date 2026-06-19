@@ -10,7 +10,6 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -23,7 +22,6 @@ const FAMILY_KEY = '@smartcart_family_code';
 export default function ListShareScreen() {
   const { listId } = useLocalSearchParams<{ listId?: string }>();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const [snapshot, setSnapshot] = useState('');
   const [listName, setListName] = useState('');
   const [total, setTotal] = useState(0);
@@ -84,8 +82,8 @@ export default function ListShareScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Share List" fallbackHref="/(tabs)/shopping-lists" />
+    <View style={styles.container}>
+      <ScreenHeader title="Share List" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.lead}>

@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -12,7 +11,6 @@ import { formatDisplayDate } from '@/src/utils/dateParser';
 
 export default function SubscriptionsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { tier, plan, expiresAt, loaded, loadSubscription, downgradeToFree } = useSubscriptionStore();
 
   useEffect(() => {
@@ -33,7 +31,7 @@ export default function SubscriptionsScreen() {
   const isPro = tier === 'pro';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Subscription" />
 
       <ScrollView contentContainerStyle={styles.content}>

@@ -11,10 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/components/Themed';
-import { BackButton } from '@/src/components/BackButton';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { refreshScheduledNotifications } from '@/src/services/notificationService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -51,7 +48,6 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { settings, loadSettings, saveSettings } = useSettingsStore();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
@@ -98,9 +94,9 @@ export default function SettingsScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton fallbackHref="/(tabs)/more" />
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Settings</Text>
         <Pressable onPress={handleSave} disabled={saving} hitSlop={8}>
           <Text style={styles.saveLink}>{saving ? '...' : 'Save'}</Text>
@@ -189,6 +185,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
+  headerSpacer: { width: 72 },
   saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12, marginTop: 8 },

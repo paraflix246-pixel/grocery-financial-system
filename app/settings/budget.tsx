@@ -9,10 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { Text } from '@/components/Themed';
-import { BackButton } from '@/src/components/BackButton';
 import { CategoryBudgetRow } from '@/src/components/CategoryBudgetRow';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
 import type { BudgetCategory, CategoryLimits } from '@/src/models/types';
@@ -25,7 +22,6 @@ import { formatCurrency } from '@/src/utils/priceParser';
 
 export default function BudgetSettingsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { settings, loadSettings, saveSettings } = useBudgetStore();
   const [loading, setLoading] = useState(true);
   const [monthlySpent, setMonthlySpent] = useState(0);
@@ -97,9 +93,9 @@ export default function BudgetSettingsScreen() {
   const percent = monthlyBudget > 0 ? monthlySpent / monthlyBudget : 0;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <BackButton fallbackHref="/settings" />
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Budget</Text>
         <Pressable onPress={() => setEditing((e) => !e)}>
           <SymbolView name={{ ios: 'pencil', android: 'edit', web: 'edit' }} tintColor={SmartCartColors.text} size={22} />
@@ -177,6 +173,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 28, fontWeight: '800', color: SmartCartColors.text },
+  headerSpacer: { width: 72 },
   content: { padding: 16, paddingBottom: 40 },
   monthlyCard: {
     backgroundColor: SmartCartColors.card,

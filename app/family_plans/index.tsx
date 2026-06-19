@@ -11,7 +11,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
@@ -34,7 +33,6 @@ function generateShareCode(): string {
 
 export default function FamilyPlansScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { unlocked } = useFeatureGate('family_plans');
   const [familyCode, setFamilyCode] = useState('');
   const [importJson, setImportJson] = useState('');
@@ -101,7 +99,7 @@ export default function FamilyPlansScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="Family Plans" />
 
       <ScrollView contentContainerStyle={styles.content}>

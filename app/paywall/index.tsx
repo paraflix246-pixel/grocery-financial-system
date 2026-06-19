@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
@@ -42,7 +41,6 @@ const PLANS = [
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [upgrading, setUpgrading] = useState(false);
@@ -58,7 +56,7 @@ export default function PaywallScreen() {
   };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={styles.container}>
       <ScreenHeader title="SmartCart Pro" />
 
       <ScrollView contentContainerStyle={styles.content}>
