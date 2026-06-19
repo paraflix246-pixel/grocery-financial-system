@@ -158,8 +158,7 @@ function parseItemLine(line: string): { name: string; price: number; quantity: n
   return { name: namePart, price, quantity: 1 };
 }
 
-export function parseReceiptText(rawText: string): ParsedReceiptDraft {
-  const lines = rawText.split('\n').map(cleanOcrLine).filter(Boolean);
+export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
   const storeName = detectStoreName(lines);
   let date = todayISO();
   let subtotal: number | undefined;
@@ -214,4 +213,9 @@ export function parseReceiptText(rawText: string): ParsedReceiptDraft {
     total: resolvedTotal,
     items,
   };
+}
+
+export function parseReceiptText(rawText: string): ParsedReceiptDraft {
+  const lines = rawText.split('\n').map(cleanOcrLine).filter(Boolean);
+  return parseReceiptLines(lines);
 }

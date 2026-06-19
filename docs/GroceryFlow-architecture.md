@@ -13,7 +13,7 @@ SmartCart (Grocery Financial System) is a local-first Expo React Native app for 
 | State | Zustand stores |
 | Storage | expo-sqlite / web JSON fallback |
 | Charts | react-native-gifted-charts |
-| OCR | ML Kit (native), Tesseract.js (web) |
+| OCR | ML Kit (native), Tesseract.js (web), optional Google Cloud Vision |
 
 ## Directory Structure
 
@@ -55,10 +55,76 @@ User action (scan, save receipt, edit list)
 ### Receipt lifecycle
 
 1. **Capture** — Camera or image picker (`scan.tsx` / `scan.web.tsx`)
-2. **OCR** — `ocrService.native.ts` / `ocrService.web.ts` → `ParsedReceiptDraft`
-3. **Review** — `receipt/preview.tsx`, `receipt/edit.tsx`, `receipt/manual.tsx`
-4. **Save** — `storageService.saveReceipt()` → contributes to community price cache
-5. **Link** — Optional link to shopping list → `matchingService` → comparison
+2. **OCR** — `ocr/ocrProvider.ts` orchestrates on-device OCR then optional cloud fallback
+3. **Parse** — `receiptParserStructured.ts` (structured lines) → `ParsedReceiptDraft`
+4. **Review** — `receipt/preview.tsx`, `receipt/edit.tsx`, `receipt/manual.tsx`
+5. **Save** — `storageService.saveReceipt()` → contributes to community price cache
+6. **Link** — Optional link to shopping list → `matchingService` → comparison
+
+## OCR pipeline
+
+```mermaid
+flowchart TD
+  image[ReceiptImage] --> onDevice[onDeviceOcr native or web]
+  onDevice -->|confidence OK| parse[receiptParserStructured]
+  onDevice -->|low or empty| cloudToggle{enhancedCloudOcr?}
+  cloudToggle -->|yes| vision[app/api/ocr Google Vision]
+  cloudToggle -->|no| manual[Edit with warnings]
+  vision --> parse
+  parse --> preview[preview / edit]
+```
+
+| Tier | Module | Platform |
+|------|--------|----------|
+| On-device | `onDeviceOcr.native.ts` (ML Kit) | iOS / Android dev build |
+| On-device | `onDeviceOcr.web.ts` (Tesseract multi-PSM) | Web |
+| Cloud fallback | `ocr/cloudVisionProvider.ts` → `app/api/ocr+api.ts` | Web + native when `EXPO_PUBLIC_OCR_API_URL` set |
+| Parse | `receiptParser.ts`, `receiptParserStructured.ts` | All |
+
+### Native ML Kit testing (dev build required)
+
+ML Kit does **not** run in Expo Go or web preview. Use a development build:
+
+```bash
+npm install
+npx expo run:ios
+# or
+npx expo run:android
+```
+
+Scan a real receipt with the camera tab. You should see **Extracted via On-device (ML Kit)** on the preview screen.
+
+### Enhanced cloud OCR (optional)
+
+**Recommended: OCR.space** (free tier available)
+
+1. Get an API key from [OCR.space](https://ocr.space/ocrapi)
+2. Create `.env` in the project root (see `.env.example`):
+   ```
+   OCR_SPACE_API_KEY=your_key_here
+   ```
+3. Run web dev server: `npm run web`
+4. In app **Settings → Enhanced scan accuracy (cloud)** toggle ON
+
+**Alternative: Google Cloud Vision**
+
+Set `GOOGLE_CLOUD_VISION_API_KEY` instead (used if OCR.space fails or is unset).
+
+For native builds pointing at a deployed API, set `EXPO_PUBLIC_OCR_API_URL=https://your-host/api/ocr`.
+
+**Privacy:** Cloud OCR only runs when the user enables the toggle. Images are sent for text extraction only; structured receipt data stays local after parse.
+
+### Future receipt APIs (Phase 3 evaluation)
+
+If Vision + parser still miss line items at scale, consider:
+
+| API | Best for | Notes |
+|-----|----------|-------|
+| AWS Textract AnalyzeExpense | Structured receipt line items | Strong accuracy; AWS setup |
+| Veryfi | Fastest receipt JSON integration | SaaS pricing; minimal parser work |
+| Google Document AI Expense | Enterprise receipt parsing | Heavier setup than Vision OCR |
+
+Implement as additional providers in `src/services/ocr/` returning `ParsedReceiptDraft` directly.
 
 ## Phases
 
@@ -105,7 +171,7 @@ Subscription state is mock/local (AsyncStorage). Production would integrate App 
 | Store | Purpose |
 |-------|---------|
 | `useBudgetStore` | Weekly budget, category limits, onboarding |
-| `useSettingsStore` | Display name, notification toggles |
+| `useSettingsStore` | Display name, notification toggles, enhanced cloud OCR |
 | `useListStore` | Shopping lists & items |
 | `useScanStore` | OCR draft state |
 | `useSubscriptionStore` | Free / Pro tier (local mock) |
@@ -118,6 +184,7 @@ Subscription state is mock/local (AsyncStorage). Production would integrate App 
 
 ## Platform Notes
 
-- **Web** — SQLite may fail; `storageService.web.ts` uses AsyncStorage JSON
-- **Native** — Full SQLite, camera, ML Kit OCR, push notifications
+- **Web** — SQLite may fail; `storageService.web.ts` uses AsyncStorage JSON. Default OCR is Tesseract; enable cloud OCR in Settings for better accuracy.
+- **Native** — Full SQLite, camera, ML Kit OCR (dev build), push notifications
+- **API routes** — `app/api/ocr+api.ts` runs on Expo dev server; static export hosting requires a separate backend or `EXPO_PUBLIC_OCR_API_URL`
 - Read Expo v56 docs before changing native modules: https://docs.expo.dev/versions/v56.0.0/

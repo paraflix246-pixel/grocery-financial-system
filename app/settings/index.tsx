@@ -53,6 +53,7 @@ export default function SettingsScreen() {
   const [displayName, setDisplayName] = useState('');
   const [notifyPriceAlerts, setNotifyPriceAlerts] = useState(true);
   const [notifyBudgetAlerts, setNotifyBudgetAlerts] = useState(true);
+  const [enhancedCloudOcr, setEnhancedCloudOcr] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -63,6 +64,7 @@ export default function SettingsScreen() {
       setDisplayName(s.displayName);
       setNotifyPriceAlerts(s.notifyPriceAlerts);
       setNotifyBudgetAlerts(s.notifyBudgetAlerts);
+      setEnhancedCloudOcr(s.enhancedCloudOcr);
     }
     setLoading(false);
   }, [loadSettings]);
@@ -78,6 +80,7 @@ export default function SettingsScreen() {
         displayName: displayName.trim(),
         notifyPriceAlerts,
         notifyBudgetAlerts,
+        enhancedCloudOcr,
       });
       await refreshScheduledNotifications();
     } finally {
@@ -141,6 +144,25 @@ export default function SettingsScreen() {
             <Switch
               value={notifyBudgetAlerts}
               onValueChange={setNotifyBudgetAlerts}
+              trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
+              thumbColor="#fff"
+            />
+          </View>
+        </View>
+
+        <Text style={styles.sectionTitle}>Receipt scanning</Text>
+        <View style={styles.card}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>Enhanced scan accuracy (cloud)</Text>
+              <Text style={styles.toggleHint}>
+                Uses OCR.space or Google Vision when on-device OCR is weak. Receipt image is
+                sent for text extraction only. Set OCR_SPACE_API_KEY on the server.
+              </Text>
+            </View>
+            <Switch
+              value={enhancedCloudOcr}
+              onValueChange={setEnhancedCloudOcr}
               trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
               thumbColor="#fff"
             />

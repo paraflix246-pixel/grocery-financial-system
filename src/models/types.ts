@@ -95,6 +95,7 @@ export type AppSettings = {
   displayName: string;
   notifyPriceAlerts: boolean;
   notifyBudgetAlerts: boolean;
+  enhancedCloudOcr: boolean;
   updatedAt: string;
 };
 

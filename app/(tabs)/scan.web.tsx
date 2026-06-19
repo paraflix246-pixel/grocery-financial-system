@@ -13,17 +13,19 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/src/components/AppHeader';
-import { recognizeTextFromImageDetailed } from '@/src/services/ocrService.web';
-import { parseReceiptText } from '@/src/services/receiptParser';
+import { recognizeTextFromImageDetailed } from '@/src/services/ocrService';
+import type { OcrSource } from '@/src/services/ocrTypes';
+import { parseReceiptFromOcr } from '@/src/services/receiptParserStructured';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { ocrProcessingHint } from '@/src/utils/ocrLabels';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [processing, setProcessing] = useState(false);
-  const [ocrSource, setOcrSource] = useState<'tesseract' | 'fallback' | 'empty' | null>(null);
+  const [ocrSource, setOcrSource] = useState<OcrSource | null>(null);
   const { setImageUri, setRawOcrText, setDraft, setOcrMeta, setParseWarnings, reset, startManualEntry } =
     useScanStore();
 
@@ -33,11 +35,12 @@ export default function ScanScreen() {
       try {
         reset();
         setImageUri(uri);
-        const { text, source, confidence } = await recognizeTextFromImageDetailed(uri);
+        const ocrResult = await recognizeTextFromImageDetailed(uri);
+        const { text, source, confidence } = ocrResult;
         setOcrSource(source);
         setOcrMeta({ source, confidence });
         setRawOcrText(text);
-        const draft = parseReceiptText(text);
+        const draft = parseReceiptFromOcr(ocrResult);
         setDraft(draft);
         setParseWarnings(validateParsedReceipt(draft, { ocrSource: source, ocrConfidence: confidence }));
         router.push(source === 'empty' ? '/receipt/edit' : '/receipt/preview');
@@ -67,11 +70,7 @@ export default function ScanScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={SmartCartColors.primary} />
           <Text style={styles.processingText}>Processing receipt...</Text>
-          <Text style={styles.processingHint}>
-            {ocrSource === 'tesseract'
-              ? 'Reading text with Tesseract OCR — review and edit before saving'
-              : 'Could not read receipt text — you will enter details manually'}
-          </Text>
+          <Text style={styles.processingHint}>{ocrProcessingHint(ocrSource)}</Text>
         </View>
       </View>
     );

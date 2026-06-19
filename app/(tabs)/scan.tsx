@@ -21,7 +21,7 @@ import {
 import { BackButton } from '@/src/components/BackButton';
 import { CameraOverlay } from '@/src/components/CameraOverlay';
 import { recognizeTextFromImageDetailed } from '@/src/services/ocrService';
-import { parseReceiptText } from '@/src/services/receiptParser';
+import { parseReceiptFromOcr } from '@/src/services/receiptParserStructured';
 import { useScanStore } from '@/src/store/useScanStore';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
@@ -44,10 +44,11 @@ export default function ScanScreen() {
       setProcessing(true);
       try {
         setImageUri(uri);
-        const { text, source, confidence } = await recognizeTextFromImageDetailed(uri);
+        const ocrResult = await recognizeTextFromImageDetailed(uri);
+        const { text, source, confidence } = ocrResult;
         setOcrMeta({ source, confidence });
         setRawOcrText(text);
-        const draft = parseReceiptText(text);
+        const draft = parseReceiptFromOcr(ocrResult);
         setDraft(draft);
         setParseWarnings(validateParsedReceipt(draft, { ocrSource: source, ocrConfidence: confidence }));
         router.push(source === 'empty' ? '/receipt/edit' : '/receipt/preview');

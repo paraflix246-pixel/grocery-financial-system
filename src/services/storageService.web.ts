@@ -82,14 +82,17 @@ async function loadStore(): Promise<void> {
       comparisons: parsed.comparisons ?? [],
       comparisonItems: parsed.comparisonItems ?? [],
       budgetSettings,
-      appSettings:
-        parsed.appSettings ?? {
+      appSettings: {
+        ...(parsed.appSettings ?? {
           id: generateId(),
           displayName: '',
           notifyPriceAlerts: true,
           notifyBudgetAlerts: true,
+          enhancedCloudOcr: false,
           updatedAt: new Date().toISOString(),
-        },
+        }),
+        enhancedCloudOcr: parsed.appSettings?.enhancedCloudOcr ?? false,
+      },
       customStores: parsed.customStores ?? [],
       priceAlertRules: parsed.priceAlertRules ?? [],
     };
@@ -120,6 +123,7 @@ async function loadStore(): Promise<void> {
       displayName: '',
       notifyPriceAlerts: true,
       notifyBudgetAlerts: true,
+      enhancedCloudOcr: false,
       updatedAt: now,
     },
     customStores: [],
@@ -537,6 +541,7 @@ export async function updateAppSettings(
     displayName: partial.displayName ?? data.appSettings.displayName,
     notifyPriceAlerts: partial.notifyPriceAlerts ?? data.appSettings.notifyPriceAlerts,
     notifyBudgetAlerts: partial.notifyBudgetAlerts ?? data.appSettings.notifyBudgetAlerts,
+    enhancedCloudOcr: partial.enhancedCloudOcr ?? data.appSettings.enhancedCloudOcr,
     updatedAt: now,
   };
   await persist();

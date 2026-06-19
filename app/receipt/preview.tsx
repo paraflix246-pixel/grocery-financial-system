@@ -9,6 +9,7 @@ import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
+import { ocrSourceLabel } from '@/src/utils/ocrLabels';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 export default function ReceiptPreviewScreen() {
@@ -49,6 +50,9 @@ export default function ReceiptPreviewScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <ReceiptScanWarnings warnings={warnings} onEdit={goToEdit} />
+        {ocrSource && ocrSource !== 'empty' && (
+          <Text style={styles.ocrSource}>Extracted via {ocrSourceLabel(ocrSource)}</Text>
+        )}
 
         <View style={styles.storeRow}>
           <StoreBrandAvatar store={draft.storeName} size={44} />
@@ -129,6 +133,7 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 72 },
   saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
+  ocrSource: { fontSize: 12, color: SmartCartColors.textSecondary, marginBottom: 12 },
   storeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20 },
   storeInfo: { flex: 1 },
   storeName: { fontSize: 20, fontWeight: '800', color: SmartCartColors.text },

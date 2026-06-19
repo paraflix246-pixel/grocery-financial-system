@@ -1,4 +1,5 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
+import type { OcrSource } from '@/src/services/ocrTypes';
 import { computeItemsSubtotal } from '@/src/utils/receiptTotals';
 
 export type ReceiptParseWarning =
@@ -11,7 +12,7 @@ export type ReceiptParseWarning =
 
 export function validateParsedReceipt(
   draft: ParsedReceiptDraft,
-  options?: { ocrSource?: 'tesseract' | 'fallback' | 'empty'; ocrConfidence?: number }
+  options?: { ocrSource?: OcrSource; ocrConfidence?: number }
 ): ReceiptParseWarning[] {
   const warnings: ReceiptParseWarning[] = [];
 

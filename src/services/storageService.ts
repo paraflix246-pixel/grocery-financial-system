@@ -154,6 +154,13 @@ async function migrateSchema(db: SQLite.SQLiteDatabase, fromVersion: number): Pr
       await db.execAsync('ALTER TABLE price_alert_rules ADD COLUMN emoji TEXT');
     }
   }
+  if (fromVersion < 7) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(app_settings)');
+    const hasEnhancedCloudOcr = columns.some((column) => column.name === 'enhanced_cloud_ocr');
+    if (!hasEnhancedCloudOcr) {
+      await db.execAsync('ALTER TABLE app_settings ADD COLUMN enhanced_cloud_ocr INTEGER NOT NULL DEFAULT 0');
+    }
+  }
 }
 
 function parseCategoryLimits(raw: unknown, weeklyBudget: number): CategoryLimits | undefined {
@@ -734,6 +741,7 @@ function mapAppSettings(row: Record<string, unknown>): AppSettings {
     displayName: row.display_name as string,
     notifyPriceAlerts: Boolean(row.notify_price_alerts),
     notifyBudgetAlerts: Boolean(row.notify_budget_alerts),
+    enhancedCloudOcr: Boolean(row.enhanced_cloud_ocr),
     updatedAt: row.updated_at as string,
   };
 }
@@ -760,14 +768,16 @@ export async function updateAppSettings(
     displayName: partial.displayName ?? existing.displayName,
     notifyPriceAlerts: partial.notifyPriceAlerts ?? existing.notifyPriceAlerts,
     notifyBudgetAlerts: partial.notifyBudgetAlerts ?? existing.notifyBudgetAlerts,
+    enhancedCloudOcr: partial.enhancedCloudOcr ?? existing.enhancedCloudOcr,
     updatedAt: now,
   };
   await db.runAsync(
-    'UPDATE app_settings SET display_name = ?, notify_price_alerts = ?, notify_budget_alerts = ?, updated_at = ? WHERE id = ?',
+    'UPDATE app_settings SET display_name = ?, notify_price_alerts = ?, notify_budget_alerts = ?, enhanced_cloud_ocr = ?, updated_at = ? WHERE id = ?',
     [
       next.displayName,
       next.notifyPriceAlerts ? 1 : 0,
       next.notifyBudgetAlerts ? 1 : 0,
+      next.enhancedCloudOcr ? 1 : 0,
       now,
       existing.id,
     ]
