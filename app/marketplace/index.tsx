@@ -31,7 +31,7 @@ export default function MarketplaceScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Marketplace" onBack={() => router.back()} />
+      <ScreenHeader title="Marketplace" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.lead}>

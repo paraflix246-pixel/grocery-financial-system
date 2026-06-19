@@ -102,7 +102,7 @@ export default function FamilyPlansScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Family Plans" onBack={() => router.back()} />
+      <ScreenHeader title="Family Plans" />
 
       <ScrollView contentContainerStyle={styles.content}>
         {!unlocked && <ProUpgradeBanner featureName="Family Plans" />}

@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { CategoryBudgetRow } from '@/src/components/CategoryBudgetRow';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
 import type { BudgetCategory, CategoryLimits } from '@/src/models/types';
@@ -98,9 +99,7 @@ export default function BudgetSettingsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
-        </Pressable>
+        <BackButton fallbackHref="/settings" />
         <Text style={styles.headerTitle}>Budget</Text>
         <Pressable onPress={() => setEditing((e) => !e)}>
           <SymbolView name={{ ios: 'pencil', android: 'edit', web: 'edit' }} tintColor={SmartCartColors.text} size={22} />

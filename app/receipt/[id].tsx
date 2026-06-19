@@ -5,6 +5,7 @@ import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { ComparisonSummary } from '@/src/components/ComparisonSummary';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { getComparisonForReceipt } from '@/src/services/analyticsService';
@@ -137,9 +138,7 @@ export default function ReceiptDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
-        </Pressable>
+        <BackButton fallbackHref="/(tabs)/receipts" />
         <Text style={styles.headerTitle}>Receipt Details</Text>
         <Pressable
           onPress={() => {

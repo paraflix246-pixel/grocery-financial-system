@@ -85,7 +85,7 @@ export default function ListShareScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Share List" onBack={() => router.back()} />
+      <ScreenHeader title="Share List" fallbackHref="/(tabs)/shopping-lists" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.lead}>

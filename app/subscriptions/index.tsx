@@ -34,7 +34,7 @@ export default function SubscriptionsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Subscription" onBack={() => router.back()} />
+      <ScreenHeader title="Subscription" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.statusCard, isPro && styles.statusCardPro]}>

@@ -23,7 +23,7 @@ export default function ApiAccessScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="API Access" onBack={() => router.back()} />
+      <ScreenHeader title="API Access" />
 
       <ScrollView contentContainerStyle={styles.content}>
         {!unlocked && <ProUpgradeBanner featureName="Developer API" />}

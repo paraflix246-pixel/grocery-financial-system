@@ -134,7 +134,7 @@ function RootLayoutNav() {
         <Stack.Screen name="receipt/preview" options={{ headerShown: false }} />
         <Stack.Screen name="receipt/manual" options={{ headerShown: false }} />
         <Stack.Screen name="receipt/edit" options={{ headerShown: false }} />
-        <Stack.Screen name="receipt/link" options={{ title: 'Link to List' }} />
+        <Stack.Screen name="receipt/link" options={{ headerShown: false }} />
         <Stack.Screen name="receipt/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="settings/index" options={{ headerShown: false }} />
         <Stack.Screen name="settings/budget" options={{ headerShown: false }} />

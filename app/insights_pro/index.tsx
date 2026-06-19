@@ -37,7 +37,7 @@ export default function InsightsProScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="AI Insights Pro" onBack={() => router.back()} />
+      <ScreenHeader title="AI Insights Pro" />
 
       {loading ? (
         <View style={styles.center}>

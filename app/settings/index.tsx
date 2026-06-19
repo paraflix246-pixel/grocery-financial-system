@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { refreshScheduledNotifications } from '@/src/services/notificationService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -99,9 +100,7 @@ export default function SettingsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
-        </Pressable>
+        <BackButton fallbackHref="/(tabs)/more" />
         <Text style={styles.headerTitle}>Settings</Text>
         <Pressable onPress={handleSave} disabled={saving} hitSlop={8}>
           <Text style={styles.saveLink}>{saving ? '...' : 'Save'}</Text>

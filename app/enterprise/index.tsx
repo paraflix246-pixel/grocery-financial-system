@@ -13,7 +13,7 @@ export default function EnterpriseScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Enterprise" onBack={() => router.back()} />
+      <ScreenHeader title="Enterprise" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>

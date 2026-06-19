@@ -18,7 +18,7 @@ export default function SponsoredOffersScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Sponsored Offers" onBack={() => router.back()} />
+      <ScreenHeader title="Sponsored Offers" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.lead}>

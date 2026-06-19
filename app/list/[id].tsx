@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { CategoryPills } from '@/src/components/CategoryPills';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
 import { STARTER_CATEGORIES, getQuantityLabel } from '@/src/data/starterListItems';
@@ -151,9 +152,7 @@ export default function ListDetailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
-        </Pressable>
+        <BackButton fallbackHref="/(tabs)/shopping-lists" />
         <Text style={styles.headerTitle}>My Grocery List</Text>
         <View style={styles.headerActions}>
           <Pressable style={styles.iconBtn} onPress={() => openAddModal()}>

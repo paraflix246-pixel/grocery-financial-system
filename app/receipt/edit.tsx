@@ -14,6 +14,7 @@ import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import {
   findDuplicateReceipt,
@@ -88,9 +89,7 @@ export default function EditReceiptScreen() {
     return (
       <View style={styles.center}>
         <Text>No receipt to edit.</Text>
-        <Pressable onPress={() => router.back()}>
-          <Text style={styles.backLink}>Go Back</Text>
-        </Pressable>
+        <BackButton fallbackHref="/(tabs)/scan" />
       </View>
     );
   }
@@ -155,9 +154,7 @@ export default function EditReceiptScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()}>
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
-        </Pressable>
+        <BackButton fallbackHref="/(tabs)/scan" />
         <Text style={styles.headerTitle}>
           {isEditingSaved ? 'Edit Receipt' : isManualEntry ? 'Add Receipt' : 'Review Receipt'}
         </Text>

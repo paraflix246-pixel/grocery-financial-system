@@ -39,7 +39,7 @@ export default function InflationTrackerScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Inflation Tracker" onBack={() => router.back()} />
+      <ScreenHeader title="Inflation Tracker" />
 
       {loading ? (
         <View style={styles.center}>

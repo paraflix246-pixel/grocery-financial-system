@@ -59,7 +59,7 @@ export default function PaywallScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="SmartCart Pro" onBack={() => router.back()} />
+      <ScreenHeader title="SmartCart Pro" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>

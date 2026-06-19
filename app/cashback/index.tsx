@@ -19,7 +19,7 @@ export default function CashbackScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Cashback" onBack={() => router.back()} />
+      <ScreenHeader title="Cashback" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>

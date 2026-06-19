@@ -22,7 +22,7 @@ export default function AffiliateLinksScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Delivery Partners" onBack={() => router.back()} />
+      <ScreenHeader title="Delivery Partners" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.lead}>

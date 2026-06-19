@@ -1,28 +1,22 @@
-import { Pressable, StyleSheet, View } from 'react-native';
-import { SymbolView } from 'expo-symbols';
-import type { ComponentProps, ReactNode } from 'react';
+import { StyleSheet, View } from 'react-native';
+import type { Href } from 'expo-router';
+import type { ReactNode } from 'react';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { SmartCartColors } from '@/src/theme/smartCart';
-
-type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
 type Props = {
   title: string;
-  onBack: () => void;
+  onBack?: () => void;
+  fallbackHref?: Href;
   rightAction?: ReactNode;
 };
 
-export function ScreenHeader({ title, onBack, rightAction }: Props) {
+export function ScreenHeader({ title, onBack, fallbackHref, rightAction }: Props) {
   return (
     <View style={styles.header}>
-      <Pressable onPress={onBack} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
-        <SymbolView
-          name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
-          tintColor={SmartCartColors.text}
-          size={22}
-        />
-      </Pressable>
+      <BackButton onPress={onBack} fallbackHref={fallbackHref} />
       <Text style={styles.headerTitle}>{title}</Text>
       {rightAction ?? <View style={styles.headerSpacer} />}
     </View>
@@ -44,5 +38,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: SmartCartColors.text,
   },
-  headerSpacer: { width: 22 },
+  headerSpacer: { width: 72 },
 });

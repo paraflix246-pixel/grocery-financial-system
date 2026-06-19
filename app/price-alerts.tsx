@@ -11,6 +11,7 @@ import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { getPriceAlerts, type PriceAlert } from '@/src/services/analyticsService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
@@ -63,9 +64,7 @@ export default function PriceAlertsScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
-        </Pressable>
+        <BackButton fallbackHref="/settings" />
         <Text style={styles.headerTitle}>Price Alerts</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -130,7 +129,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
-  headerSpacer: { width: 22 },
+  headerSpacer: { width: 72 },
   content: { padding: 16, paddingBottom: 40 },
   lead: { fontSize: 14, color: SmartCartColors.textSecondary, lineHeight: 20, marginBottom: 16 },
   summaryPill: {

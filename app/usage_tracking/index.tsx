@@ -37,7 +37,7 @@ export default function UsageTrackingScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScreenHeader title="Usage Stats" onBack={() => router.back()} />
+      <ScreenHeader title="Usage Stats" />
 
       {loading ? (
         <View style={styles.center}>
