@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
 import type { ParsedReceiptDraft, Receipt } from '@/src/models/types';
+import type { OcrSource } from '@/src/services/ocrTypes';
+import type { ReceiptParseWarning } from '@/src/utils/receiptValidation';
 import { normalizeReceiptTotalsForSave } from '@/src/utils/receiptTotals';
 
 type ScanStore = {
@@ -8,8 +10,13 @@ type ScanStore = {
   rawOcrText: string;
   draft: ParsedReceiptDraft | null;
   editingReceiptId: string | null;
+  ocrSource: OcrSource | null;
+  ocrConfidence: number | null;
+  parseWarnings: ReceiptParseWarning[];
   setImageUri: (uri: string) => void;
   setRawOcrText: (text: string) => void;
+  setOcrMeta: (meta: { source: OcrSource; confidence?: number }) => void;
+  setParseWarnings: (warnings: ReceiptParseWarning[]) => void;
   setDraft: (draft: ParsedReceiptDraft) => void;
   loadReceiptForEdit: (receipt: Receipt) => void;
   updateDraft: (partial: Partial<ParsedReceiptDraft>) => void;
@@ -37,9 +44,15 @@ export const useScanStore = create<ScanStore>((set, get) => ({
   rawOcrText: '',
   draft: null,
   editingReceiptId: null,
+  ocrSource: null,
+  ocrConfidence: null,
+  parseWarnings: [],
 
   setImageUri: (uri) => set({ imageUri: uri }),
   setRawOcrText: (text) => set({ rawOcrText: text }),
+  setOcrMeta: ({ source, confidence }) =>
+    set({ ocrSource: source, ocrConfidence: confidence ?? null }),
+  setParseWarnings: (warnings) => set({ parseWarnings: warnings }),
   setDraft: (draft) => set({ draft: withSyncedTotals(draft), editingReceiptId: null }),
 
   loadReceiptForEdit: (receipt) =>
@@ -47,6 +60,9 @@ export const useScanStore = create<ScanStore>((set, get) => ({
       editingReceiptId: receipt.id,
       imageUri: receipt.imageUri || null,
       rawOcrText: '',
+      ocrSource: null,
+      ocrConfidence: null,
+      parseWarnings: [],
       draft: withSyncedTotals({
         storeName: receipt.storeName,
         date: receipt.date,
@@ -90,13 +106,25 @@ export const useScanStore = create<ScanStore>((set, get) => ({
     set({ draft: withSyncedTotals({ ...draft, items: draft.items.filter((_, i) => i !== index) }) });
   },
 
-  reset: () => set({ imageUri: null, rawOcrText: '', draft: null, editingReceiptId: null }),
+  reset: () =>
+    set({
+      imageUri: null,
+      rawOcrText: '',
+      draft: null,
+      editingReceiptId: null,
+      ocrSource: null,
+      ocrConfidence: null,
+      parseWarnings: [],
+    }),
 
   startManualEntry: () =>
     set({
       imageUri: null,
       rawOcrText: '',
       editingReceiptId: null,
+      ocrSource: null,
+      ocrConfidence: null,
+      parseWarnings: [],
       draft: emptyDraft(),
     }),
 }));

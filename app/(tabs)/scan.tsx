@@ -20,9 +20,10 @@ import {
 
 import { BackButton } from '@/src/components/BackButton';
 import { CameraOverlay } from '@/src/components/CameraOverlay';
-import { recognizeTextFromImage } from '@/src/services/ocrService';
+import { recognizeTextFromImageDetailed } from '@/src/services/ocrService';
 import { parseReceiptText } from '@/src/services/receiptParser';
 import { useScanStore } from '@/src/store/useScanStore';
+import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export default function ScanScreen() {
   const photoOutput = usePhotoOutput();
   const [processing, setProcessing] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
-  const { setImageUri, setRawOcrText, setDraft, startManualEntry } = useScanStore();
+  const { setImageUri, setRawOcrText, setDraft, setOcrMeta, setParseWarnings, startManualEntry } = useScanStore();
 
   useEffect(() => {
     requestPermission();
@@ -43,16 +44,18 @@ export default function ScanScreen() {
       setProcessing(true);
       try {
         setImageUri(uri);
-        const text = await recognizeTextFromImage(uri);
+        const { text, source, confidence } = await recognizeTextFromImageDetailed(uri);
+        setOcrMeta({ source, confidence });
         setRawOcrText(text);
         const draft = parseReceiptText(text);
         setDraft(draft);
-        router.push('/receipt/preview');
+        setParseWarnings(validateParsedReceipt(draft, { ocrSource: source, ocrConfidence: confidence }));
+        router.push(source === 'empty' ? '/receipt/edit' : '/receipt/preview');
       } finally {
         setProcessing(false);
       }
     },
-    [router, setDraft, setImageUri, setRawOcrText]
+    [router, setDraft, setImageUri, setOcrMeta, setParseWarnings, setRawOcrText]
   );
 
   const capturePhoto = async () => {

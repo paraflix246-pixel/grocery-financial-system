@@ -17,13 +17,15 @@ import { recognizeTextFromImageDetailed } from '@/src/services/ocrService.web';
 import { parseReceiptText } from '@/src/services/receiptParser';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [processing, setProcessing] = useState(false);
   const [ocrSource, setOcrSource] = useState<'tesseract' | 'fallback' | 'empty' | null>(null);
-  const { setImageUri, setRawOcrText, setDraft, reset, startManualEntry } = useScanStore();
+  const { setImageUri, setRawOcrText, setDraft, setOcrMeta, setParseWarnings, reset, startManualEntry } =
+    useScanStore();
 
   const processImage = useCallback(
     async (uri: string) => {
@@ -31,17 +33,19 @@ export default function ScanScreen() {
       try {
         reset();
         setImageUri(uri);
-        const { text, source } = await recognizeTextFromImageDetailed(uri);
+        const { text, source, confidence } = await recognizeTextFromImageDetailed(uri);
         setOcrSource(source);
+        setOcrMeta({ source, confidence });
         setRawOcrText(text);
         const draft = parseReceiptText(text);
         setDraft(draft);
-        router.push('/receipt/preview');
+        setParseWarnings(validateParsedReceipt(draft, { ocrSource: source, ocrConfidence: confidence }));
+        router.push(source === 'empty' ? '/receipt/edit' : '/receipt/preview');
       } finally {
         setProcessing(false);
       }
     },
-    [reset, router, setDraft, setImageUri, setRawOcrText]
+    [reset, router, setDraft, setImageUri, setOcrMeta, setParseWarnings, setRawOcrText]
   );
 
   const pickImage = async () => {
@@ -66,7 +70,7 @@ export default function ScanScreen() {
           <Text style={styles.processingHint}>
             {ocrSource === 'tesseract'
               ? 'Reading text with Tesseract OCR — review and edit before saving'
-              : 'OCR fallback — sample data used; edit all fields before saving'}
+              : 'Could not read receipt text — you will enter details manually'}
           </Text>
         </View>
       </View>
@@ -86,7 +90,7 @@ export default function ScanScreen() {
           size={18}
         />
         <Text style={styles.demoBannerText}>
-          Web OCR uses Tesseract.js when available. If recognition fails, sample data is prefilled — always review and edit before saving.
+          For best results, photograph the receipt flat, in good lighting, with all text in frame. Always review scanned data before saving.
         </Text>
       </View>
 

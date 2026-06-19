@@ -4,6 +4,13 @@ export function parsePrice(text: string): number | null {
   return parseFloat(match[1]);
 }
 
+/** Prefer the rightmost price on a line (typical receipt item / total layout). */
+export function parseLineEndPrice(text: string): number | null {
+  const matches = [...text.matchAll(/\$?\s*(\d+\.\d{2})/g)];
+  if (matches.length === 0) return null;
+  return parseFloat(matches[matches.length - 1][1]);
+}
+
 export function formatCurrency(amount: number): string {
   return `$${amount.toFixed(2)}`;
 }

@@ -1,1 +1,2 @@
-export { recognizeTextFromImage } from './ocrService.web';
+export type { OcrRecognitionResult, OcrSource } from './ocrTypes';
+export { recognizeTextFromImage, recognizeTextFromImageDetailed } from './ocrService.web';

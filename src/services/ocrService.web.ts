@@ -1,74 +1,21 @@
 import { cleanOcrText } from '@/src/utils/textCleaner';
 
-const MOCK_RECEIPTS = [
-  `WHOLE FOODS MARKET
-123 Main Street
-06/18/2026
+import type { OcrSource, OcrRecognitionResult } from './ocrTypes';
 
-Organic Eggs        4.99
-Whole Milk 1gal     3.49
-Bananas 2lb         1.29
-Bread Loaf          2.99
+const MIN_TEXT_LENGTH = 12;
+const MIN_RECEIPT_CONFIDENCE = 45;
+const LOW_CONFIDENCE_THRESHOLD = 65;
 
-Subtotal           12.76
-Tax                 0.89
-TOTAL              13.65`,
-  `TARGET STORE #1842
-456 Oak Avenue
-06/17/2026
-
-Cheerios 18oz       4.29
-Ground Beef 1lb     5.99
-Paper Towels        6.49
-Sparkling Water     3.99
-
-Subtotal           20.76
-Tax                 1.45
-TOTAL              22.21`,
-  `WALMART SUPERCENTER
-789 Commerce Blvd
-06/16/2026
-
-Great Value Milk    2.78
-Bananas             1.18
-White Bread         1.47
-Large Eggs 12ct     2.94
-
-Subtotal            8.37
-Tax                 0.58
-TOTAL               8.95`,
-  `KROGER MARKET
-220 Elm Street
-06/15/2026
-
-Chicken Breast 2lb  7.98
-Greek Yogurt        4.49
-Orange Juice        3.79
-Pasta Sauce         2.29
-
-Subtotal           18.55
-Tax                 1.30
-TOTAL              19.85`,
-];
-
-export type OcrSource = 'tesseract' | 'fallback' | 'empty';
-
-export type OcrRecognitionResult = {
-  text: string;
-  source: OcrSource;
-};
-
-function hashUri(uri: string): number {
-  let hash = 0;
-  for (let i = 0; i < uri.length; i++) {
-    hash = (hash * 31 + uri.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
-}
-
-function fallbackMockText(imageUri: string): string {
-  const index = hashUri(imageUri) % MOCK_RECEIPTS.length;
-  return cleanOcrText(MOCK_RECEIPTS[index]);
+function looksLikeReceiptText(text: string): boolean {
+  const prices = text.match(/\d+\.\d{2}/g) ?? [];
+  if (prices.length < 2) return false;
+  const lower = text.toLowerCase();
+  const hasSummary =
+    lower.includes('total') ||
+    lower.includes('subtotal') ||
+    lower.includes('tax') ||
+    lower.includes('amount due');
+  return hasSummary || prices.length >= 3;
 }
 
 async function imageUriToDataUrl(imageUri: string): Promise<string> {
@@ -84,22 +31,77 @@ async function imageUriToDataUrl(imageUri: string): Promise<string> {
   });
 }
 
-async function recognizeWithTesseract(imageUri: string): Promise<string | null> {
+async function preprocessReceiptImage(source: string): Promise<string> {
+  if (typeof document === 'undefined') return source;
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const scale = Math.min(2, Math.max(1, 1200 / Math.max(img.width, img.height)));
+        const width = Math.round(img.width * scale);
+        const height = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(source);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        const imageData = ctx.getImageData(0, 0, width, height);
+        const { data } = imageData;
+        for (let i = 0; i < data.length; i += 4) {
+          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          const contrast = Math.min(255, Math.max(0, (gray - 128) * 1.35 + 128));
+          const binary = contrast > 145 ? 255 : contrast < 95 ? 0 : contrast;
+          data[i] = binary;
+          data[i + 1] = binary;
+          data[i + 2] = binary;
+        }
+        ctx.putImageData(imageData, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(source);
+      }
+    };
+    img.onerror = () => resolve(source);
+    img.src = source;
+  });
+}
+
+async function recognizeWithTesseract(
+  imageUri: string
+): Promise<{ text: string; confidence: number } | null> {
   try {
-    const { createWorker } = await import('tesseract.js');
+    const { createWorker, PSM } = await import('tesseract.js');
     const worker = await createWorker('eng');
     try {
-      const source = imageUri.startsWith('blob:') || imageUri.startsWith('data:')
-        ? imageUri
-        : await imageUriToDataUrl(imageUri);
+      await worker.setParameters({
+        tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+      });
+
+      const rawSource =
+        imageUri.startsWith('blob:') || imageUri.startsWith('data:')
+          ? imageUri
+          : await imageUriToDataUrl(imageUri);
+      const source = await preprocessReceiptImage(rawSource);
       const { data } = await worker.recognize(source);
       const cleaned = cleanOcrText(data.text.trim());
-      return cleaned.length > 10 ? cleaned : null;
+      const confidence = data.confidence ?? 0;
+
+      if (cleaned.length < MIN_TEXT_LENGTH) return null;
+      if (confidence < MIN_RECEIPT_CONFIDENCE && !looksLikeReceiptText(cleaned)) return null;
+      if (!looksLikeReceiptText(cleaned) && confidence < LOW_CONFIDENCE_THRESHOLD) return null;
+
+      return { text: cleaned, confidence };
     } finally {
       await worker.terminate();
     }
   } catch (error) {
-    console.warn('Tesseract OCR unavailable, using fallback:', error);
+    console.warn('Tesseract OCR failed:', error);
     return null;
   }
 }
@@ -107,13 +109,12 @@ async function recognizeWithTesseract(imageUri: string): Promise<string | null> 
 export async function recognizeTextFromImageDetailed(
   imageUri: string
 ): Promise<OcrRecognitionResult> {
-  const tesseractText = await recognizeWithTesseract(imageUri);
-  if (tesseractText) {
-    return { text: tesseractText, source: 'tesseract' };
+  const result = await recognizeWithTesseract(imageUri);
+  if (result) {
+    return { text: result.text, source: 'tesseract', confidence: result.confidence };
   }
 
-  const fallback = fallbackMockText(imageUri);
-  return { text: fallback, source: 'fallback' };
+  return { text: '', source: 'empty' };
 }
 
 export async function recognizeTextFromImage(imageUri: string): Promise<string> {

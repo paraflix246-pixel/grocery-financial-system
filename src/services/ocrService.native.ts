@@ -1,29 +1,40 @@
 import { cleanOcrText } from '@/src/utils/textCleaner';
 
-const MOCK_RECEIPT_TEXT = `WHOLE FOODS MARKET
-123 Main Street
-06/18/2026
+import type { OcrSource, OcrRecognitionResult } from './ocrTypes';
 
-Organic Eggs        4.99
-Whole Milk 1gal     3.49
-Bananas 2lb         1.29
-Bread Loaf          2.99
+const MIN_TEXT_LENGTH = 12;
 
-Subtotal           12.76
-Tax                 0.89
-TOTAL              13.65`;
+function looksLikeReceiptText(text: string): boolean {
+  const prices = text.match(/\d+\.\d{2}/g) ?? [];
+  if (prices.length < 2) return false;
+  const lower = text.toLowerCase();
+  return (
+    lower.includes('total') ||
+    lower.includes('subtotal') ||
+    lower.includes('tax') ||
+    prices.length >= 3
+  );
+}
 
-export async function recognizeTextFromImage(imageUri: string): Promise<string> {
+export async function recognizeTextFromImageDetailed(
+  imageUri: string
+): Promise<OcrRecognitionResult> {
   try {
     const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
     const result = await TextRecognition.recognize(imageUri);
     const text = result.blocks?.map((b: { text: string }) => b.text).join('\n') ?? result.text ?? '';
     const cleaned = cleanOcrText(text.trim());
-    if (cleaned.length > 10) {
-      return cleaned;
+    if (cleaned.length >= MIN_TEXT_LENGTH && looksLikeReceiptText(cleaned)) {
+      return { text: cleaned, source: 'tesseract' };
     }
   } catch (error) {
-    console.warn('ML Kit OCR unavailable, using sample fallback:', error);
+    console.warn('ML Kit OCR unavailable:', error);
   }
-  return cleanOcrText(MOCK_RECEIPT_TEXT);
+
+  return { text: '', source: 'empty' };
+}
+
+export async function recognizeTextFromImage(imageUri: string): Promise<string> {
+  const result = await recognizeTextFromImageDetailed(imageUri);
+  return result.text;
 }

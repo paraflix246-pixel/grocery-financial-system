@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
+import { ReceiptScanWarnings } from '@/src/components/ReceiptScanWarnings';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import {
   findDuplicateReceipt,
@@ -26,6 +27,7 @@ import { formatDisplayDate } from '@/src/utils/dateParser';
 import { generateId } from '@/src/utils/id';
 import { formatCurrency } from '@/src/utils/priceParser';
 import { normalizeReceiptTotalsForSave } from '@/src/utils/receiptTotals';
+import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 async function confirmDuplicateSave(message: string): Promise<boolean> {
   if (Platform.OS === 'web') {
@@ -52,6 +54,8 @@ export default function EditReceiptScreen() {
     removeDraftItem,
     loadReceiptForEdit,
     reset,
+    ocrSource,
+    ocrConfidence,
   } = useScanStore();
   const [saving, setSaving] = useState(false);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
@@ -59,6 +63,14 @@ export default function EditReceiptScreen() {
   const receiptId = editingReceiptId ?? routeId ?? null;
   const isEditingSaved = Boolean(receiptId);
   const isManualEntry = !isEditingSaved && !imageUri;
+
+  const warnings = useMemo(
+    () =>
+      draft
+        ? validateParsedReceipt(draft, { ocrSource: ocrSource ?? undefined, ocrConfidence: ocrConfidence ?? undefined })
+        : [],
+    [draft, ocrConfidence, ocrSource]
+  );
 
   const loadSavedReceipt = useCallback(async () => {
     if (!routeId || draft) return;
@@ -164,6 +176,8 @@ export default function EditReceiptScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {!isEditingSaved && <ReceiptScanWarnings warnings={warnings} />}
+
         <View style={styles.storeRow}>
           <StoreBrandAvatar store={draft.storeName} size={44} />
           <View style={styles.storeFields}>

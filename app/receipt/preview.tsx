@@ -1,16 +1,27 @@
 import { useRouter } from 'expo-router';
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
+import { ReceiptScanWarnings } from '@/src/components/ReceiptScanWarnings';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
+import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 export default function ReceiptPreviewScreen() {
   const router = useRouter();
-  const { draft, updateDraftItem } = useScanStore();
+  const { draft, updateDraftItem, ocrSource, ocrConfidence } = useScanStore();
+
+  const warnings = useMemo(
+    () =>
+      draft
+        ? validateParsedReceipt(draft, { ocrSource: ocrSource ?? undefined, ocrConfidence: ocrConfidence ?? undefined })
+        : [],
+    [draft, ocrConfidence, ocrSource]
+  );
 
   if (!draft) {
     return (
@@ -24,21 +35,28 @@ export default function ReceiptPreviewScreen() {
     ? formatDisplayDate(draft.date)
     : formatDisplayDate(new Date().toISOString().split('T')[0]);
 
+  const goToEdit = () => router.push('/receipt/edit');
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Review Receipt</Text>
-        <Pressable onPress={() => router.push('/receipt/edit')}>
-          <Text style={styles.saveLink}>Save</Text>
+        <Pressable onPress={goToEdit}>
+          <Text style={styles.saveLink}>Edit</Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <ReceiptScanWarnings warnings={warnings} onEdit={goToEdit} />
+
         <View style={styles.storeRow}>
           <StoreBrandAvatar store={draft.storeName} size={44} />
-          <View>
+          <View style={styles.storeInfo}>
             <Text style={styles.storeName}>{draft.storeName}</Text>
+            <Pressable onPress={goToEdit}>
+              <Text style={styles.storeEditHint}>Tap Edit to fix store or date</Text>
+            </Pressable>
             <Text style={styles.storeDate}>{displayDate}</Text>
           </View>
         </View>
@@ -47,37 +65,50 @@ export default function ReceiptPreviewScreen() {
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>{formatCurrency(draft.total)}</Text>
           <Text style={styles.itemCount}>{draft.items.length} items</Text>
+          {draft.subtotal != null && draft.tax != null && (
+            <Text style={styles.breakdownHint}>
+              Subtotal {formatCurrency(draft.subtotal)} · Tax {formatCurrency(draft.tax)}
+            </Text>
+          )}
         </View>
 
         <View style={styles.itemsHeader}>
           <Text style={styles.itemsTitle}>ITEMS ({draft.items.length})</Text>
-          <Pressable onPress={() => router.push('/receipt/edit')}>
-            <Text style={styles.editLink}>Edit</Text>
+          <Pressable onPress={goToEdit}>
+            <Text style={styles.editLink}>Full editor</Text>
           </Pressable>
         </View>
 
-        {draft.items.map((item, index) => (
-          <View key={index} style={styles.itemRow}>
-            <TextInput
-              style={styles.itemName}
-              value={item.name}
-              onChangeText={(v) => updateDraftItem(index, { name: v })}
-            />
-            <TextInput
-              style={styles.itemPrice}
-              value={String(item.price)}
-              onChangeText={(v) => updateDraftItem(index, { price: parseFloat(v) || 0 })}
-              keyboardType="decimal-pad"
-            />
-          </View>
-        ))}
+        {draft.items.length === 0 ? (
+          <Pressable style={styles.emptyItems} onPress={goToEdit}>
+            <SymbolView name={{ ios: 'plus.circle.fill', android: 'add_circle', web: 'add_circle' }} tintColor={SmartCartColors.primary} size={22} />
+            <Text style={styles.emptyItemsText}>No items detected — add them in the editor</Text>
+          </Pressable>
+        ) : (
+          draft.items.map((item, index) => (
+            <View key={index} style={styles.itemRow}>
+              <TextInput
+                style={styles.itemName}
+                value={item.name}
+                onChangeText={(v) => updateDraftItem(index, { name: v })}
+                placeholder="Item name"
+              />
+              <TextInput
+                style={styles.itemPrice}
+                value={String(item.price)}
+                onChangeText={(v) => updateDraftItem(index, { price: parseFloat(v) || 0 })}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          ))
+        )}
 
-        <Pressable style={styles.addItemLink} onPress={() => router.push('/receipt/edit')}>
-          <Text style={styles.addItemText}>+ Add Item</Text>
+        <Pressable style={styles.addItemLink} onPress={goToEdit}>
+          <Text style={styles.addItemText}>+ Add or remove items</Text>
         </Pressable>
 
-        <Pressable style={styles.saveBtn} onPress={() => router.push('/receipt/edit')}>
-          <Text style={styles.saveBtnText}>Save Receipt</Text>
+        <Pressable style={styles.saveBtn} onPress={goToEdit}>
+          <Text style={styles.saveBtnText}>Review & Save</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -87,7 +118,6 @@ export default function ReceiptPreviewScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  link: { color: SmartCartColors.primary, marginTop: 12, fontWeight: '600' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -99,16 +129,31 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 72 },
   saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
-  storeRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20 },
+  storeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20 },
+  storeInfo: { flex: 1 },
   storeName: { fontSize: 20, fontWeight: '800', color: SmartCartColors.text },
+  storeEditHint: { fontSize: 12, color: SmartCartColors.primary, fontWeight: '600', marginTop: 2 },
   storeDate: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 2 },
   totalSection: { marginBottom: 24 },
   totalLabel: { fontSize: 14, color: SmartCartColors.textSecondary, fontWeight: '500' },
   totalAmount: { fontSize: 36, fontWeight: '800', color: SmartCartColors.text, marginTop: 4, letterSpacing: -0.5 },
   itemCount: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4 },
+  breakdownHint: { fontSize: 13, color: SmartCartColors.textMuted, marginTop: 4 },
   itemsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   itemsTitle: { fontSize: 13, fontWeight: '700', color: SmartCartColors.textSecondary, letterSpacing: 0.5 },
   editLink: { fontSize: 14, fontWeight: '600', color: SmartCartColors.primary },
+  emptyItems: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 16,
+    borderRadius: SmartCartRadius.sm,
+    backgroundColor: SmartCartColors.card,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    marginBottom: 8,
+  },
+  emptyItemsText: { flex: 1, fontSize: 14, color: SmartCartColors.textSecondary },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
