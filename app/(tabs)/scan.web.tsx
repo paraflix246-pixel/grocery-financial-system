@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -17,6 +18,8 @@ import { recognizeTextFromImage } from '@/src/services/ocrService.web';
 import { parseReceiptText } from '@/src/services/receiptParser';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors } from '@/src/theme/smartCart';
+
+const TAB_BAR_HEIGHT = 72;
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -79,7 +82,9 @@ export default function ScanScreen() {
         </Pressable>
       </View>
 
-      <View style={[styles.controls, { paddingBottom: insets.bottom + 24 }]}>
+      <View
+        style={[styles.controls, { paddingBottom: insets.bottom + 24, bottom: TAB_BAR_HEIGHT }]}
+        pointerEvents="box-none">
         <Pressable onPress={pickImage}>
           <Text style={styles.retakeText}>Retake</Text>
         </Pressable>

@@ -36,7 +36,7 @@ const ACTIONS: Action[] = [
     color: SmartCartColors.accentPurple,
     bgLight: '#F3E8FF',
     bgDark: '#DDD6FE',
-    route: '/(tabs)/lists',
+    route: '/(tabs)/shopping-lists',
   },
   {
     id: 'stores',

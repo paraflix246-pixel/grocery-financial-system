@@ -69,14 +69,13 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    paddingBottom: Platform.OS === 'web' ? TAB_BAR_HEIGHT : 0,
     ...(Platform.OS === 'web'
       ? {
           position: 'fixed' as const,
           top: 0,
           right: 0,
           left: 0,
-          bottom: 0,
+          bottom: TAB_BAR_HEIGHT,
           zIndex: 50,
         }
       : null),
@@ -84,7 +83,6 @@ const styles = StyleSheet.create({
   dimmer: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    bottom: Platform.OS === 'web' ? TAB_BAR_HEIGHT : 0,
   },
   sheet: {
     backgroundColor: '#fff',

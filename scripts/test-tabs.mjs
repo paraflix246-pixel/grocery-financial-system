@@ -8,16 +8,19 @@ const browser = await puppeteer.launch({
 });
 const page = await browser.newPage();
 await page.setViewport({ width: 390, height: 844 });
+await page.goto('http://localhost:8081/', { waitUntil: 'networkidle2', timeout: 90000 });
+await page.waitForFunction(() => document.body.innerText.includes('Good evening'), { timeout: 30000 });
 
-await page.goto('http://localhost:8081/', { waitUntil: 'networkidle2', timeout: 60000 });
+const onboardingReachable = await page.evaluate(() => {
+  const tab = document.querySelector("a[role=tab][href='/more']");
+  const r = tab?.getBoundingClientRect();
+  if (!r) return false;
+  const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+  return hit === tab || tab?.contains(hit);
+});
+console.log('Tab bar reachable during onboarding:', onboardingReachable);
+
 if (await page.evaluate(() => document.body.innerText.includes('Get Started'))) {
-  const reachable = await page.evaluate(() => {
-    const tab = document.querySelector("a[role=tab][href='/more']");
-    const r = tab?.getBoundingClientRect();
-    const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-    return hit === tab || tab?.contains(hit);
-  });
-  console.log('Tab bar reachable during onboarding:', reachable);
   await page.evaluate(() => {
     const btn = [...document.querySelectorAll('*')].find((el) => el.textContent === 'Get Started');
     btn?.click();
@@ -29,7 +32,7 @@ const expectations = {
   '/': 'Good evening',
   '/receipts': 'All scanned receipts',
   '/scan': 'Retake',
-  '/lists': 'Grocery List',
+  '/shopping-lists': 'My Grocery List',
   '/more': 'Settings and quick links',
 };
 
@@ -43,8 +46,9 @@ for (const [href, needle] of Object.entries(expectations)) {
   }, href);
   await page.mouse.click(box.x, box.y);
   await new Promise((r) => setTimeout(r, 3000));
+  const path = await page.evaluate(() => location.pathname);
   const ok = await page.evaluate((n) => document.body.innerText.includes(n), needle);
-  console.log(`${href}: ${ok ? 'PASS' : 'FAIL'}`);
+  console.log(`${href}: path=${path} content=${ok ? 'PASS' : 'FAIL'}`);
 }
 
 await browser.close();

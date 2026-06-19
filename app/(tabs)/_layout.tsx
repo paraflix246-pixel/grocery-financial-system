@@ -42,13 +42,14 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      screenLayout={Platform.OS === 'web' ? WebTabScreenLayout : undefined}
       screenOptions={{
         headerShown,
         tabBarActiveTintColor: SmartCartColors.primary,
         tabBarInactiveTintColor: SmartCartColors.textMuted,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
-        ...(Platform.OS === 'web' ? { animation: 'fade' as const } : null),
+        ...(Platform.OS === 'web' ? { animation: 'fade' as const, lazy: false } : null),
       }}>
       <Tabs.Screen
         name="index"
@@ -96,7 +97,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="lists"
+        name="shopping-lists"
         options={{
           title: 'Lists',
           headerShown: false,

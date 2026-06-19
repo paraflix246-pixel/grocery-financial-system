@@ -16,7 +16,7 @@ for (const [href, needle] of [
   ['/', 'Good evening'],
   ['/receipts', 'All scanned receipts'],
   ['/scan', 'Retake'],
-  ['/lists', 'Grocery List'],
+  ['/shopping-lists', 'Grocery List'],
   ['/more', 'Settings and quick links'],
 ]) {
   const before = page.url();

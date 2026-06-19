@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
   Platform,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -30,9 +30,10 @@ export default function ListsScreen() {
   const loading = useListStore((s) => s.loading);
   const [refreshing, setRefreshing] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [itemsTick, setItemsTick] = useState(0);
-  const loadedListIds = useRef(new Set<string>());
+  const itemsByList = useListStore((s) => s.itemsByList);
 
+  const loadedListIds = useRef(new Set<string>());
+  const [itemsTick, setItemsTick] = useState(0);
   const listIdsKey = useMemo(
     () =>
       lists
@@ -147,15 +148,15 @@ export default function ListsScreen() {
         </View>
       </View>
 
-      <FlatList
-        data={lists}
-        keyExtractor={(item) => item.id}
-        extraData={itemsTick}
+      <ScrollView
+        key={itemsTick}
         contentContainerStyle={[styles.list, { paddingBottom: TAB_BAR_PADDING }]}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={SmartCartColors.primary} />
-        }
-        ListEmptyComponent={
+          Platform.OS === 'web' ? undefined : (
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={SmartCartColors.primary} />
+          )
+        }>
+        {lists.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Text style={styles.emptyTitle}>Build your first grocery list</Text>
             <Text style={styles.empty}>
@@ -176,30 +177,32 @@ export default function ListsScreen() {
               <Text style={styles.blankBtnText}>Start Blank</Text>
             </Pressable>
           </View>
-        }
-        renderItem={({ item }) => {
-          const items = useListStore.getState().itemsByList[item.id] ?? [];
-          const planned = sumPlannedTotal(items);
-          const isActive = item.id === activeListId;
-          return (
-            <Pressable
-              style={({ pressed }) => [
-                styles.card,
-                isActive && styles.activeCard,
-                pressed && styles.outlinePressed,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${item.name}`}
-              onPress={() => router.push(`/list/${item.id}`)}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardMeta}>
-                {items.length} items · {formatCurrency(planned)} est.
-              </Text>
-              {isActive && <Text style={styles.activeBadge}>Active</Text>}
-            </Pressable>
-          );
-        }}
-      />
+        ) : (
+          lists.map((item) => {
+            const items = itemsByList[item.id] ?? [];
+            const planned = sumPlannedTotal(items);
+            const isActive = item.id === activeListId;
+            return (
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [
+                  styles.card,
+                  isActive && styles.activeCard,
+                  pressed && styles.outlinePressed,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${item.name}`}
+                onPress={() => router.push(`/list/${item.id}`)}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Text style={styles.cardMeta}>
+                  {items.length} items · {formatCurrency(planned)} est.
+                </Text>
+                {isActive && <Text style={styles.activeBadge}>Active</Text>}
+              </Pressable>
+            );
+          })
+        )}
+      </ScrollView>
     </View>
   );
 }

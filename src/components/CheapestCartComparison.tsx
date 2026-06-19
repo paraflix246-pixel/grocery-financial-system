@@ -53,7 +53,7 @@ export function CheapestCartComparison({ stores, maxSavings }: Props) {
     <View style={styles.section}>
       <View style={styles.headerRow}>
         <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
-        <Pressable onPress={() => router.push('/(tabs)/lists')}>
+        <Pressable onPress={() => router.push('/(tabs)/shopping-lists')}>
           <Text style={styles.seeAll}>See All</Text>
         </Pressable>
       </View>

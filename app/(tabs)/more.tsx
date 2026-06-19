@@ -34,7 +34,7 @@ const MENU_ITEMS: MenuItem[] = [
     label: 'Shopping Lists',
     subtitle: 'Manage your grocery lists',
     icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
-    route: '/(tabs)/lists',
+    route: '/(tabs)/shopping-lists',
   },
   {
     label: 'Scan Receipt',
