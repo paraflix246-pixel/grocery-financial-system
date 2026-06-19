@@ -11,7 +11,7 @@ type Props = {
   onPress?: () => void;
 };
 
-function canNavigateBack(navigation: { canGoBack: () => boolean }): boolean {
+export function canNavigateBack(navigation: { canGoBack: () => boolean }): boolean {
   if (navigation.canGoBack()) {
     return true;
   }
