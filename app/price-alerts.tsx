@@ -1,5 +1,4 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { Image } from 'expo-image';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +13,7 @@ import {
 import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
 import { ItemPicker, TargetPricePicker } from '@/src/components/ItemPicker';
+import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
 import type { PriceAlert } from '@/src/services/analyticsService';
 import { getAllPriceAlerts } from '@/src/services/priceAlertService';
 import {
@@ -25,13 +25,14 @@ import {
   getPopularPickerOptions,
   loadItemPickerOptions,
   optionToSelection,
+  WALMART_CATALOG_LABEL,
   type ItemPickerOption,
   type ItemPickerSelection,
 } from '@/src/services/itemPickerService';
 import { resolveCanonicalName } from '@/src/services/itemNormalizationService';
+import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import type { PriceAlertRule } from '@/src/models/types';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
-import { getProductImageUrl } from '@/src/theme/productImages';
 import { generateId } from '@/src/utils/id';
 import { formatCurrency } from '@/src/utils/priceParser';
 
@@ -81,8 +82,10 @@ function RuleRow({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const emoji = rule.emoji ?? getItemEmoji(rule.canonicalName, rule.itemName);
   return (
     <View style={styles.ruleRow}>
+      <ItemEmojiAvatar emoji={emoji} size="md" />
       <View style={styles.ruleInfo}>
         <Text style={styles.ruleName}>{rule.canonicalName ?? rule.itemName}</Text>
         <Text style={styles.ruleTarget}>Notify at {formatCurrency(rule.targetPrice)} or below</Text>
@@ -121,9 +124,8 @@ function PopularItemCard({
   const price = item.lastPrice ?? item.catalogPrice;
   return (
     <Pressable style={styles.popularCard} onPress={onPress}>
-      <Image source={{ uri: getProductImageUrl(item.canonicalName) }} style={styles.popularImage} />
-      <Text style={styles.popularEmoji}>{item.emoji}</Text>
-      <Text style={styles.popularName} numberOfLines={1}>
+      <ItemEmojiAvatar emoji={item.emoji} size="lg" />
+      <Text style={styles.popularName} numberOfLines={2}>
         {item.canonicalName}
       </Text>
       {price != null && <Text style={styles.popularPrice}>{formatCurrency(price)}</Text>}
@@ -188,6 +190,7 @@ export default function PriceAlertsScreen() {
     setItemSelection({
       itemName: rule.itemName,
       canonicalName: rule.canonicalName ?? resolveCanonicalName(rule.itemName),
+      emoji: rule.emoji ?? getItemEmoji(rule.canonicalName, rule.itemName),
     });
     setTargetPrice(rule.targetPrice.toFixed(2));
     setShowForm(true);
@@ -234,10 +237,13 @@ export default function PriceAlertsScreen() {
     try {
       const canonicalName =
         itemSelection?.canonicalName ?? resolveCanonicalName(trimmedName) ?? undefined;
+      const emoji =
+        itemSelection?.emoji ?? getItemEmoji(canonicalName, trimmedName);
       await savePriceAlertRule({
         id: editingRuleId ?? generateId(),
         itemName: trimmedName,
         canonicalName,
+        emoji,
         targetPrice: price,
         enabled: true,
       });
@@ -284,7 +290,7 @@ export default function PriceAlertsScreen() {
             </View>
             <Text style={styles.bellTitle}>Notify me when price drops</Text>
             <Text style={styles.bellBody}>
-              Pick items from your receipts or our grocery catalog. We&apos;ll match similar receipt names and alert you when prices hit your target.
+              Pick items from your receipts or our {`"${WALMART_CATALOG_LABEL.toLowerCase()}"`} catalog. We&apos;ll match similar receipt names and alert you when prices hit your target.
             </Text>
             {!showForm && (
               <Pressable style={styles.ctaBtn} onPress={() => openAddForm()}>
@@ -351,7 +357,7 @@ export default function PriceAlertsScreen() {
                 </Text>
                 {rules.length === 0 && (
                   <>
-                    <Text style={styles.popularTitle}>Popular items</Text>
+                    <Text style={styles.popularTitle}>Popular Walmart items</Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
@@ -523,14 +529,13 @@ const styles = StyleSheet.create({
     width: 108,
     backgroundColor: SmartCartColors.background,
     borderRadius: SmartCartRadius.md,
-    padding: 10,
+    padding: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: SmartCartColors.border,
+    gap: 6,
   },
-  popularImage: { width: 52, height: 52, borderRadius: 10, marginBottom: 6 },
-  popularEmoji: { fontSize: 16, position: 'absolute', top: 8, right: 8 },
-  popularName: { fontSize: 13, fontWeight: '700', color: SmartCartColors.text, textAlign: 'center' },
+  popularName: { fontSize: 12, fontWeight: '700', color: SmartCartColors.text, textAlign: 'center' },
   popularPrice: { fontSize: 12, color: SmartCartColors.primaryMid, fontWeight: '600', marginTop: 4 },
   historyLink: {
     flexDirection: 'row',

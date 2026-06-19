@@ -606,6 +606,7 @@ export async function savePriceAlertRule(
     id: rule.id || generateId(),
     itemName: rule.itemName,
     canonicalName: rule.canonicalName,
+    emoji: rule.emoji,
     targetPrice: rule.targetPrice,
     enabled: rule.enabled,
     createdAt,

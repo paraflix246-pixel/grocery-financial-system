@@ -1,9 +1,17 @@
 import {
   COMMON_GROCERY_ITEMS,
-  POPULAR_ALERT_ITEMS,
   getCatalogItem,
+  getItemEmoji,
+  POPULAR_ALERT_ITEMS,
   type CommonGroceryItem,
 } from '@/src/data/commonGroceryItems';
+import {
+  WALMART_CATALOG_LABEL,
+  WALMART_CATEGORIES,
+  WALMART_GROCERY_CATALOG,
+  type WalmartGroceryCategory,
+  type WalmartGroceryItem,
+} from '@/src/data/walmartGroceryCatalog';
 import { resolveCanonicalName, suggestTargetPrice } from '@/src/services/itemNormalizationService';
 import { getReceiptItemsWithStore } from '@/src/services/storageService';
 
@@ -22,6 +30,7 @@ export type ItemPickerOption = {
 export type ItemPickerSelection = {
   itemName: string;
   canonicalName?: string;
+  emoji?: string;
   lastSeen?: {
     price: number;
     storeName: string;
@@ -29,6 +38,8 @@ export type ItemPickerSelection = {
   };
   suggestedTargetPrice?: number;
 };
+
+export { WALMART_CATALOG_LABEL, WALMART_CATEGORIES, type WalmartGroceryCategory };
 
 function toOptionFromCatalog(item: CommonGroceryItem, source: ItemPickerOption['source']): ItemPickerOption {
   return {
@@ -39,6 +50,22 @@ function toOptionFromCatalog(item: CommonGroceryItem, source: ItemPickerOption['
     category: item.category,
     emoji: item.emoji,
   };
+}
+
+function toOptionFromWalmart(item: WalmartGroceryItem): ItemPickerOption {
+  const catalog = getCatalogItem(item.canonicalName);
+  return {
+    canonicalName: item.canonicalName,
+    displayName: item.canonicalName,
+    source: 'catalog',
+    catalogPrice: catalog?.expectedPrice,
+    category: item.category,
+    emoji: item.emoji,
+  };
+}
+
+export function getWalmartCatalogOptions(): ItemPickerOption[] {
+  return WALMART_GROCERY_CATALOG.map(toOptionFromWalmart);
 }
 
 export async function loadItemPickerOptions(): Promise<ItemPickerOption[]> {
@@ -65,7 +92,7 @@ export async function loadItemPickerOptions(): Promise<ItemPickerOption[]> {
         receiptDate: item.receiptDate,
         catalogPrice: catalog?.expectedPrice,
         category: catalog?.category,
-        emoji: catalog?.emoji ?? '🛒',
+        emoji: catalog?.emoji ?? getItemEmoji(undefined, item.name),
       });
       continue;
     }
@@ -96,16 +123,23 @@ export function searchItemPickerOptions(options: ItemPickerOption[], query: stri
 
   return options
     .filter((option) => {
+      const catalog = getCatalogItem(option.canonicalName);
       const haystack = [
         option.displayName,
         option.canonicalName,
         option.category ?? '',
+        ...(catalog?.aliases ?? []),
       ]
         .join(' ')
         .toLowerCase();
       return haystack.includes(trimmed);
     })
     .slice(0, 12);
+}
+
+export function filterWalmartOptions(options: ItemPickerOption[]): ItemPickerOption[] {
+  const walmartNames = new Set(WALMART_GROCERY_CATALOG.map((item) => item.canonicalName.toLowerCase()));
+  return options.filter((option) => walmartNames.has(option.canonicalName.toLowerCase()));
 }
 
 export function getChipSuggestions(options: ItemPickerOption[]): ItemPickerOption[] {
@@ -156,6 +190,7 @@ export function optionToSelection(option: ItemPickerOption): ItemPickerSelection
   return {
     itemName: option.displayName,
     canonicalName: option.canonicalName,
+    emoji: option.emoji,
     lastSeen,
     suggestedTargetPrice: basePrice != null ? suggestTargetPrice(basePrice) : undefined,
   };

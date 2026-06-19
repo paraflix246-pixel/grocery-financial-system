@@ -102,6 +102,7 @@ export type PriceAlertRule = {
   id: string;
   itemName: string;
   canonicalName?: string;
+  emoji?: string;
   targetPrice: number;
   enabled: boolean;
   createdAt: string;

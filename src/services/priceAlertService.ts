@@ -1,4 +1,5 @@
 import type { PriceAlertRule } from '@/src/models/types';
+import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import { getPriceAlerts, type PriceAlert } from '@/src/services/analyticsService';
 import { itemMatchesAlertRule } from '@/src/services/itemNormalizationService';
 import {
@@ -6,16 +7,8 @@ import {
   getReceiptItemsWithStore,
 } from '@/src/services/storageService';
 
-function itemEmoji(name: string): string {
-  const lower = name.toLowerCase();
-  if (/milk/.test(lower)) return '🥛';
-  if (/banana|apple|fruit|berry/.test(lower)) return '🍌';
-  if (/bread|bagel|bun/.test(lower)) return '🍞';
-  if (/cereal|cheerio|oat/.test(lower)) return '🥣';
-  if (/egg/.test(lower)) return '🥚';
-  if (/chicken|meat|beef/.test(lower)) return '🍗';
-  if (/coffee|tea/.test(lower)) return '☕';
-  return '🛒';
+function resolveAlertEmoji(rule: PriceAlertRule, itemName: string): string {
+  return rule.emoji ?? getItemEmoji(rule.canonicalName, itemName);
 }
 
 export async function getCustomRuleAlerts(): Promise<PriceAlert[]> {
@@ -41,7 +34,7 @@ export async function getCustomRuleAlerts(): Promise<PriceAlert[]> {
       newPrice: latest.price,
       percentDrop:
         rule.targetPrice > 0 ? ((rule.targetPrice - latest.price) / rule.targetPrice) * 100 : 0,
-      emoji: itemEmoji(latest.name),
+      emoji: resolveAlertEmoji(rule, latest.name),
       source: 'custom',
       ruleId: rule.id,
       targetPrice: rule.targetPrice,
@@ -85,7 +78,7 @@ export async function checkPriceAlertsAfterReceiptSave(
         newPrice: item.price,
         percentDrop:
           rule.targetPrice > 0 ? ((rule.targetPrice - item.price) / rule.targetPrice) * 100 : 0,
-        emoji: itemEmoji(item.name),
+        emoji: resolveAlertEmoji(rule, item.name),
         source: 'custom',
         ruleId: rule.id,
         targetPrice: rule.targetPrice,

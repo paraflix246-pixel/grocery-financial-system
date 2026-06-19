@@ -15,7 +15,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Themed';
 import { CategoryPills } from '@/src/components/CategoryPills';
+import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
+import { getPopularWalmartItems, getWalmartTypicalPrice } from '@/src/data/walmartGroceryCatalog';
 import { STARTER_CATEGORIES, getQuantityLabel } from '@/src/data/starterListItems';
 import type { ListItem } from '@/src/models/types';
 import {
@@ -113,6 +115,15 @@ export default function ListDetailScreen() {
     if (category && category !== 'All') setNewItemCategory(category);
     setShowAddModal(true);
   }
+
+  function selectCatalogItem(name: string, category: string, price: number) {
+    setNewItemName(name);
+    setNewItemCategory(category);
+    setNewItemPrice(price.toFixed(2));
+    setNewItemQty('1');
+  }
+
+  const quickAddItems = useMemo(() => getPopularWalmartItems(), []);
 
   async function handleAddItem() {
     const name = newItemName.trim();
@@ -245,6 +256,20 @@ export default function ListDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Add Item</Text>
+            <Text style={styles.quickAddLabel}>Common Walmart items</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickAddRow}>
+              {quickAddItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.quickAddTile}
+                  onPress={() => selectCatalogItem(item.canonicalName, item.category, getWalmartTypicalPrice(item))}>
+                  <ItemEmojiAvatar emoji={item.emoji} size="md" />
+                  <Text style={styles.quickAddName} numberOfLines={2}>
+                    {item.canonicalName}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
             <TextInput style={styles.input} placeholder="Item name" value={newItemName} onChangeText={setNewItemName} />
             <TextInput style={styles.input} placeholder="Quantity" value={newItemQty} onChangeText={setNewItemQty} keyboardType="decimal-pad" />
             <TextInput style={styles.input} placeholder="Price" value={newItemPrice} onChangeText={setNewItemPrice} keyboardType="decimal-pad" />
@@ -397,6 +422,19 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  quickAddLabel: { fontSize: 13, fontWeight: '600', color: SmartCartColors.textSecondary },
+  quickAddRow: { gap: 8, paddingBottom: 4 },
+  quickAddTile: {
+    width: 80,
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    backgroundColor: SmartCartColors.background,
+    gap: 4,
+  },
+  quickAddName: { fontSize: 10, fontWeight: '600', color: SmartCartColors.text, textAlign: 'center' },
   input: {
     borderWidth: 1,
     borderColor: SmartCartColors.border,

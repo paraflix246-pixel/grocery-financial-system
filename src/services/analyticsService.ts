@@ -1,4 +1,5 @@
 import type { CategoryLimits, ComparisonResult, Receipt } from '@/src/models/types';
+import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import {
   getComparisonByReceiptId,
   getComparisonItems,
@@ -344,18 +345,6 @@ export async function getMonthlySpendAnalytics(): Promise<MonthlySpendAnalytics>
   return { monthlyTotal, percentChange, chartPoints, dailyPoints, spendingTrend, categoryBreakdown };
 }
 
-function itemEmoji(name: string): string {
-  const lower = name.toLowerCase();
-  if (/milk/.test(lower)) return '🥛';
-  if (/banana|apple|fruit|berry/.test(lower)) return '🍌';
-  if (/bread|bagel|bun/.test(lower)) return '🍞';
-  if (/cereal|cheerio|oat/.test(lower)) return '🥣';
-  if (/egg/.test(lower)) return '🥚';
-  if (/chicken|meat|beef/.test(lower)) return '🍗';
-  if (/coffee|tea/.test(lower)) return '☕';
-  return '🛒';
-}
-
 export async function getPriceAlerts(limit = 5): Promise<PriceAlert[]> {
   const items = await getReceiptItemsWithStore();
   const grouped = new Map<string, typeof items>();
@@ -388,7 +377,7 @@ export async function getPriceAlerts(limit = 5): Promise<PriceAlert[]> {
       oldPrice: avgPrevious,
       newPrice: latest.price,
       percentDrop,
-      emoji: itemEmoji(latest.name),
+      emoji: getItemEmoji(undefined, latest.name),
     });
   }
 

@@ -1,20 +1,24 @@
-import { Image } from 'expo-image';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
+import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
+import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import {
+  filterWalmartOptions,
   getChipSuggestions,
   getQuickPriceButtons,
+  getWalmartCatalogOptions,
   loadItemPickerOptions,
   optionToSelection,
   searchItemPickerOptions,
+  WALMART_CATALOG_LABEL,
+  WALMART_CATEGORIES,
   type ItemPickerOption,
   type ItemPickerSelection,
 } from '@/src/services/itemPickerService';
 import { getMatchExamples } from '@/src/services/itemNormalizationService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
-import { getProductImageUrl } from '@/src/theme/productImages';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
 
@@ -24,10 +28,13 @@ type Props = {
   onClear?: () => void;
 };
 
+type CatalogFilter = 'all' | 'walmart';
+
 export function ItemPicker({ selection, onSelect, onClear }: Props) {
   const [query, setQuery] = useState(selection?.itemName ?? '');
   const [options, setOptions] = useState<ItemPickerOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogFilter, setCatalogFilter] = useState<CatalogFilter>('all');
 
   useEffect(() => {
     let active = true;
@@ -46,13 +53,23 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
     setQuery(selection?.itemName ?? '');
   }, [selection?.itemName]);
 
-  const filtered = useMemo(() => searchItemPickerOptions(options, query), [options, query]);
+  const filtered = useMemo(() => {
+    const base = catalogFilter === 'walmart' ? filterWalmartOptions(options) : options;
+    return searchItemPickerOptions(base, query);
+  }, [options, query, catalogFilter]);
+
   const chips = useMemo(() => getChipSuggestions(options), [options]);
+  const walmartBrowse = useMemo(() => getWalmartCatalogOptions(), []);
   const matchExamples = useMemo(
     () => getMatchExamples(selection?.canonicalName, selection?.itemName),
     [selection?.canonicalName, selection?.itemName]
   );
   const showResults = query.trim().length > 0 && !selection;
+  const showWalmartBrowse = !selection && query.trim().length === 0;
+
+  const selectionEmoji =
+    selection?.emoji ??
+    getItemEmoji(selection?.canonicalName, selection?.itemName);
 
   const handleSelectOption = (option: ItemPickerOption) => {
     const next = optionToSelection(option);
@@ -70,32 +87,58 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Item</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Search milk, eggs, bread…"
-        placeholderTextColor={SmartCartColors.textMuted}
-        value={query}
-        onChangeText={handleChangeText}
-        autoCapitalize="words"
-      />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        {chips.map((chip) => (
-          <Pressable
-            key={chip.canonicalName}
-            style={[styles.chip, selection?.canonicalName === chip.canonicalName && styles.chipActive]}
-            onPress={() => handleSelectOption(chip)}>
-            <Text style={styles.chipEmoji}>{chip.emoji}</Text>
-            <Text
-              style={[
-                styles.chipText,
-                selection?.canonicalName === chip.canonicalName && styles.chipTextActive,
-              ]}>
-              {chip.canonicalName}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {selection && (
+        <View style={styles.selectionPreview}>
+          <ItemEmojiAvatar emoji={selectionEmoji} size="lg" active />
+          <View style={styles.selectionBody}>
+            <Text style={styles.selectionName}>{selection.itemName}</Text>
+            <Text style={styles.selectionHint}>Tap search to change item</Text>
+          </View>
+          {onClear && (
+            <Pressable style={styles.clearBtn} onPress={onClear} accessibilityLabel="Clear selection">
+              <Text style={styles.clearBtnText}>✕</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {!selection && (
+        <>
+          <TextInput
+            style={styles.input}
+            placeholder="Search milk, eggs, bread…"
+            placeholderTextColor={SmartCartColors.textMuted}
+            value={query}
+            onChangeText={handleChangeText}
+            autoCapitalize="words"
+          />
+
+          <View style={styles.filterRow}>
+            <Pressable
+              style={[styles.filterPill, catalogFilter === 'all' && styles.filterPillActive]}
+              onPress={() => setCatalogFilter('all')}>
+              <Text style={[styles.filterText, catalogFilter === 'all' && styles.filterTextActive]}>All items</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.filterPill, catalogFilter === 'walmart' && styles.filterPillActive]}
+              onPress={() => setCatalogFilter('walmart')}>
+              <Text style={[styles.filterText, catalogFilter === 'walmart' && styles.filterTextActive]}>
+                {WALMART_CATALOG_LABEL}
+              </Text>
+            </Pressable>
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+            {chips.map((chip) => (
+              <Pressable key={chip.canonicalName} style={styles.chip} onPress={() => handleSelectOption(chip)}>
+                <ItemEmojiAvatar emoji={chip.emoji} size="sm" />
+                <Text style={styles.chipText}>{chip.canonicalName}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       {selection?.lastSeen && (
         <View style={styles.lastSeenCard}>
@@ -120,8 +163,11 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
             <Text style={styles.emptyResults}>No matches — try Milk, Eggs, or Bread</Text>
           ) : (
             filtered.map((option) => (
-              <Pressable key={`${option.source}-${option.canonicalName}`} style={styles.resultRow} onPress={() => handleSelectOption(option)}>
-                <Image source={{ uri: getProductImageUrl(option.canonicalName) }} style={styles.resultImage} />
+              <Pressable
+                key={`${option.source}-${option.canonicalName}`}
+                style={styles.resultRow}
+                onPress={() => handleSelectOption(option)}>
+                <ItemEmojiAvatar emoji={option.emoji} size="md" />
                 <View style={styles.resultBody}>
                   <Text style={styles.resultName}>{option.displayName}</Text>
                   <Text style={styles.resultMeta}>
@@ -134,12 +180,44 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
                 </View>
                 <View style={styles.sourceBadge}>
                   <Text style={styles.sourceBadgeText}>
-                    {option.source === 'both' ? 'Yours' : option.source === 'history' ? 'Receipt' : 'Catalog'}
+                    {option.source === 'both' ? 'Yours' : option.source === 'history' ? 'Receipt' : 'Walmart'}
                   </Text>
                 </View>
               </Pressable>
             ))
           )}
+        </View>
+      )}
+
+      {showWalmartBrowse && (
+        <View style={styles.catalogSection}>
+          <Text style={styles.catalogTitle}>{WALMART_CATALOG_LABEL}</Text>
+          <Text style={styles.catalogSubtitle}>Tap an item to select it for your alert</Text>
+          {WALMART_CATEGORIES.map((category) => {
+            const categoryItems = walmartBrowse.filter((item) => item.category === category);
+            if (categoryItems.length === 0) return null;
+            return (
+              <View key={category} style={styles.categoryBlock}>
+                <Text style={styles.categoryLabel}>{category}</Text>
+                <View style={styles.catalogGrid}>
+                  {categoryItems.map((item) => (
+                    <Pressable
+                      key={item.canonicalName}
+                      style={styles.catalogTile}
+                      onPress={() => handleSelectOption(item)}>
+                      <ItemEmojiAvatar emoji={item.emoji} size="md" />
+                      <Text style={styles.catalogName} numberOfLines={2}>
+                        {item.canonicalName}
+                      </Text>
+                      {item.catalogPrice != null && (
+                        <Text style={styles.catalogPrice}>{formatCurrency(item.catalogPrice)}</Text>
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
         </View>
       )}
     </View>
@@ -208,22 +286,57 @@ const styles = StyleSheet.create({
     backgroundColor: SmartCartColors.background,
     marginBottom: 10,
   },
+  selectionPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: SmartCartColors.badge,
+    borderRadius: SmartCartRadius.md,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: SmartCartColors.primaryMuted,
+  },
+  selectionBody: { flex: 1 },
+  selectionName: { fontSize: 16, fontWeight: '700', color: SmartCartColors.text },
+  selectionHint: { fontSize: 12, color: SmartCartColors.textMuted, marginTop: 2 },
+  clearBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: SmartCartColors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearBtnText: { fontSize: 14, color: SmartCartColors.textMuted, fontWeight: '700' },
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: SmartCartRadius.pill,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    backgroundColor: SmartCartColors.background,
+  },
+  filterPillActive: {
+    borderColor: SmartCartColors.primary,
+    backgroundColor: SmartCartColors.badge,
+  },
+  filterText: { fontSize: 12, fontWeight: '600', color: SmartCartColors.textSecondary },
+  filterTextActive: { color: SmartCartColors.primaryDark },
   chipRow: { gap: 8, paddingBottom: 10 },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
     backgroundColor: SmartCartColors.badge,
     borderRadius: SmartCartRadius.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: 'transparent',
   },
-  chipActive: { borderColor: SmartCartColors.primary, backgroundColor: SmartCartColors.primaryMuted },
-  chipEmoji: { fontSize: 14 },
   chipText: { fontSize: 12, fontWeight: '600', color: SmartCartColors.primaryDark },
-  chipTextActive: { color: SmartCartColors.primaryDark },
   lastSeenCard: {
     backgroundColor: SmartCartColors.badge,
     borderRadius: SmartCartRadius.sm,
@@ -249,7 +362,6 @@ const styles = StyleSheet.create({
     borderBottomColor: SmartCartColors.border,
     backgroundColor: SmartCartColors.card,
   },
-  resultImage: { width: 36, height: 36, borderRadius: 8 },
   resultBody: { flex: 1 },
   resultName: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text },
   resultMeta: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },
@@ -260,6 +372,31 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   sourceBadgeText: { fontSize: 10, fontWeight: '700', color: SmartCartColors.textMuted },
+  catalogSection: { marginTop: 4, marginBottom: 8 },
+  catalogTitle: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  catalogSubtitle: { fontSize: 12, color: SmartCartColors.textMuted, marginTop: 2, marginBottom: 12 },
+  categoryBlock: { marginBottom: 14 },
+  categoryLabel: { fontSize: 13, fontWeight: '700', color: SmartCartColors.primaryDark, marginBottom: 8 },
+  catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  catalogTile: {
+    width: '31%',
+    minWidth: 96,
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.sm,
+    padding: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+  },
+  catalogName: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: SmartCartColors.text,
+    textAlign: 'center',
+    marginTop: 6,
+    minHeight: 28,
+  },
+  catalogPrice: { fontSize: 10, color: SmartCartColors.primaryMid, fontWeight: '600', marginTop: 2 },
   priceInputRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   currencyPrefix: { fontSize: 18, fontWeight: '700', color: SmartCartColors.text, marginRight: 6 },
   priceInput: { flex: 1, marginBottom: 0 },
