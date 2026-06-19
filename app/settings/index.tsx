@@ -54,6 +54,7 @@ export default function SettingsScreen() {
   const [notifyPriceAlerts, setNotifyPriceAlerts] = useState(true);
   const [notifyBudgetAlerts, setNotifyBudgetAlerts] = useState(true);
   const [enhancedCloudOcr, setEnhancedCloudOcr] = useState(false);
+  const [aiReceiptCleanup, setAiReceiptCleanup] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -65,6 +66,7 @@ export default function SettingsScreen() {
       setNotifyPriceAlerts(s.notifyPriceAlerts);
       setNotifyBudgetAlerts(s.notifyBudgetAlerts);
       setEnhancedCloudOcr(s.enhancedCloudOcr);
+      setAiReceiptCleanup(s.aiReceiptCleanup);
     }
     setLoading(false);
   }, [loadSettings]);
@@ -81,6 +83,7 @@ export default function SettingsScreen() {
         notifyPriceAlerts,
         notifyBudgetAlerts,
         enhancedCloudOcr,
+        aiReceiptCleanup,
       });
       await refreshScheduledNotifications();
     } finally {
@@ -163,6 +166,23 @@ export default function SettingsScreen() {
             <Switch
               value={enhancedCloudOcr}
               onValueChange={setEnhancedCloudOcr}
+              trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
+              thumbColor="#fff"
+            />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>AI receipt scan (ChatGPT)</Text>
+              <Text style={styles.toggleHint}>
+                Sends the receipt photo to ChatGPT vision, then double-checks with OCR.space
+                text and a second AI audit pass for missing items and wrong prices. Requires
+                OPENAI_API_KEY and OCR_SPACE_API_KEY on the server.
+              </Text>
+            </View>
+            <Switch
+              value={aiReceiptCleanup}
+              onValueChange={setAiReceiptCleanup}
               trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
               thumbColor="#fff"
             />

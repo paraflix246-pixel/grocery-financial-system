@@ -161,6 +161,13 @@ async function migrateSchema(db: SQLite.SQLiteDatabase, fromVersion: number): Pr
       await db.execAsync('ALTER TABLE app_settings ADD COLUMN enhanced_cloud_ocr INTEGER NOT NULL DEFAULT 0');
     }
   }
+  if (fromVersion < 8) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(app_settings)');
+    const hasAiReceiptCleanup = columns.some((column) => column.name === 'ai_receipt_cleanup');
+    if (!hasAiReceiptCleanup) {
+      await db.execAsync('ALTER TABLE app_settings ADD COLUMN ai_receipt_cleanup INTEGER NOT NULL DEFAULT 1');
+    }
+  }
 }
 
 function parseCategoryLimits(raw: unknown, weeklyBudget: number): CategoryLimits | undefined {
@@ -742,6 +749,8 @@ function mapAppSettings(row: Record<string, unknown>): AppSettings {
     notifyPriceAlerts: Boolean(row.notify_price_alerts),
     notifyBudgetAlerts: Boolean(row.notify_budget_alerts),
     enhancedCloudOcr: Boolean(row.enhanced_cloud_ocr),
+    aiReceiptCleanup:
+      row.ai_receipt_cleanup == null ? true : Boolean(row.ai_receipt_cleanup),
     updatedAt: row.updated_at as string,
   };
 }
@@ -769,15 +778,17 @@ export async function updateAppSettings(
     notifyPriceAlerts: partial.notifyPriceAlerts ?? existing.notifyPriceAlerts,
     notifyBudgetAlerts: partial.notifyBudgetAlerts ?? existing.notifyBudgetAlerts,
     enhancedCloudOcr: partial.enhancedCloudOcr ?? existing.enhancedCloudOcr,
+    aiReceiptCleanup: partial.aiReceiptCleanup ?? existing.aiReceiptCleanup,
     updatedAt: now,
   };
   await db.runAsync(
-    'UPDATE app_settings SET display_name = ?, notify_price_alerts = ?, notify_budget_alerts = ?, enhanced_cloud_ocr = ?, updated_at = ? WHERE id = ?',
+    'UPDATE app_settings SET display_name = ?, notify_price_alerts = ?, notify_budget_alerts = ?, enhanced_cloud_ocr = ?, ai_receipt_cleanup = ?, updated_at = ? WHERE id = ?',
     [
       next.displayName,
       next.notifyPriceAlerts ? 1 : 0,
       next.notifyBudgetAlerts ? 1 : 0,
       next.enhancedCloudOcr ? 1 : 0,
+      next.aiReceiptCleanup ? 1 : 0,
       now,
       existing.id,
     ]

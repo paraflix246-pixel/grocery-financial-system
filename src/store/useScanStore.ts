@@ -2,8 +2,9 @@ import { create } from 'zustand';
 
 import type { ParsedReceiptDraft, Receipt } from '@/src/models/types';
 import type { OcrSource } from '@/src/services/ocrTypes';
+import type { ReceiptParseMethod } from '@/src/services/receiptAiCleanup';
 import type { ReceiptParseWarning } from '@/src/utils/receiptValidation';
-import { normalizeReceiptTotalsForSave } from '@/src/utils/receiptTotals';
+import { computeReceiptTotals } from '@/src/utils/receiptTotals';
 
 type ScanStore = {
   imageUri: string | null;
@@ -12,10 +13,17 @@ type ScanStore = {
   editingReceiptId: string | null;
   ocrSource: OcrSource | null;
   ocrConfidence: number | null;
+  parseMethod: ReceiptParseMethod | null;
+  parseVerified: boolean;
   parseWarnings: ReceiptParseWarning[];
   setImageUri: (uri: string) => void;
   setRawOcrText: (text: string) => void;
-  setOcrMeta: (meta: { source: OcrSource; confidence?: number }) => void;
+  setOcrMeta: (meta: {
+    source: OcrSource;
+    confidence?: number;
+    parseMethod?: ReceiptParseMethod;
+    parseVerified?: boolean;
+  }) => void;
   setParseWarnings: (warnings: ReceiptParseWarning[]) => void;
   setDraft: (draft: ParsedReceiptDraft) => void;
   loadReceiptForEdit: (receipt: Receipt) => void;
@@ -35,7 +43,12 @@ const emptyDraft = (): ParsedReceiptDraft => ({
 });
 
 function withSyncedTotals(draft: ParsedReceiptDraft): ParsedReceiptDraft {
-  const totals = normalizeReceiptTotalsForSave(draft.items, draft.tax);
+  const totals = computeReceiptTotals({
+    items: draft.items,
+    subtotal: draft.subtotal,
+    tax: draft.tax,
+    total: draft.total,
+  });
   return { ...draft, ...totals };
 }
 
@@ -46,12 +59,19 @@ export const useScanStore = create<ScanStore>((set, get) => ({
   editingReceiptId: null,
   ocrSource: null,
   ocrConfidence: null,
+  parseMethod: null,
+  parseVerified: false,
   parseWarnings: [],
 
   setImageUri: (uri) => set({ imageUri: uri }),
   setRawOcrText: (text) => set({ rawOcrText: text }),
-  setOcrMeta: ({ source, confidence }) =>
-    set({ ocrSource: source, ocrConfidence: confidence ?? null }),
+  setOcrMeta: ({ source, confidence, parseMethod, parseVerified }) =>
+    set({
+      ocrSource: source,
+      ocrConfidence: confidence ?? null,
+      parseMethod: parseMethod ?? null,
+      parseVerified: parseVerified ?? false,
+    }),
   setParseWarnings: (warnings) => set({ parseWarnings: warnings }),
   setDraft: (draft) => set({ draft: withSyncedTotals(draft), editingReceiptId: null }),
 
@@ -62,6 +82,8 @@ export const useScanStore = create<ScanStore>((set, get) => ({
       rawOcrText: '',
       ocrSource: null,
       ocrConfidence: null,
+      parseMethod: null,
+      parseVerified: false,
       parseWarnings: [],
       draft: withSyncedTotals({
         storeName: receipt.storeName,
@@ -114,6 +136,8 @@ export const useScanStore = create<ScanStore>((set, get) => ({
       editingReceiptId: null,
       ocrSource: null,
       ocrConfidence: null,
+      parseMethod: null,
+      parseVerified: false,
       parseWarnings: [],
     }),
 
@@ -124,6 +148,8 @@ export const useScanStore = create<ScanStore>((set, get) => ({
       editingReceiptId: null,
       ocrSource: null,
       ocrConfidence: null,
+      parseMethod: null,
+      parseVerified: false,
       parseWarnings: [],
       draft: emptyDraft(),
     }),

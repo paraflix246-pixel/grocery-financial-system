@@ -20,8 +20,7 @@ import {
 
 import { BackButton } from '@/src/components/BackButton';
 import { CameraOverlay } from '@/src/components/CameraOverlay';
-import { recognizeTextFromImageDetailed } from '@/src/services/ocrService';
-import { parseReceiptFromOcr } from '@/src/services/receiptParserStructured';
+import { scanReceiptFromImage, shouldOpenPreview } from '@/src/services/receiptParsePipeline';
 import { useScanStore } from '@/src/store/useScanStore';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
@@ -44,14 +43,23 @@ export default function ScanScreen() {
       setProcessing(true);
       try {
         setImageUri(uri);
-        const ocrResult = await recognizeTextFromImageDetailed(uri);
-        const { text, source, confidence } = ocrResult;
-        setOcrMeta({ source, confidence });
-        setRawOcrText(text);
-        const draft = parseReceiptFromOcr(ocrResult);
+        const result = await scanReceiptFromImage(uri);
+        const { draft, parseMethod, ocrResult } = result;
+        setOcrMeta({
+          source: ocrResult.source,
+          confidence: ocrResult.confidence,
+          parseMethod,
+          parseVerified: result.parseVerified,
+        });
+        setRawOcrText(ocrResult.text);
         setDraft(draft);
-        setParseWarnings(validateParsedReceipt(draft, { ocrSource: source, ocrConfidence: confidence }));
-        router.push(source === 'empty' ? '/receipt/edit' : '/receipt/preview');
+        setParseWarnings(
+          validateParsedReceipt(draft, {
+            ocrSource: ocrResult.source,
+            ocrConfidence: ocrResult.confidence,
+          })
+        );
+        router.push(shouldOpenPreview(result) ? '/receipt/preview' : '/receipt/edit');
       } finally {
         setProcessing(false);
       }
@@ -76,7 +84,7 @@ export default function ScanScreen() {
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
       await processImage(result.assets[0].uri);

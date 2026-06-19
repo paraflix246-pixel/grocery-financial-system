@@ -1,6 +1,6 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
 import type { OcrSource } from '@/src/services/ocrTypes';
-import { computeItemsSubtotal } from '@/src/utils/receiptTotals';
+import { computeItemsSubtotal, computeReceiptTotals } from '@/src/utils/receiptTotals';
 
 export type ReceiptParseWarning =
   | 'ocr_fallback'
@@ -27,8 +27,10 @@ export function validateParsedReceipt(
 
   if (draft.items.length > 0 && draft.total > 0) {
     const itemsSum = computeItemsSubtotal(draft.items);
-    const expected = draft.subtotal != null && draft.subtotal > 0 ? draft.subtotal : draft.total;
-    if (Math.abs(itemsSum - expected) > 0.05 && Math.abs(itemsSum - draft.total) > 0.05) {
+    const resolved = computeReceiptTotals(draft);
+    const matchesTotal = Math.abs(itemsSum - resolved.total) <= 0.1;
+    const matchesBreakdown = Math.abs(resolved.subtotal + resolved.tax - resolved.total) <= 0.05;
+    if (!matchesTotal && !matchesBreakdown) {
       warnings.push('items_total_mismatch');
     }
   }

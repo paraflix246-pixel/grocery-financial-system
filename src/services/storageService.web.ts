@@ -89,9 +89,11 @@ async function loadStore(): Promise<void> {
           notifyPriceAlerts: true,
           notifyBudgetAlerts: true,
           enhancedCloudOcr: false,
+          aiReceiptCleanup: true,
           updatedAt: new Date().toISOString(),
         }),
         enhancedCloudOcr: parsed.appSettings?.enhancedCloudOcr ?? false,
+        aiReceiptCleanup: parsed.appSettings?.aiReceiptCleanup ?? true,
       },
       customStores: parsed.customStores ?? [],
       priceAlertRules: parsed.priceAlertRules ?? [],
@@ -124,6 +126,7 @@ async function loadStore(): Promise<void> {
       notifyPriceAlerts: true,
       notifyBudgetAlerts: true,
       enhancedCloudOcr: false,
+      aiReceiptCleanup: true,
       updatedAt: now,
     },
     customStores: [],
@@ -542,6 +545,7 @@ export async function updateAppSettings(
     notifyPriceAlerts: partial.notifyPriceAlerts ?? data.appSettings.notifyPriceAlerts,
     notifyBudgetAlerts: partial.notifyBudgetAlerts ?? data.appSettings.notifyBudgetAlerts,
     enhancedCloudOcr: partial.enhancedCloudOcr ?? data.appSettings.enhancedCloudOcr,
+    aiReceiptCleanup: partial.aiReceiptCleanup ?? data.appSettings.aiReceiptCleanup,
     updatedAt: now,
   };
   await persist();

@@ -1,7 +1,8 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
+import { cleanReceiptItemNames } from '@/src/utils/receiptDraftNormalizer';
 import { computeItemsSubtotal, computeReceiptTotals } from '@/src/utils/receiptTotals';
 import { guessDateFromText, todayISO } from '@/src/utils/dateParser';
-import { parseLineEndPrice, parsePrice } from '@/src/utils/priceParser';
+import { parseLineEndPrice, parsePrice, roundMoney } from '@/src/utils/priceParser';
 import { cleanOcrLine } from '@/src/utils/textCleaner';
 
 const SUBTOTAL_KEYWORDS = ['subtotal', 'sub total', 'sub-total', 'merchandise'];
@@ -56,6 +57,14 @@ const SKIP_LINE_PATTERNS = [
   /^\*\*\*/,
   /^-{3,}/,
   /^={3,}/,
+  /\bcard ending\b/i,
+  /\binterac\b/i,
+  /\bvisa debit\b/i,
+  /\bmastercard debit\b/i,
+  /^paid with\b/i,
+  /^approved\b/i,
+  /^change due\b/i,
+  /^only\s+\$/i,
 ];
 
 function isSummaryKeyword(lower: string, keywords: string[]): boolean {
@@ -74,8 +83,18 @@ function isTaxLine(lower: string): boolean {
 function isTotalLine(lower: string): boolean {
   if (isSubtotalLine(lower)) return false;
   if (isTaxLine(lower)) return false;
+  if (/^otal\b/.test(lower)) return true;
   if (/\btotal\b/.test(lower)) return true;
   return TOTAL_KEYWORDS.filter((k) => k !== 'total').some((k) => lower.includes(k));
+}
+
+function cleanItemName(name: string): string {
+  return name
+    .replace(/\s+H\s*$/i, '')
+    .replace(/\s+_\s*$/g, '')
+    .replace(/^\.+\s*/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function shouldSkipLine(line: string): boolean {
@@ -134,28 +153,101 @@ function detectStoreName(lines: string[]): string {
   return bestName;
 }
 
+function stripLineEndPrice(line: string): string {
+  return line
+    .replace(/\$?\s*\d+\.\d{2}\s*(?:H|_)?\s*$/i, '')
+    .replace(/\$?\s*\d+\.\d{1,2}\s*(?:H|_)?\s*$/i, '')
+    .trim();
+}
+
 function parseItemLine(line: string): { name: string; price: number; quantity: number } | null {
-  const qtyAtPrice = line.match(/^(.+?)\s+(\d+)\s*[@xX]\s*\$?\s*(\d+\.\d{2})\s*$/);
+  const qtyAtPrice = line.match(
+    /^(.+?)\s+(\d+)\s*[@xX]\s*\$?\s*(\d+\.\d{1,2})\s*(?:H|_)?\s*$/i
+  );
   if (qtyAtPrice) {
     const quantity = parseInt(qtyAtPrice[2], 10);
-    const unitPrice = parseFloat(qtyAtPrice[3]);
+    const unitPrice = parseLineEndPrice(qtyAtPrice[3]) ?? 0;
     const name = qtyAtPrice[1].trim();
-    if (name.length > 0 && quantity > 0) {
-      return { name, price: unitPrice * quantity, quantity: 1 };
+    if (name.length > 0 && quantity > 0 && unitPrice > 0) {
+      return { name, price: roundMoney(unitPrice * quantity), quantity: 1 };
+    }
+  }
+
+  const qtySuffix = line.match(/^(.+?)\s+QTY\s+(\d+)\s+\$?\s*(\d+\.\d{1,2})\s*(?:H|_)?\s*$/i);
+  if (qtySuffix) {
+    const quantity = parseInt(qtySuffix[2], 10);
+    const linePrice = parseLineEndPrice(qtySuffix[3]) ?? 0;
+    const name = qtySuffix[1].trim();
+    if (name.length > 0 && quantity > 0 && linePrice > 0) {
+      return { name, price: linePrice, quantity };
     }
   }
 
   const price = parseLineEndPrice(line);
   if (price == null) return null;
 
-  const namePart = line.replace(/\$?\s*\d+\.\d{2}\s*$/, '').trim();
+  const namePart = cleanItemName(stripLineEndPrice(line));
   if (namePart.length < 2) return null;
   if (/^\d+$/.test(namePart.replace(/\s/g, ''))) return null;
+  if (/^otal$/i.test(namePart)) return null;
   if (isSummaryKeyword(namePart.toLowerCase(), [...SUBTOTAL_KEYWORDS, ...TAX_KEYWORDS, ...TOTAL_KEYWORDS])) {
     return null;
   }
 
   return { name: namePart, price, quantity: 1 };
+}
+
+function hasLinePrice(line: string): boolean {
+  return parseLineEndPrice(line) != null;
+}
+
+function isPriceOnlyLine(line: string): boolean {
+  if (!hasLinePrice(line)) return false;
+  const namePart = cleanItemName(stripLineEndPrice(line));
+  return namePart.length < 2;
+}
+
+function looksLikePendingItemName(line: string): boolean {
+  if (line.length < 2) return false;
+  if (hasLinePrice(line)) return false;
+  if (shouldSkipLine(line)) return false;
+  if (guessDateFromText(line)) return false;
+  if (isAddressOrPhoneLine(line)) return false;
+
+  const lower = line.toLowerCase();
+  if (isSubtotalLine(lower) || isTaxLine(lower) || isTotalLine(lower)) return false;
+  if (/^\d+$/.test(line.replace(/\s/g, ''))) return false;
+
+  const alphaChars = (line.match(/[a-zA-Z]/g) ?? []).length;
+  return alphaChars >= 2;
+}
+
+function parseWithPendingName(
+  pendingName: string | null,
+  line: string
+): { item: { name: string; price: number; quantity: number } | null; usedPending: boolean } {
+  if (!pendingName) {
+    return { item: parseItemLine(line), usedPending: false };
+  }
+
+  if (isPriceOnlyLine(line)) {
+    const combined = parseItemLine(`${pendingName} ${line}`);
+    if (combined) {
+      return { item: combined, usedPending: true };
+    }
+  }
+
+  const direct = parseItemLine(line);
+  if (direct && (direct.name.length >= 3 || !isPriceOnlyLine(line))) {
+    return { item: direct, usedPending: false };
+  }
+
+  const combined = parseItemLine(`${pendingName} ${line}`);
+  if (combined) {
+    return { item: combined, usedPending: true };
+  }
+
+  return { item: direct, usedPending: false };
 }
 
 export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
@@ -165,41 +257,62 @@ export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
   let tax: number | undefined;
   let total = 0;
   const items: ParsedReceiptDraft['items'] = [];
+  let pendingItemName: string | null = null;
 
   for (const line of lines) {
     const lower = line.toLowerCase();
 
-    if (shouldSkipLine(line)) continue;
+    if (shouldSkipLine(line)) {
+      pendingItemName = null;
+      continue;
+    }
 
     const guessed = guessDateFromText(line);
     if (guessed) {
       date = guessed;
+      pendingItemName = null;
       continue;
     }
 
     if (isSubtotalLine(lower)) {
       subtotal = parseLineEndPrice(line) ?? parsePrice(line) ?? subtotal;
+      pendingItemName = null;
       continue;
     }
     if (isTaxLine(lower)) {
       tax = parseLineEndPrice(line) ?? parsePrice(line) ?? tax;
+      pendingItemName = null;
       continue;
     }
     if (isTotalLine(lower)) {
       total = parseLineEndPrice(line) ?? parsePrice(line) ?? total;
+      pendingItemName = null;
       continue;
     }
 
-    const item = parseItemLine(line);
-    if (item) items.push(item);
+    const { item, usedPending } = parseWithPendingName(pendingItemName, line);
+    if (item) {
+      items.push(item);
+      pendingItemName = usedPending ? null : pendingItemName;
+      if (!usedPending) pendingItemName = null;
+      continue;
+    }
+
+    if (looksLikePendingItemName(line)) {
+      pendingItemName = pendingItemName ? `${pendingItemName} ${line}` : line;
+    } else {
+      pendingItemName = null;
+    }
   }
 
   if (subtotal == null && items.length > 0) {
     subtotal = computeItemsSubtotal(items);
   }
 
+  const normalizedItems = cleanReceiptItemNames(items);
+
   const { subtotal: resolvedSubtotal, tax: resolvedTax, total: resolvedTotal } = computeReceiptTotals({
-    items,
+    items: normalizedItems,
     subtotal,
     tax,
     total,
@@ -211,7 +324,7 @@ export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
     subtotal: resolvedSubtotal,
     tax: resolvedTax,
     total: resolvedTotal,
-    items,
+    items: normalizedItems,
   };
 }
 

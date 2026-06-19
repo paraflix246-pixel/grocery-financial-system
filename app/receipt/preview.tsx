@@ -9,12 +9,13 @@ import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
-import { ocrSourceLabel } from '@/src/utils/ocrLabels';
+import { extractionLabel } from '@/src/utils/ocrLabels';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 export default function ReceiptPreviewScreen() {
   const router = useRouter();
-  const { draft, updateDraftItem, ocrSource, ocrConfidence } = useScanStore();
+  const { draft, updateDraftItem, ocrSource, ocrConfidence, parseMethod, parseVerified } =
+    useScanStore();
 
   const warnings = useMemo(
     () =>
@@ -50,8 +51,12 @@ export default function ReceiptPreviewScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <ReceiptScanWarnings warnings={warnings} onEdit={goToEdit} />
-        {ocrSource && ocrSource !== 'empty' && (
-          <Text style={styles.ocrSource}>Extracted via {ocrSourceLabel(ocrSource)}</Text>
+        {(parseMethod === 'openai' ||
+          parseMethod === 'deepseek' ||
+          (ocrSource && ocrSource !== 'empty')) && (
+          <Text style={styles.ocrSource}>
+            Extracted via {extractionLabel(ocrSource, parseMethod, parseVerified)}
+          </Text>
         )}
 
         <View style={styles.storeRow}>
@@ -99,7 +104,7 @@ export default function ReceiptPreviewScreen() {
               />
               <TextInput
                 style={styles.itemPrice}
-                value={String(item.price)}
+                value={item.price > 0 ? item.price.toFixed(2) : ''}
                 onChangeText={(v) => updateDraftItem(index, { price: parseFloat(v) || 0 })}
                 keyboardType="decimal-pad"
               />

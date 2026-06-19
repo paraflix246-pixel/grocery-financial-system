@@ -96,6 +96,7 @@ export type AppSettings = {
   notifyPriceAlerts: boolean;
   notifyBudgetAlerts: boolean;
   enhancedCloudOcr: boolean;
+  aiReceiptCleanup: boolean;
   updatedAt: string;
 };
 

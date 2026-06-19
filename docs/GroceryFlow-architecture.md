@@ -13,7 +13,7 @@ SmartCart (Grocery Financial System) is a local-first Expo React Native app for 
 | State | Zustand stores |
 | Storage | expo-sqlite / web JSON fallback |
 | Charts | react-native-gifted-charts |
-| OCR | ML Kit (native), Tesseract.js (web), optional Google Cloud Vision |
+| OCR | ML Kit (native), Tesseract.js (web), OCR.space, optional DeepSeek cleanup |
 
 ## Directory Structure
 
@@ -56,7 +56,7 @@ User action (scan, save receipt, edit list)
 
 1. **Capture** — Camera or image picker (`scan.tsx` / `scan.web.tsx`)
 2. **OCR** — `ocr/ocrProvider.ts` orchestrates on-device OCR then optional cloud fallback
-3. **Parse** — `receiptParserStructured.ts` (structured lines) → `ParsedReceiptDraft`
+3. **Parse** — `receiptParserStructured.ts` → rule-based draft, optional `receiptParsePipeline.ts` → DeepSeek cleanup
 4. **Review** — `receipt/preview.tsx`, `receipt/edit.tsx`, `receipt/manual.tsx`
 5. **Save** — `storageService.saveReceipt()` → contributes to community price cache
 6. **Link** — Optional link to shopping list → `matchingService` → comparison
@@ -66,12 +66,15 @@ User action (scan, save receipt, edit list)
 ```mermaid
 flowchart TD
   image[ReceiptImage] --> onDevice[onDeviceOcr native or web]
-  onDevice -->|confidence OK| parse[receiptParserStructured]
+  onDevice -->|confidence OK| rules[receiptParser rules]
   onDevice -->|low or empty| cloudToggle{enhancedCloudOcr?}
-  cloudToggle -->|yes| vision[app/api/ocr Google Vision]
-  cloudToggle -->|no| manual[Edit with warnings]
-  vision --> parse
-  parse --> preview[preview / edit]
+  cloudToggle -->|yes| cloudOcr[app/api/ocr OCR.space or Vision]
+  cloudToggle -->|no| rules
+  cloudOcr --> rules
+  rules --> aiToggle{aiReceiptCleanup?}
+  aiToggle -->|yes| deepseek[app/api/receipt-parse DeepSeek]
+  aiToggle -->|no| preview[preview / edit]
+  deepseek --> preview
 ```
 
 | Tier | Module | Platform |
@@ -79,7 +82,8 @@ flowchart TD
 | On-device | `onDeviceOcr.native.ts` (ML Kit) | iOS / Android dev build |
 | On-device | `onDeviceOcr.web.ts` (Tesseract multi-PSM) | Web |
 | Cloud fallback | `ocr/cloudVisionProvider.ts` → `app/api/ocr+api.ts` | Web + native when `EXPO_PUBLIC_OCR_API_URL` set |
-| Parse | `receiptParser.ts`, `receiptParserStructured.ts` | All |
+| Rule parse | `receiptParser.ts`, `receiptParserStructured.ts` | All |
+| AI cleanup | `receiptParsePipeline.ts` → `app/api/receipt-parse+api.ts` | Web + native when `EXPO_PUBLIC_RECEIPT_PARSE_API_URL` set |
 
 ### Native ML Kit testing (dev build required)
 
@@ -113,6 +117,24 @@ Set `GOOGLE_CLOUD_VISION_API_KEY` instead (used if OCR.space fails or is unset).
 For native builds pointing at a deployed API, set `EXPO_PUBLIC_OCR_API_URL=https://your-host/api/ocr`.
 
 **Privacy:** Cloud OCR only runs when the user enables the toggle. Images are sent for text extraction only; structured receipt data stays local after parse.
+
+### AI receipt cleanup (recommended)
+
+Uses **ChatGPT vision** (`gpt-4o-mini` by default) to read the receipt image and extract items, names, and totals.
+
+1. Get an API key from [OpenAI](https://platform.openai.com/api-keys)
+2. Add to `.env`:
+   ```
+   OPENAI_API_KEY=your_key_here
+   ```
+3. Run web dev server: `npm run web`
+4. In app **Settings → AI receipt cleanup** toggle ON (default ON)
+
+Preview shows **AI scan (ChatGPT)** when vision parsing succeeds. Optional fallback: `DEEPSEEK_API_KEY` for text-only cleanup.
+
+**Privacy:** Receipt image is sent to OpenAI when AI cleanup is enabled.
+
+For native builds, set `EXPO_PUBLIC_RECEIPT_PARSE_API_URL=https://your-host/api/receipt-parse`.
 
 ### Future receipt APIs (Phase 3 evaluation)
 

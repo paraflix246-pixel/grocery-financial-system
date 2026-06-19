@@ -104,7 +104,12 @@ export default function EditReceiptScreen() {
   }
 
   const handleSave = async () => {
-    const totals = normalizeReceiptTotalsForSave(draft.items, draft.tax);
+    const totals = normalizeReceiptTotalsForSave(
+      draft.items,
+      draft.tax,
+      draft.total,
+      draft.subtotal
+    );
     const duplicate = await findDuplicateReceipt(
       draft.storeName,
       draft.date,
@@ -220,7 +225,7 @@ export default function EditReceiptScreen() {
             />
             <TextInput
               style={styles.itemPrice}
-              value={String(item.price)}
+              value={item.price > 0 ? item.price.toFixed(2) : ''}
               onChangeText={(v) => updateDraftItem(index, { price: parseFloat(v) || 0 })}
               keyboardType="decimal-pad"
             />

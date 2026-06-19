@@ -13,37 +13,43 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/src/components/AppHeader';
-import { recognizeTextFromImageDetailed } from '@/src/services/ocrService';
-import type { OcrSource } from '@/src/services/ocrTypes';
-import { parseReceiptFromOcr } from '@/src/services/receiptParserStructured';
+import { scanReceiptFromImage, shouldOpenPreview } from '@/src/services/receiptParsePipeline';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
-import { ocrProcessingHint } from '@/src/utils/ocrLabels';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 
 export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [processing, setProcessing] = useState(false);
-  const [ocrSource, setOcrSource] = useState<OcrSource | null>(null);
+  const [processingLabel, setProcessingLabel] = useState('Scanning receipt with ChatGPT...');
   const { setImageUri, setRawOcrText, setDraft, setOcrMeta, setParseWarnings, reset, startManualEntry } =
     useScanStore();
 
   const processImage = useCallback(
     async (uri: string) => {
       setProcessing(true);
+      setProcessingLabel('Scanning receipt with ChatGPT...');
       try {
         reset();
         setImageUri(uri);
-        const ocrResult = await recognizeTextFromImageDetailed(uri);
-        const { text, source, confidence } = ocrResult;
-        setOcrSource(source);
-        setOcrMeta({ source, confidence });
-        setRawOcrText(text);
-        const draft = parseReceiptFromOcr(ocrResult);
+        const result = await scanReceiptFromImage(uri);
+        const { draft, parseMethod, ocrResult } = result;
+        setRawOcrText(ocrResult.text);
         setDraft(draft);
-        setParseWarnings(validateParsedReceipt(draft, { ocrSource: source, ocrConfidence: confidence }));
-        router.push(source === 'empty' ? '/receipt/edit' : '/receipt/preview');
+        setOcrMeta({
+          source: ocrResult.source,
+          confidence: ocrResult.confidence,
+          parseMethod,
+          parseVerified: result.parseVerified,
+        });
+        setParseWarnings(
+          validateParsedReceipt(draft, {
+            ocrSource: ocrResult.source,
+            ocrConfidence: ocrResult.confidence,
+          })
+        );
+        router.push(shouldOpenPreview(result) ? '/receipt/preview' : '/receipt/edit');
       } finally {
         setProcessing(false);
       }
@@ -54,7 +60,7 @@ export default function ScanScreen() {
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
+      quality: 1,
     });
     if (!result.canceled && result.assets[0]) {
       await processImage(result.assets[0].uri);
@@ -69,8 +75,10 @@ export default function ScanScreen() {
         </View>
         <View style={styles.center}>
           <ActivityIndicator size="large" color={SmartCartColors.primary} />
-          <Text style={styles.processingText}>Processing receipt...</Text>
-          <Text style={styles.processingHint}>{ocrProcessingHint(ocrSource)}</Text>
+          <Text style={styles.processingText}>{processingLabel}</Text>
+          <Text style={styles.processingHint}>
+            ChatGPT + OCR.space double-check — review before saving
+          </Text>
         </View>
       </View>
     );
