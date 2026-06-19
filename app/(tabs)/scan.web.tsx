@@ -4,34 +4,31 @@ import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CameraOverlay } from '@/src/components/CameraOverlay';
 import { AppHeader } from '@/src/components/AppHeader';
 import { recognizeTextFromImage } from '@/src/services/ocrService.web';
 import { parseReceiptText } from '@/src/services/receiptParser';
 import { useScanStore } from '@/src/store/useScanStore';
-import { SmartCartColors } from '@/src/theme/smartCart';
-
-const TAB_BAR_HEIGHT = 72;
+import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
 export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [processing, setProcessing] = useState(false);
-  const [flashOn, setFlashOn] = useState(false);
-  const { setImageUri, setRawOcrText, setDraft } = useScanStore();
+  const { setImageUri, setRawOcrText, setDraft, reset } = useScanStore();
 
   const processImage = useCallback(
     async (uri: string) => {
       setProcessing(true);
       try {
+        reset();
         setImageUri(uri);
         const text = await recognizeTextFromImage(uri);
         setRawOcrText(text);
@@ -42,7 +39,7 @@ export default function ScanScreen() {
         setProcessing(false);
       }
     },
-    [router, setDraft, setImageUri, setRawOcrText]
+    [reset, router, setDraft, setImageUri, setRawOcrText]
   );
 
   const pickImage = async () => {
@@ -58,96 +55,116 @@ export default function ScanScreen() {
   if (processing) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color={SmartCartColors.primary} />
         <Text style={styles.processingText}>Processing receipt...</Text>
+        <Text style={styles.processingHint}>Demo OCR — sample data from your upload</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.headerStrip, { paddingTop: insets.top + 8 }]}>
-        <AppHeader notificationCount={0} />
-      </View>
-      <View style={styles.viewfinder}>
-        <CameraOverlay />
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
+      <AppHeader notificationCount={0} />
+
+      <View style={styles.demoBanner}>
+        <SymbolView
+          name={{ ios: 'info.circle.fill', android: 'info', web: 'info' }}
+          tintColor={SmartCartColors.accentOrange}
+          size={18}
+        />
+        <Text style={styles.demoBannerText}>
+          Web demo mode — upload a receipt image. OCR uses sample store data keyed to your file (not real text recognition).
+        </Text>
       </View>
 
-      <View style={styles.topBar}>
-        <Pressable style={styles.topBtn} onPress={() => router.back()}>
-          <SymbolView name={{ ios: 'xmark', android: 'close', web: 'close' }} tintColor="#fff" size={22} />
-        </Pressable>
-        <Pressable style={styles.topBtn} onPress={() => setFlashOn((f) => !f)}>
-          <SymbolView name={{ ios: 'bolt.slash', android: 'flash_off', web: 'flash_off' }} tintColor="#fff" size={22} />
-        </Pressable>
-      </View>
+      <Text style={styles.title}>Upload Receipt</Text>
+      <Text style={styles.subtitle}>
+        Choose a photo from your gallery. On mobile, use the Scan tab for camera capture.
+      </Text>
 
-      <View
-        style={[styles.controls, { paddingBottom: insets.bottom + 24, bottom: TAB_BAR_HEIGHT }]}
-        pointerEvents="box-none">
-        <Pressable onPress={pickImage}>
-          <Text style={styles.retakeText}>Retake</Text>
-        </Pressable>
-        <Pressable style={styles.captureBtn} onPress={pickImage}>
-          <View style={styles.captureInner} />
-        </Pressable>
-        <Pressable onPress={() => setFlashOn((f) => !f)}>
-          <Text style={styles.flashText}>{flashOn ? 'Flash On' : 'Flash'}</Text>
-        </Pressable>
+      <Pressable
+        style={({ pressed }) => [styles.uploadCard, pressed && styles.uploadCardPressed]}
+        onPress={pickImage}
+        accessibilityRole="button"
+        accessibilityLabel="Choose receipt image from gallery">
+        <View style={styles.uploadIconWrap}>
+          <SymbolView
+            name={{ ios: 'photo.on.rectangle', android: 'photo_library', web: 'photo_library' }}
+            tintColor={SmartCartColors.primary}
+            size={36}
+          />
+        </View>
+        <Text style={styles.uploadTitle}>Choose from gallery</Text>
+        <Text style={styles.uploadHint}>JPG or PNG receipt photo</Text>
+      </Pressable>
+
+      <View style={styles.noteCard}>
+        <Text style={styles.noteTitle}>What happens next</Text>
+        <Text style={styles.noteBody}>
+          Your image is parsed into editable line items. Review totals, fix any mistakes, then save to track spending and price history.
+        </Text>
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
-  headerStrip: { paddingHorizontal: 16, backgroundColor: SmartCartColors.background },
-  viewfinder: { flex: 1, backgroundColor: '#1a1a1a' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#111' },
-  processingText: { marginTop: 16, color: '#fff', opacity: 0.7 },
-  topBar: {
-    position: 'absolute',
-    top: 72,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  topBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controls: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 32,
-  },
-  retakeText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  flashText: { color: '#fff', fontWeight: '600', fontSize: 15 },
-  captureBtn: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+  content: { paddingHorizontal: 16 },
+  center: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#fff',
+    backgroundColor: SmartCartColors.background,
+    padding: 24,
   },
-  captureInner: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: '#fff',
+  processingText: { marginTop: 16, color: SmartCartColors.text, fontWeight: '600', fontSize: 16 },
+  processingHint: { marginTop: 8, color: SmartCartColors.textSecondary, fontSize: 13, textAlign: 'center' },
+  demoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FFF7ED',
+    borderRadius: SmartCartRadius.sm,
+    padding: 12,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
   },
+  demoBannerText: { flex: 1, fontSize: 13, color: SmartCartColors.text, lineHeight: 18 },
+  title: { fontSize: 28, fontWeight: '800', color: SmartCartColors.text, letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 6, marginBottom: 24, lineHeight: 20 },
+  uploadCard: {
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.lg,
+    padding: 32,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: SmartCartColors.primary,
+    borderStyle: 'dashed',
+    marginBottom: 20,
+    ...SmartCartShadow.card,
+  },
+  uploadCardPressed: { opacity: 0.9, backgroundColor: SmartCartColors.badge },
+  uploadIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: SmartCartColors.badge,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  uploadTitle: { fontSize: 18, fontWeight: '700', color: SmartCartColors.text },
+  uploadHint: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 4 },
+  noteCard: {
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.md,
+    padding: 16,
+    ...SmartCartShadow.cardSoft,
+  },
+  noteTitle: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text, marginBottom: 6 },
+  noteBody: { fontSize: 13, color: SmartCartColors.textSecondary, lineHeight: 19 },
 });

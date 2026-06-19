@@ -27,7 +27,7 @@ const ACTIONS: Action[] = [
     color: SmartCartColors.primaryMid,
     bgLight: '#E8F5EE',
     bgDark: '#C8E6D4',
-    route: '/(tabs)/receipts',
+    route: '/price-alerts',
   },
   {
     id: 'lists',
@@ -45,7 +45,7 @@ const ACTIONS: Action[] = [
     color: SmartCartColors.accentBlue,
     bgLight: '#EFF6FF',
     bgDark: '#BFDBFE',
-    route: '/(tabs)/receipts',
+    route: '/stores',
   },
   {
     id: 'alerts',
@@ -54,7 +54,7 @@ const ACTIONS: Action[] = [
     color: SmartCartColors.accentOrange,
     bgLight: '#FFF7ED',
     bgDark: '#FED7AA',
-    route: '/(tabs)/receipts',
+    route: '/price-alerts',
   },
 ];
 

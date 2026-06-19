@@ -132,6 +132,8 @@ function RootLayoutNav() {
         <Stack.Screen name="receipt/link" options={{ title: 'Link to List' }} />
         <Stack.Screen name="receipt/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="settings/budget" options={{ headerShown: false }} />
+        <Stack.Screen name="price-alerts" options={{ headerShown: false }} />
+        <Stack.Screen name="stores" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

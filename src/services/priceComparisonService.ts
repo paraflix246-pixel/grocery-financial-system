@@ -46,8 +46,6 @@ export type StoreCartTotal = {
   isCheapest: boolean;
 };
 
-const DEMO_CART_ITEMS = ['milk', 'bananas', 'cereal', 'bread'];
-
 type StoreHistoryBucket = {
   prices: number[];
   dates: string[];
@@ -234,19 +232,9 @@ export async function getActiveListCheapestInsight(
 }
 
 export async function getStoreCartTotals(listItems: ListItem[]): Promise<StoreCartTotal[]> {
+  if (listItems.length === 0) return [];
+
   const allStores = await getAllStores();
-  const itemsToPrice =
-    listItems.length > 0
-      ? listItems
-      : DEMO_CART_ITEMS.map((name, index) => ({
-          id: `demo-${index}`,
-          listId: 'demo',
-          name,
-          expectedPrice: 0,
-          quantity: 1,
-          category: '',
-          sortOrder: index,
-        }));
 
   const storeNames = allStores.map((s) => s.name);
 
@@ -255,7 +243,7 @@ export async function getStoreCartTotals(listItems: ListItem[]): Promise<StoreCa
     storeTotals.set(store, 0);
   }
 
-  for (const item of itemsToPrice) {
+  for (const item of listItems) {
     const prices = await getStorePricesForItem(item.name);
     for (const store of storeNames) {
       const entry = prices.find((p) => p.store.toLowerCase() === store.toLowerCase());

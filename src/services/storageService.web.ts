@@ -13,6 +13,10 @@ import type {
   ReceiptItem,
 } from '@/src/models/types';
 import { generateId } from '@/src/utils/id';
+import {
+  isDuplicateReceiptTotal,
+  normalizeStoreForDuplicate,
+} from '@/src/utils/duplicateReceipt';
 
 const STORAGE_KEY = '@grocery_financial_web_data_v1';
 
@@ -270,6 +274,25 @@ export async function getReceiptItems(receiptId: string): Promise<ReceiptItem[]>
   return data.receiptItems.filter((item) => item.receiptId === receiptId);
 }
 
+export async function findDuplicateReceipt(
+  storeName: string,
+  date: string,
+  total: number,
+  excludeId?: string
+): Promise<Receipt | null> {
+  const data = await ensureLoaded();
+  const normalizedStore = normalizeStoreForDuplicate(storeName);
+  for (const receipt of data.receipts) {
+    if (excludeId && receipt.id === excludeId) continue;
+    if (receipt.date !== date) continue;
+    if (normalizeStoreForDuplicate(receipt.storeName) !== normalizedStore) continue;
+    if (isDuplicateReceiptTotal(receipt.total, total)) {
+      return receipt;
+    }
+  }
+  return null;
+}
+
 export async function saveReceipt(
   receipt: Omit<Receipt, 'createdAt' | 'updatedAt' | 'items'> & {
     items: Array<Omit<ReceiptItem, 'id' | 'receiptId'>>;
@@ -300,7 +323,7 @@ export async function saveReceipt(
 
 export async function updateReceipt(
   id: string,
-  receipt: Partial<Receipt> & { items?: Array<Omit<ReceiptItem, 'receiptId'>> }
+  receipt: Partial<Omit<Receipt, 'items'>> & { items?: Array<Omit<ReceiptItem, 'receiptId'>> }
 ): Promise<void> {
   const data = await ensureLoaded();
   const existing = await getReceiptById(id);

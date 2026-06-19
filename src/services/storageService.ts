@@ -14,6 +14,10 @@ import type {
 } from '@/src/models/types';
 import type { StoreDefinition } from '@/src/data/stores';
 import { generateId } from '@/src/utils/id';
+import {
+  isDuplicateReceiptTotal,
+  normalizeStoreForDuplicate,
+} from '@/src/utils/duplicateReceipt';
 
 type DbInitState = {
   instance: SQLite.SQLiteDatabase | null;
@@ -353,6 +357,26 @@ export async function getReceiptItems(receiptId: string): Promise<ReceiptItem[]>
   return rows.map((r) => mapReceiptItem(r as Record<string, unknown>));
 }
 
+export async function findDuplicateReceipt(
+  storeName: string,
+  date: string,
+  total: number,
+  excludeId?: string
+): Promise<Receipt | null> {
+  const db = await getDatabase();
+  const normalizedStore = normalizeStoreForDuplicate(storeName);
+  const rows = await db.getAllAsync('SELECT * FROM receipts WHERE date = ?', [date]);
+  for (const row of rows) {
+    const receipt = mapReceipt(row as Record<string, unknown>);
+    if (excludeId && receipt.id === excludeId) continue;
+    if (normalizeStoreForDuplicate(receipt.storeName) !== normalizedStore) continue;
+    if (isDuplicateReceiptTotal(receipt.total, total)) {
+      return receipt;
+    }
+  }
+  return null;
+}
+
 export async function saveReceipt(
   receipt: Omit<Receipt, 'createdAt' | 'updatedAt' | 'items'> & {
     items: Array<Omit<ReceiptItem, 'id' | 'receiptId'>>;
@@ -402,7 +426,7 @@ export async function saveReceipt(
 
 export async function updateReceipt(
   id: string,
-  receipt: Partial<Receipt> & { items?: Array<Omit<ReceiptItem, 'receiptId'>> }
+  receipt: Partial<Omit<Receipt, 'items'>> & { items?: Array<Omit<ReceiptItem, 'receiptId'>> }
 ): Promise<void> {
   const db = await getDatabase();
   const now = new Date().toISOString();

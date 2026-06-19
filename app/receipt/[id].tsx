@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Themed';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { getReceiptById } from '@/src/services/storageService';
+import { useScanStore } from '@/src/store/useScanStore';
 import { mapToSpendingCategory, CATEGORY_COLORS, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import type { Receipt, ReceiptItem } from '@/src/models/types';
 import { formatCurrency } from '@/src/utils/priceParser';
@@ -91,7 +92,11 @@ export default function ReceiptDetailScreen() {
           <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
         </Pressable>
         <Text style={styles.headerTitle}>Receipt Details</Text>
-        <Pressable onPress={() => router.push('/receipt/edit')}>
+        <Pressable
+          onPress={() => {
+            useScanStore.getState().loadReceiptForEdit(receipt);
+            router.push({ pathname: '/receipt/edit', params: { id: receipt.id } });
+          }}>
           <Text style={styles.editLink}>Edit</Text>
         </Pressable>
       </View>

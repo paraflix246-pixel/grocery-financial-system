@@ -1,7 +1,9 @@
-import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,30 +15,124 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
-import { saveReceipt } from '@/src/services/storageService';
+import {
+  findDuplicateReceipt,
+  getReceiptById,
+  saveReceipt,
+  updateReceipt,
+} from '@/src/services/storageService';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { generateId } from '@/src/utils/id';
+import { formatCurrency } from '@/src/utils/priceParser';
+
+async function confirmDuplicateSave(message: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return window.confirm(message);
+  }
+  return new Promise((resolve) => {
+    Alert.alert('Possible duplicate receipt', message, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Save anyway', onPress: () => resolve(true) },
+    ]);
+  });
+}
 
 export default function EditReceiptScreen() {
   const router = useRouter();
+  const { id: routeId } = useLocalSearchParams<{ id?: string }>();
   const insets = useSafeAreaInsets();
-  const { draft, imageUri, updateDraft, updateDraftItem, addDraftItem, removeDraftItem } =
-    useScanStore();
+  const {
+    draft,
+    imageUri,
+    editingReceiptId,
+    updateDraft,
+    updateDraftItem,
+    addDraftItem,
+    removeDraftItem,
+    loadReceiptForEdit,
+    reset,
+  } = useScanStore();
   const [saving, setSaving] = useState(false);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
+
+  const receiptId = editingReceiptId ?? routeId ?? null;
+  const isEditingSaved = Boolean(receiptId);
+
+  const loadSavedReceipt = useCallback(async () => {
+    if (!routeId || draft) return;
+    setLoadingReceipt(true);
+    try {
+      const receipt = await getReceiptById(routeId);
+      if (receipt) loadReceiptForEdit(receipt);
+    } finally {
+      setLoadingReceipt(false);
+    }
+  }, [routeId, draft, loadReceiptForEdit]);
+
+  useEffect(() => {
+    loadSavedReceipt();
+  }, [loadSavedReceipt]);
+
+  if (loadingReceipt) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={SmartCartColors.primary} />
+      </View>
+    );
+  }
 
   if (!draft) {
     return (
       <View style={styles.center}>
-        <Text>No draft to edit.</Text>
+        <Text>No receipt to edit.</Text>
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.backLink}>Go Back</Text>
+        </Pressable>
       </View>
     );
   }
 
   const handleSave = async () => {
+    const duplicate = await findDuplicateReceipt(
+      draft.storeName,
+      draft.date,
+      draft.total,
+      receiptId ?? undefined
+    );
+    if (duplicate) {
+      const proceed = await confirmDuplicateSave(
+        `A receipt from ${duplicate.storeName} on ${formatDisplayDate(duplicate.date)} for ${formatCurrency(duplicate.total)} already exists. Save anyway?`
+      );
+      if (!proceed) return;
+    }
+
     setSaving(true);
     try {
+      const items = draft.items.map((item) => ({
+        id: generateId(),
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+      }));
+
+      if (isEditingSaved && receiptId) {
+        await updateReceipt(receiptId, {
+          storeName: draft.storeName,
+          date: draft.date,
+          subtotal: draft.subtotal,
+          tax: draft.tax,
+          total: draft.total,
+          imageUri: imageUri ?? '',
+          userCorrected: true,
+          items,
+        });
+        reset();
+        router.replace(`/receipt/${receiptId}`);
+        return;
+      }
+
       const receipt = await saveReceipt({
         id: generateId(),
         storeName: draft.storeName,
@@ -46,13 +142,9 @@ export default function EditReceiptScreen() {
         total: draft.total,
         imageUri: imageUri ?? '',
         userCorrected: true,
-        items: draft.items.map((item) => ({
-          id: generateId(),
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
+        items,
       });
+      reset();
       router.replace({ pathname: '/receipt/link', params: { receiptId: receipt.id } });
     } finally {
       setSaving(false);
@@ -65,7 +157,7 @@ export default function EditReceiptScreen() {
         <Pressable onPress={() => router.back()}>
           <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
         </Pressable>
-        <Text style={styles.headerTitle}>Review Receipt</Text>
+        <Text style={styles.headerTitle}>{isEditingSaved ? 'Edit Receipt' : 'Review Receipt'}</Text>
         <Pressable onPress={handleSave} disabled={saving}>
           <Text style={styles.saveLink}>{saving ? '...' : 'Save'}</Text>
         </Pressable>
@@ -166,6 +258,7 @@ export default function EditReceiptScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  backLink: { color: SmartCartColors.primary, marginTop: 12, fontWeight: '600' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
