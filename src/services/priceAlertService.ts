@@ -1,14 +1,158 @@
+import { getCatalogItem } from '@/src/data/commonGroceryItems';
 import type { PriceAlertRule } from '@/src/models/types';
 import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import { getPriceAlerts, type PriceAlert } from '@/src/services/analyticsService';
-import { itemMatchesAlertRule } from '@/src/services/itemNormalizationService';
+import { getCommunityPricesForItem } from '@/src/services/crowdsourcedPricingService';
+import {
+  itemMatchesAlertRule,
+  resolveCanonicalName,
+} from '@/src/services/itemNormalizationService';
 import {
   getPriceAlertRules,
   getReceiptItemsWithStore,
+  type ReceiptItemWithStore,
 } from '@/src/services/storageService';
+
+export type PriceDataSource = 'receipts' | 'community' | 'estimate';
+
+export type CurrentPriceInfo = {
+  price: number;
+  source: PriceDataSource;
+  storeName?: string;
+  observedAt?: string;
+};
+
+export type RulePriceStatus = 'at_target' | 'above_target' | 'no_data';
+
+export type RuleWithCurrentPrice = PriceAlertRule & {
+  currentPrice: CurrentPriceInfo | null;
+  status: RulePriceStatus;
+};
+
+let receiptItemsCache: ReceiptItemWithStore[] | null = null;
+
+export function invalidatePriceAlertCache(): void {
+  receiptItemsCache = null;
+}
+
+async function getCachedReceiptItems(): Promise<ReceiptItemWithStore[]> {
+  if (receiptItemsCache) return receiptItemsCache;
+  receiptItemsCache = await getReceiptItemsWithStore();
+  return receiptItemsCache;
+}
 
 function resolveAlertEmoji(rule: PriceAlertRule, itemName: string): string {
   return rule.emoji ?? getItemEmoji(rule.canonicalName, itemName);
+}
+
+function computeStatus(currentPrice: CurrentPriceInfo | null, targetPrice: number): RulePriceStatus {
+  if (!currentPrice) return 'no_data';
+  if (currentPrice.price <= targetPrice) return 'at_target';
+  return 'above_target';
+}
+
+function lookupReceiptPrice(
+  rule: PriceAlertRule,
+  items: ReceiptItemWithStore[]
+): CurrentPriceInfo | null {
+  const matching = items.filter((item) => itemMatchesAlertRule(rule, item.name));
+  if (matching.length === 0) return null;
+
+  matching.sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
+  const latest = matching[0];
+  return {
+    price: latest.price,
+    source: 'receipts',
+    storeName: latest.storeName,
+    observedAt: latest.receiptDate,
+  };
+}
+
+async function lookupCommunityPrice(rule: PriceAlertRule): Promise<CurrentPriceInfo | null> {
+  const searchName = rule.canonicalName ?? rule.itemName;
+  const communityPrices = await getCommunityPricesForItem(searchName);
+  if (communityPrices.length === 0) return null;
+
+  const sorted = [...communityPrices].sort((a, b) => b.latestDate.localeCompare(a.latestDate));
+  const best = sorted[0];
+  return {
+    price: best.avgPrice,
+    source: 'community',
+    storeName: best.store,
+    observedAt: best.latestDate,
+  };
+}
+
+function lookupCatalogEstimate(rule: PriceAlertRule): CurrentPriceInfo | null {
+  const canonical = rule.canonicalName ?? resolveCanonicalName(rule.itemName);
+  if (!canonical) return null;
+  const catalog = getCatalogItem(canonical);
+  if (catalog?.expectedPrice == null) return null;
+  return {
+    price: catalog.expectedPrice,
+    source: 'estimate',
+  };
+}
+
+export async function getRuleWithCurrentPrice(
+  rule: PriceAlertRule,
+  receiptItems?: ReceiptItemWithStore[]
+): Promise<RuleWithCurrentPrice> {
+  const items = receiptItems ?? (await getCachedReceiptItems());
+
+  const receiptPrice = lookupReceiptPrice(rule, items);
+  if (receiptPrice) {
+    return { ...rule, currentPrice: receiptPrice, status: computeStatus(receiptPrice, rule.targetPrice) };
+  }
+
+  const communityPrice = await lookupCommunityPrice(rule);
+  if (communityPrice) {
+    return {
+      ...rule,
+      currentPrice: communityPrice,
+      status: computeStatus(communityPrice, rule.targetPrice),
+    };
+  }
+
+  const estimate = lookupCatalogEstimate(rule);
+  return {
+    ...rule,
+    currentPrice: estimate,
+    status: computeStatus(estimate, rule.targetPrice),
+  };
+}
+
+export async function getAllRulesWithCurrentPrice(): Promise<RuleWithCurrentPrice[]> {
+  const rules = await getPriceAlertRules();
+  const items = await getCachedReceiptItems();
+  return Promise.all(rules.map((rule) => getRuleWithCurrentPrice(rule, items)));
+}
+
+export async function getEnabledRulesWithCurrentPrice(): Promise<RuleWithCurrentPrice[]> {
+  const rules = await getAllRulesWithCurrentPrice();
+  return rules.filter((rule) => rule.enabled);
+}
+
+export function formatPriceSourceLabel(source: PriceDataSource): string {
+  switch (source) {
+    case 'receipts':
+      return 'From receipts';
+    case 'community':
+      return 'Community';
+    case 'estimate':
+      return 'Est.';
+  }
+}
+
+export function formatRuleStatusLabel(status: RulePriceStatus): string {
+  switch (status) {
+    case 'at_target':
+      return 'At target';
+    case 'above_target':
+      return 'Above target';
+    case 'no_data':
+      return 'No price data yet — scan receipts';
+  }
 }
 
 export async function getCustomRuleAlerts(): Promise<PriceAlert[]> {
@@ -16,7 +160,7 @@ export async function getCustomRuleAlerts(): Promise<PriceAlert[]> {
   const enabledRules = rules.filter((rule) => rule.enabled);
   if (enabledRules.length === 0) return [];
 
-  const items = await getReceiptItemsWithStore();
+  const items = await getCachedReceiptItems();
   const alerts: PriceAlert[] = [];
 
   for (const rule of enabledRules) {
@@ -62,6 +206,8 @@ export async function checkPriceAlertsAfterReceiptSave(
   items: Array<{ name: string; price: number }>,
   storeName: string
 ): Promise<PriceAlert[]> {
+  invalidatePriceAlertCache();
+
   const rules = await getPriceAlertRules();
   const enabled = rules.filter((rule) => rule.enabled);
   const triggered: PriceAlert[] = [];
@@ -95,6 +241,7 @@ export async function checkPriceAlertsAfterReceiptSave(
 }
 
 export async function refreshPriceAlertChecks(): Promise<PriceAlert[]> {
+  invalidatePriceAlertCache();
   const alerts = await getAllPriceAlerts(10);
   if (alerts.length > 0) {
     const { notifyPriceAlertMatches } = await import('@/src/services/notificationService');

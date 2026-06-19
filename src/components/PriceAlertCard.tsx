@@ -1,24 +1,91 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
 import { Text } from '@/components/Themed';
-import type { PriceAlert } from '@/src/services/analyticsService';
-import { getProductImageUrl } from '@/src/theme/productImages';
+import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
+import { getItemEmoji } from '@/src/data/commonGroceryItems';
+import {
+  formatPriceSourceLabel,
+  formatRuleStatusLabel,
+  type RuleWithCurrentPrice,
+} from '@/src/services/priceAlertService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
 
 type Props = {
-  alerts: PriceAlert[];
+  rules: RuleWithCurrentPrice[];
 };
 
-export function PriceAlertCard({ alerts }: Props) {
+function statusBadgeStyle(status: RuleWithCurrentPrice['status']) {
+  switch (status) {
+    case 'at_target':
+      return { bg: SmartCartColors.badge, text: SmartCartColors.primaryMid };
+    case 'above_target':
+      return { bg: '#FFF3E0', text: '#E65100' };
+    case 'no_data':
+      return { bg: SmartCartColors.background, text: SmartCartColors.textMuted };
+  }
+}
+
+function RulePriceSummary({ rule }: { rule: RuleWithCurrentPrice }) {
+  const emoji = rule.emoji ?? getItemEmoji(rule.canonicalName, rule.itemName);
+  const badge = statusBadgeStyle(rule.status);
+  const displayName = rule.canonicalName ?? rule.itemName;
+
+  return (
+    <>
+      <ItemEmojiAvatar emoji={emoji} size="md" />
+      <View style={styles.alertInfo}>
+        <Text style={styles.itemName} numberOfLines={1}>
+          {displayName}
+        </Text>
+        {rule.currentPrice ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.currentLabel}>Current:</Text>
+            <Text style={styles.currentPrice}>{formatCurrency(rule.currentPrice.price)}</Text>
+            <Text style={styles.sourceLabel}>{formatPriceSourceLabel(rule.currentPrice.source)}</Text>
+            <SymbolView
+              name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
+              tintColor={SmartCartColors.textMuted}
+              size={12}
+            />
+            <Text style={styles.targetLabel}>Alert at:</Text>
+            <Text style={styles.targetPrice}>{formatCurrency(rule.targetPrice)}</Text>
+          </View>
+        ) : (
+          <View style={styles.priceRow}>
+            <Text style={styles.noDataText}>No price data</Text>
+            <SymbolView
+              name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
+              tintColor={SmartCartColors.textMuted}
+              size={12}
+            />
+            <Text style={styles.targetLabel}>Alert at:</Text>
+            <Text style={styles.targetPrice}>{formatCurrency(rule.targetPrice)}</Text>
+          </View>
+        )}
+        {rule.currentPrice?.source === 'receipts' && rule.currentPrice.storeName && rule.currentPrice.observedAt && (
+          <Text style={styles.metaText}>
+            {rule.currentPrice.storeName} · {formatDisplayDate(rule.currentPrice.observedAt)}
+          </Text>
+        )}
+        <View style={[styles.statusBadge, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.statusText, { color: badge.text }]}>{formatRuleStatusLabel(rule.status)}</Text>
+        </View>
+      </View>
+    </>
+  );
+}
+
+export function PriceAlertCard({ rules }: Props) {
   const router = useRouter();
+  const enabledRules = rules.filter((rule) => rule.enabled);
   const [index, setIndex] = useState(0);
 
-  if (alerts.length === 0) {
+  if (enabledRules.length === 0) {
     return (
       <Pressable style={[styles.card, styles.emptyCard]} onPress={() => router.push('/price-alerts')}>
         <View style={styles.emptyHeader}>
@@ -44,16 +111,17 @@ export function PriceAlertCard({ alerts }: Props) {
     );
   }
 
-  const alert = alerts[index % alerts.length];
+  const rule = enabledRules[index % enabledRules.length];
+  const atTargetCount = enabledRules.filter((r) => r.status === 'at_target').length;
 
   return (
     <Pressable style={styles.card} onPress={() => router.push('/price-alerts')}>
       <View style={styles.cardHeader}>
         <Text style={styles.title}>Price Alerts</Text>
         <View style={styles.headerRight}>
-          {alerts.length > 1 && (
+          {atTargetCount > 0 && (
             <View style={styles.countBadge}>
-              <Text style={styles.countText}>{alerts.length}</Text>
+              <Text style={styles.countText}>{atTargetCount} at target</Text>
             </View>
           )}
           <SymbolView
@@ -64,44 +132,13 @@ export function PriceAlertCard({ alerts }: Props) {
         </View>
       </View>
       <View style={styles.alertBody}>
-        <View style={styles.thumbWrap}>
-          <Image
-            source={{ uri: getProductImageUrl(alert.itemName) }}
-            style={styles.thumb}
-            contentFit="cover"
-          />
-        </View>
-        <View style={styles.alertInfo}>
-          <Text style={styles.itemName} numberOfLines={1}>
-            {alert.itemName}
-          </Text>
-          <Text style={styles.storeName}>{alert.store}</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.oldPrice}>{formatCurrency(alert.oldPrice)}</Text>
-            <SymbolView
-              name={{ ios: 'arrow.right', android: 'arrow_forward', web: 'arrow_forward' }}
-              tintColor={SmartCartColors.textMuted}
-              size={12}
-            />
-            <Text style={styles.newPrice}>{formatCurrency(alert.newPrice)}</Text>
-            <View style={styles.dropBadge}>
-              <SymbolView
-                name={{ ios: 'arrow.down', android: 'arrow_downward', web: 'arrow_downward' }}
-                tintColor={SmartCartColors.primaryMid}
-                size={10}
-              />
-              <Text style={styles.dropText}>
-                {alert.source === 'custom' ? 'Target' : `${Math.round(alert.percentDrop)}%`}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <RulePriceSummary rule={rule} />
       </View>
-      {alerts.length > 1 && (
+      {enabledRules.length > 1 && (
         <View style={styles.dots}>
-          {alerts.slice(0, 4).map((_, i) => (
+          {enabledRules.slice(0, 4).map((_, i) => (
             <Pressable key={i} onPress={() => setIndex(i)}>
-              <View style={[styles.dot, i === index % alerts.length && styles.dotActive]} />
+              <View style={[styles.dot, i === index % enabledRules.length && styles.dotActive]} />
             </Pressable>
           ))}
         </View>
@@ -144,38 +181,25 @@ const styles = StyleSheet.create({
   },
   emptyTitle: { fontSize: 13, fontWeight: '700', color: SmartCartColors.text, textAlign: 'center' },
   emptyText: { fontSize: 12, color: SmartCartColors.textSecondary, textAlign: 'center' },
-  alertBody: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  thumbWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: SmartCartColors.background,
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-  },
-  thumb: { width: '100%', height: '100%' },
+  alertBody: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   alertInfo: { flex: 1 },
   itemName: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text, letterSpacing: -0.2 },
-  storeName: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },
   priceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4, flexWrap: 'wrap' },
-  oldPrice: {
-    fontSize: 12,
-    color: SmartCartColors.textMuted,
-    textDecorationLine: 'line-through',
-    fontWeight: '500',
-  },
-  newPrice: { fontSize: 15, fontWeight: '800', color: SmartCartColors.primaryMid, letterSpacing: -0.3 },
-  dropBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: SmartCartColors.badge,
+  currentLabel: { fontSize: 12, color: SmartCartColors.textSecondary, fontWeight: '600' },
+  currentPrice: { fontSize: 15, fontWeight: '800', color: SmartCartColors.text, letterSpacing: -0.3 },
+  sourceLabel: { fontSize: 10, fontWeight: '600', color: SmartCartColors.textMuted },
+  targetLabel: { fontSize: 12, color: SmartCartColors.textSecondary, fontWeight: '600' },
+  targetPrice: { fontSize: 14, fontWeight: '700', color: SmartCartColors.primaryMid, letterSpacing: -0.3 },
+  noDataText: { fontSize: 12, color: SmartCartColors.textMuted, fontStyle: 'italic' },
+  metaText: { fontSize: 11, color: SmartCartColors.textSecondary, marginTop: 4 },
+  statusBadge: {
+    alignSelf: 'flex-start',
     borderRadius: SmartCartRadius.pill,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 2,
+    marginTop: 6,
   },
-  dropText: { fontSize: 10, fontWeight: '700', color: SmartCartColors.primaryMid },
+  statusText: { fontSize: 10, fontWeight: '700' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
   dot: {
     width: 6,

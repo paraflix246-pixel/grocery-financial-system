@@ -27,7 +27,11 @@ import {
   getDashboardCategoryBreakdown,
   getMonthlySpendAnalytics,
 } from '@/src/services/analyticsService';
-import { getAllPriceAlerts } from '@/src/services/priceAlertService';
+import {
+  getAllPriceAlerts,
+  getAllRulesWithCurrentPrice,
+  type RuleWithCurrentPrice,
+} from '@/src/services/priceAlertService';
 import type { StoreCartTotal } from '@/src/services/priceComparisonService';
 import { getMaxCartSavings, getCartComparisonSources, getStoreCartTotals } from '@/src/services/priceComparisonService';
 import { getActiveList, getListItems, getReceipts } from '@/src/services/storageService';
@@ -50,6 +54,7 @@ export default function HomeScreen() {
   const [homeInsight, setHomeInsight] = useState<HomeInsight | null>(null);
   const [categoryData, setCategoryData] = useState<{ label: string; value: number; color: string }[]>([]);
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
+  const [priceAlertRules, setPriceAlertRules] = useState<RuleWithCurrentPrice[]>([]);
   const [storeTotals, setStoreTotals] = useState<StoreCartTotal[]>([]);
   const [maxSavings, setMaxSavings] = useState(0);
   const [cartHasHistory, setCartHasHistory] = useState(false);
@@ -66,11 +71,12 @@ export default function HomeScreen() {
       const activeList = await getActiveList();
       const listItems = activeList ? await getListItems(activeList.id) : [];
 
-      const [insight, receipts, categories, alerts, cartTotals, cartSources, analytics] = await Promise.all([
+      const [insight, receipts, categories, alerts, alertRules, cartTotals, cartSources, analytics] = await Promise.all([
         buildHomeInsight(budget, threshold),
         getReceipts(),
         getDashboardCategoryBreakdown(),
         getAllPriceAlerts(),
+        getAllRulesWithCurrentPrice(),
         getStoreCartTotals(listItems),
         getCartComparisonSources(listItems),
         getMonthlySpendAnalytics(),
@@ -82,6 +88,7 @@ export default function HomeScreen() {
       setHomeInsight(insight);
       setCategoryData(categories.map((c) => ({ label: c.category, value: c.amount, color: c.color })));
       setPriceAlerts(alerts);
+      setPriceAlertRules(alertRules);
       setStoreTotals(cartTotals);
       setMaxSavings(getMaxCartSavings(cartTotals));
       setCartHasHistory(cartSources.hasHistory);
@@ -228,7 +235,7 @@ export default function HomeScreen() {
       )}
 
       <View style={[styles.twoCol, isWide && styles.twoColRow]}>
-        <PriceAlertCard alerts={priceAlerts} />
+        <PriceAlertCard rules={priceAlertRules} />
         <RecentReceiptsCard receipts={recentReceipts} />
       </View>
 

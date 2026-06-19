@@ -15,10 +15,15 @@ import { Text } from '@/components/Themed';
 import { ItemPicker, TargetPricePicker } from '@/src/components/ItemPicker';
 import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
 import type { PriceAlert } from '@/src/services/analyticsService';
-import { getAllPriceAlerts } from '@/src/services/priceAlertService';
+import {
+  formatPriceSourceLabel,
+  formatRuleStatusLabel,
+  getAllPriceAlerts,
+  getAllRulesWithCurrentPrice,
+  type RuleWithCurrentPrice,
+} from '@/src/services/priceAlertService';
 import {
   deletePriceAlertRule,
-  getPriceAlertRules,
   savePriceAlertRule,
 } from '@/src/services/storageService';
 import type { ItemPickerSelection } from '@/src/services/itemPickerService';
@@ -27,6 +32,7 @@ import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import type { PriceAlertRule } from '@/src/models/types';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { generateId } from '@/src/utils/id';
+import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
 
 function PriceAlertRow({ alert }: { alert: PriceAlert }) {
@@ -64,24 +70,62 @@ function PriceAlertRow({ alert }: { alert: PriceAlert }) {
   );
 }
 
+function statusBadgeStyle(status: RuleWithCurrentPrice['status']) {
+  switch (status) {
+    case 'at_target':
+      return { bg: SmartCartColors.badge, text: SmartCartColors.primaryMid };
+    case 'above_target':
+      return { bg: '#FFF3E0', text: '#E65100' };
+    case 'no_data':
+      return { bg: SmartCartColors.background, text: SmartCartColors.textMuted };
+  }
+}
+
 function RuleRow({
   rule,
   onToggle,
   onEdit,
   onDelete,
 }: {
-  rule: PriceAlertRule;
+  rule: RuleWithCurrentPrice;
   onToggle: (enabled: boolean) => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const emoji = rule.emoji ?? getItemEmoji(rule.canonicalName, rule.itemName);
+  const badge = statusBadgeStyle(rule.status);
+  const displayName = rule.canonicalName ?? rule.itemName;
+
   return (
     <View style={styles.ruleRow}>
       <ItemEmojiAvatar emoji={emoji} size="md" />
       <View style={styles.ruleInfo}>
-        <Text style={styles.ruleName}>{rule.canonicalName ?? rule.itemName}</Text>
-        <Text style={styles.ruleTarget}>Notify at {formatCurrency(rule.targetPrice)} or below</Text>
+        <Text style={styles.ruleName}>{displayName}</Text>
+        {rule.currentPrice ? (
+          <View style={styles.rulePriceRow}>
+            <Text style={styles.ruleCurrentLabel}>Current:</Text>
+            <Text style={styles.ruleCurrentPrice}>{formatCurrency(rule.currentPrice.price)}</Text>
+            <Text style={styles.ruleSourceLabel}>{formatPriceSourceLabel(rule.currentPrice.source)}</Text>
+            <Text style={styles.ruleTargetLabel}>Alert at:</Text>
+            <Text style={styles.ruleTargetPrice}>{formatCurrency(rule.targetPrice)}</Text>
+          </View>
+        ) : (
+          <View style={styles.rulePriceRow}>
+            <Text style={styles.ruleNoData}>No price data</Text>
+            <Text style={styles.ruleTargetLabel}>Alert at:</Text>
+            <Text style={styles.ruleTargetPrice}>{formatCurrency(rule.targetPrice)}</Text>
+          </View>
+        )}
+        {rule.currentPrice?.source === 'receipts' && rule.currentPrice.storeName && rule.currentPrice.observedAt && (
+          <Text style={styles.ruleMeta}>
+            {rule.currentPrice.storeName} · {formatDisplayDate(rule.currentPrice.observedAt)}
+          </Text>
+        )}
+        <View style={[styles.ruleStatusBadge, { backgroundColor: badge.bg }]}>
+          <Text style={[styles.ruleStatusText, { color: badge.text }]}>
+            {formatRuleStatusLabel(rule.status)}
+          </Text>
+        </View>
       </View>
       <Switch
         value={rule.enabled}
@@ -110,7 +154,7 @@ function RuleRow({
 export default function PriceAlertsScreen() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
-  const [rules, setRules] = useState<PriceAlertRule[]>([]);
+  const [rules, setRules] = useState<RuleWithCurrentPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRuleId, setEditingRuleId] = useState<string | null>(null);
@@ -121,7 +165,7 @@ export default function PriceAlertsScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [alertData, ruleData] = await Promise.all([getAllPriceAlerts(50), getPriceAlertRules()]);
+      const [alertData, ruleData] = await Promise.all([getAllPriceAlerts(50), getAllRulesWithCurrentPrice()]);
       setAlerts(alertData);
       setRules(ruleData);
     } finally {
@@ -424,10 +468,25 @@ const styles = StyleSheet.create({
     padding: 4,
     ...SmartCartShadow.card,
   },
-  ruleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12 },
+  ruleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12 },
   ruleInfo: { flex: 1 },
   ruleName: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
-  ruleTarget: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },
+  rulePriceRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  ruleCurrentLabel: { fontSize: 12, color: SmartCartColors.textSecondary, fontWeight: '600' },
+  ruleCurrentPrice: { fontSize: 14, fontWeight: '800', color: SmartCartColors.text },
+  ruleSourceLabel: { fontSize: 10, fontWeight: '600', color: SmartCartColors.textMuted },
+  ruleTargetLabel: { fontSize: 12, color: SmartCartColors.textSecondary, fontWeight: '600' },
+  ruleTargetPrice: { fontSize: 13, fontWeight: '700', color: SmartCartColors.primaryMid },
+  ruleNoData: { fontSize: 12, color: SmartCartColors.textMuted, fontStyle: 'italic' },
+  ruleMeta: { fontSize: 11, color: SmartCartColors.textSecondary, marginTop: 2 },
+  ruleStatusBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: SmartCartRadius.pill,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginTop: 6,
+  },
+  ruleStatusText: { fontSize: 10, fontWeight: '700' },
   ruleAction: { padding: 6 },
   alertRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 12 },
   alertEmoji: { fontSize: 28, marginTop: 2 },
