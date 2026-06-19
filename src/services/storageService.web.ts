@@ -342,7 +342,10 @@ export async function saveReceipt(
   await persist();
   const { registerStoreFromReceipt } = await import('@/src/services/storeService');
   await registerStoreFromReceipt(receipt.storeName);
-  return { ...saved, items: savedItems };
+  const result = { ...saved, items: savedItems };
+  const { contributeFromReceipt } = await import('@/src/services/crowdsourcedPricingService');
+  await contributeFromReceipt(result);
+  return result;
 }
 
 export async function updateReceipt(
@@ -445,6 +448,11 @@ export async function getLatestComparison(): Promise<(Comparison & { items: Comp
   if (!latest) return null;
   const items = await getComparisonItems(latest.id);
   return { ...latest, items };
+}
+
+export async function getAllComparisons(): Promise<Comparison[]> {
+  const data = await ensureLoaded();
+  return [...data.comparisons].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export async function deleteComparisonByReceiptId(receiptId: string): Promise<void> {

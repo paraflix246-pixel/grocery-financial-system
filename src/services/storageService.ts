@@ -451,7 +451,7 @@ export async function saveReceipt(
   }
   const { registerStoreFromReceipt } = await import('@/src/services/storeService');
   await registerStoreFromReceipt(receipt.storeName);
-  return {
+  const saved = {
     ...receipt,
     id,
     createdAt: now,
@@ -462,6 +462,9 @@ export async function saveReceipt(
       receiptId: id,
     })),
   };
+  const { contributeFromReceipt } = await import('@/src/services/crowdsourcedPricingService');
+  await contributeFromReceipt(saved);
+  return saved;
 }
 
 export async function updateReceipt(
@@ -577,6 +580,12 @@ export async function getLatestComparison(): Promise<(Comparison & { items: Comp
   const comparison = mapComparison(row as Record<string, unknown>);
   const items = await getComparisonItems(comparison.id);
   return { ...comparison, items };
+}
+
+export async function getAllComparisons(): Promise<Comparison[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync('SELECT * FROM comparisons ORDER BY created_at DESC');
+  return rows.map((r) => mapComparison(r as Record<string, unknown>));
 }
 
 export async function deleteComparisonByReceiptId(receiptId: string): Promise<void> {

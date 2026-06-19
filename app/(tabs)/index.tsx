@@ -29,7 +29,7 @@ import {
   getPriceAlerts,
 } from '@/src/services/analyticsService';
 import type { StoreCartTotal } from '@/src/services/priceComparisonService';
-import { getMaxCartSavings, getStoreCartTotals } from '@/src/services/priceComparisonService';
+import { getMaxCartSavings, getCartComparisonSources, getStoreCartTotals } from '@/src/services/priceComparisonService';
 import { getActiveList, getListItems, getReceipts } from '@/src/services/storageService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
@@ -52,6 +52,8 @@ export default function HomeScreen() {
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
   const [storeTotals, setStoreTotals] = useState<StoreCartTotal[]>([]);
   const [maxSavings, setMaxSavings] = useState(0);
+  const [cartHasHistory, setCartHasHistory] = useState(false);
+  const [cartHasCommunity, setCartHasCommunity] = useState(false);
   const [monthlyAnalytics, setMonthlyAnalytics] = useState<MonthlySpendAnalytics | null>(null);
   const [hasActiveList, setHasActiveList] = useState(false);
 
@@ -64,12 +66,13 @@ export default function HomeScreen() {
       const activeList = await getActiveList();
       const listItems = activeList ? await getListItems(activeList.id) : [];
 
-      const [insight, receipts, categories, alerts, cartTotals, analytics] = await Promise.all([
+      const [insight, receipts, categories, alerts, cartTotals, cartSources, analytics] = await Promise.all([
         buildHomeInsight(budget, threshold),
         getReceipts(),
         getDashboardCategoryBreakdown(),
         getPriceAlerts(),
         getStoreCartTotals(listItems),
+        getCartComparisonSources(listItems),
         getMonthlySpendAnalytics(),
       ]);
 
@@ -81,6 +84,8 @@ export default function HomeScreen() {
       setPriceAlerts(alerts);
       setStoreTotals(cartTotals);
       setMaxSavings(getMaxCartSavings(cartTotals));
+      setCartHasHistory(cartSources.hasHistory);
+      setCartHasCommunity(cartSources.hasCommunity);
       setMonthlyAnalytics(analytics);
       setHasActiveList(listItems.length > 0);
     } catch (error) {
@@ -207,7 +212,12 @@ export default function HomeScreen() {
       </View>
 
       {hasActiveList ? (
-        <CheapestCartComparison stores={storeTotals} maxSavings={maxSavings} />
+        <CheapestCartComparison
+          stores={storeTotals}
+          maxSavings={maxSavings}
+          hasHistory={cartHasHistory}
+          hasCommunity={cartHasCommunity}
+        />
       ) : (
         <View style={styles.listHintCard}>
           <Text style={styles.listHintTitle}>Cart comparison</Text>

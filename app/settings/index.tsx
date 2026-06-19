@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
+import { refreshScheduledNotifications } from '@/src/services/notificationService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
@@ -81,6 +82,7 @@ export default function SettingsScreen() {
         notifyPriceAlerts,
         notifyBudgetAlerts,
       });
+      await refreshScheduledNotifications();
     } finally {
       setSaving(false);
     }

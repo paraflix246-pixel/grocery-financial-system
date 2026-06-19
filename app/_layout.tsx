@@ -12,6 +12,7 @@ import { initStorage } from '@/src/services/storageService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useListStore } from '@/src/store/useListStore';
+import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 
 export { ErrorBoundary } from 'expo-router';
 
@@ -55,6 +56,7 @@ function ensureAppInitialized(): Promise<void> {
     await initStorage();
     await useBudgetStore.getState().loadSettings();
     await useSettingsStore.getState().loadSettings();
+    await useSubscriptionStore.getState().loadSubscription();
     await useListStore.getState().loadLists();
     await useBudgetStore.getState().checkOnboarding();
     state.initialized = true;
@@ -139,6 +141,19 @@ function RootLayoutNav() {
         <Stack.Screen name="price-alerts" options={{ headerShown: false }} />
         <Stack.Screen name="stores" options={{ headerShown: false }} />
         <Stack.Screen name="stores/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="paywall/index" options={{ headerShown: false }} />
+        <Stack.Screen name="subscriptions/index" options={{ headerShown: false }} />
+        <Stack.Screen name="marketplace/index" options={{ headerShown: false }} />
+        <Stack.Screen name="affiliate_links/index" options={{ headerShown: false }} />
+        <Stack.Screen name="cashback/index" options={{ headerShown: false }} />
+        <Stack.Screen name="sponsored_offers/index" options={{ headerShown: false }} />
+        <Stack.Screen name="enterprise/index" options={{ headerShown: false }} />
+        <Stack.Screen name="api_access/index" options={{ headerShown: false }} />
+        <Stack.Screen name="usage_tracking/index" options={{ headerShown: false }} />
+        <Stack.Screen name="insights_pro/index" options={{ headerShown: false }} />
+        <Stack.Screen name="inflation_tracker/index" options={{ headerShown: false }} />
+        <Stack.Screen name="family_plans/index" options={{ headerShown: false }} />
+        <Stack.Screen name="list/share" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );
