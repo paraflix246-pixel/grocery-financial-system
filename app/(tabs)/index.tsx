@@ -26,8 +26,8 @@ import {
   buildHomeInsight,
   getDashboardCategoryBreakdown,
   getMonthlySpendAnalytics,
-  getPriceAlerts,
 } from '@/src/services/analyticsService';
+import { getAllPriceAlerts } from '@/src/services/priceAlertService';
 import type { StoreCartTotal } from '@/src/services/priceComparisonService';
 import { getMaxCartSavings, getCartComparisonSources, getStoreCartTotals } from '@/src/services/priceComparisonService';
 import { getActiveList, getListItems, getReceipts } from '@/src/services/storageService';
@@ -70,7 +70,7 @@ export default function HomeScreen() {
         buildHomeInsight(budget, threshold),
         getReceipts(),
         getDashboardCategoryBreakdown(),
-        getPriceAlerts(),
+        getAllPriceAlerts(),
         getStoreCartTotals(listItems),
         getCartComparisonSources(listItems),
         getMonthlySpendAnalytics(),

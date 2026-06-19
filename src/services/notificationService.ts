@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
-import { getPriceAlerts } from '@/src/services/analyticsService';
+import type { PriceAlert } from '@/src/services/analyticsService';
+import { getAllPriceAlerts } from '@/src/services/priceAlertService';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 
 type InAppNotification = {
@@ -68,19 +69,21 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   return status === 'granted';
 }
 
-export async function schedulePriceAlertNotifications(): Promise<void> {
-  const settings = useSettingsStore.getState().settings;
-  if (!settings?.notifyPriceAlerts) return;
+function formatAlertBody(alert: PriceAlert): string {
+  if (alert.source === 'custom' && alert.targetPrice != null) {
+    return `${alert.itemName} at ${alert.store} — now $${alert.newPrice.toFixed(2)} (target $${alert.targetPrice.toFixed(2)})`;
+  }
+  return `${alert.itemName} at ${alert.store} — now $${alert.newPrice.toFixed(2)} (↓${Math.round(alert.percentDrop)}%)`;
+}
 
-  const alerts = await getPriceAlerts(3);
-  if (alerts.length === 0) return;
+export async function notifyPriceAlertMatches(alerts: PriceAlert[]): Promise<void> {
+  const settings = useSettingsStore.getState().settings;
+  if (!settings?.notifyPriceAlerts || alerts.length === 0) return;
 
   if (Platform.OS === 'web') {
-    const top = alerts[0];
-    pushInApp(
-      'Price drop alert',
-      `${top.itemName} at ${top.store} dropped ${Math.round(top.percentDrop)}%`
-    );
+    for (const alert of alerts.slice(0, 3)) {
+      pushInApp('Price drop alert', formatAlertBody(alert));
+    }
     return;
   }
 
@@ -90,21 +93,29 @@ export async function schedulePriceAlertNotifications(): Promise<void> {
   const Notifications = await getNotificationsModule();
   if (!Notifications) return;
 
-  await Notifications.cancelAllScheduledNotificationsAsync();
-
   for (const alert of alerts.slice(0, 3)) {
     await Notifications.scheduleNotificationAsync({
       content: {
         title: 'Price drop alert',
-        body: `${alert.itemName} at ${alert.store} — now $${alert.newPrice.toFixed(2)} (↓${Math.round(alert.percentDrop)}%)`,
+        body: formatAlertBody(alert),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: 60,
+        seconds: 5,
         repeats: false,
       },
     });
   }
+}
+
+export async function schedulePriceAlertNotifications(): Promise<void> {
+  const settings = useSettingsStore.getState().settings;
+  if (!settings?.notifyPriceAlerts) return;
+
+  const alerts = await getAllPriceAlerts(3);
+  if (alerts.length === 0) return;
+
+  await notifyPriceAlertMatches(alerts);
 }
 
 export async function scheduleBudgetAlertNotification(

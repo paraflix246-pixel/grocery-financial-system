@@ -19,6 +19,7 @@ import {
   saveReceipt,
   updateReceipt,
 } from '@/src/services/storageService';
+import { checkPriceAlertsAfterReceiptSave } from '@/src/services/priceAlertService';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
@@ -125,6 +126,7 @@ export default function EditReceiptScreen() {
           userCorrected: true,
           items,
         });
+        await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
         reset();
         router.replace(`/receipt/${receiptId}`);
         return;
@@ -141,6 +143,7 @@ export default function EditReceiptScreen() {
         userCorrected: true,
         items,
       });
+      await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
       reset();
       router.replace({ pathname: '/receipt/link', params: { receiptId: receipt.id } });
     } finally {

@@ -55,6 +55,9 @@ export type PriceAlert = {
   newPrice: number;
   percentDrop: number;
   emoji: string;
+  source?: 'history' | 'custom';
+  ruleId?: string;
+  targetPrice?: number;
 };
 
 const CHART_COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4', '#795548'];

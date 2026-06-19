@@ -10,6 +10,7 @@ import type {
   ComparisonItem,
   GroceryList,
   ListItem,
+  PriceAlertRule,
   Receipt,
   ReceiptFilters,
   ReceiptItem,
@@ -38,6 +39,7 @@ type WebStore = {
   budgetSettings: BudgetSettings;
   appSettings: AppSettings;
   customStores: StoreDefinition[];
+  priceAlertRules: PriceAlertRule[];
 };
 
 let store: WebStore | null = null;
@@ -89,6 +91,7 @@ async function loadStore(): Promise<void> {
           updatedAt: new Date().toISOString(),
         },
       customStores: parsed.customStores ?? [],
+      priceAlertRules: parsed.priceAlertRules ?? [],
     };
     if (migrateReceiptTotalsWeb(store)) {
       await persist();
@@ -120,6 +123,7 @@ async function loadStore(): Promise<void> {
       updatedAt: now,
     },
     customStores: [],
+    priceAlertRules: [],
   };
   await persist();
 }
@@ -585,4 +589,50 @@ export async function saveCustomStore(store: StoreDefinition): Promise<void> {
     data.customStores.push(store);
     await persist();
   }
+}
+
+export async function getPriceAlertRules(): Promise<PriceAlertRule[]> {
+  const data = await ensureLoaded();
+  return [...(data.priceAlertRules ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export async function savePriceAlertRule(
+  rule: Omit<PriceAlertRule, 'createdAt'> & { createdAt?: string }
+): Promise<PriceAlertRule> {
+  const data = await ensureLoaded();
+  if (!data.priceAlertRules) data.priceAlertRules = [];
+  const createdAt = rule.createdAt ?? new Date().toISOString();
+  const saved: PriceAlertRule = {
+    id: rule.id || generateId(),
+    itemName: rule.itemName,
+    targetPrice: rule.targetPrice,
+    enabled: rule.enabled,
+    createdAt,
+  };
+  const index = data.priceAlertRules.findIndex((entry) => entry.id === saved.id);
+  if (index >= 0) {
+    data.priceAlertRules[index] = saved;
+  } else {
+    data.priceAlertRules.push(saved);
+  }
+  await persist();
+  return saved;
+}
+
+export async function deletePriceAlertRule(id: string): Promise<void> {
+  const data = await ensureLoaded();
+  data.priceAlertRules = (data.priceAlertRules ?? []).filter((entry) => entry.id !== id);
+  await persist();
+}
+
+export async function getDistinctItemNames(): Promise<string[]> {
+  const data = await ensureLoaded();
+  const seen = new Map<string, string>();
+  for (const item of data.receiptItems) {
+    const trimmed = item.name.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key)) seen.set(key, trimmed);
+  }
+  return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
 }

@@ -10,6 +10,7 @@ import type {
   ComparisonItem,
   GroceryList,
   ListItem,
+  PriceAlertRule,
   Receipt,
   ReceiptFilters,
   ReceiptItem,
@@ -127,6 +128,17 @@ async function migrateSchema(db: SQLite.SQLiteDatabase, fromVersion: number): Pr
       await db.execAsync('ALTER TABLE budget_settings ADD COLUMN category_limits TEXT');
     }
     await seedAppSettings(db);
+  }
+  if (fromVersion < 4) {
+    await db.execAsync(
+      `CREATE TABLE IF NOT EXISTS price_alert_rules (
+        id TEXT PRIMARY KEY NOT NULL,
+        item_name TEXT NOT NULL,
+        target_price REAL NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL
+      );`
+    );
   }
 }
 
@@ -814,6 +826,65 @@ export async function saveCustomStore(store: StoreDefinition): Promise<void> {
      VALUES (?, ?, ?, ?, ?, ?)`,
     [store.id, store.name, store.brandColor, store.initials, store.logoUrl, now]
   );
+}
+
+function mapPriceAlertRule(row: Record<string, unknown>): PriceAlertRule {
+  return {
+    id: row.id as string,
+    itemName: row.item_name as string,
+    targetPrice: row.target_price as number,
+    enabled: Boolean(row.enabled),
+    createdAt: row.created_at as string,
+  };
+}
+
+export async function getPriceAlertRules(): Promise<PriceAlertRule[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync(
+    'SELECT * FROM price_alert_rules ORDER BY created_at DESC'
+  );
+  return rows.map((row) => mapPriceAlertRule(row as Record<string, unknown>));
+}
+
+export async function savePriceAlertRule(
+  rule: Omit<PriceAlertRule, 'createdAt'> & { createdAt?: string }
+): Promise<PriceAlertRule> {
+  const db = await getDatabase();
+  const id = rule.id || generateId();
+  const createdAt = rule.createdAt ?? new Date().toISOString();
+  const existing = await db.getFirstAsync('SELECT id FROM price_alert_rules WHERE id = ?', [id]);
+  if (existing) {
+    await db.runAsync(
+      'UPDATE price_alert_rules SET item_name = ?, target_price = ?, enabled = ? WHERE id = ?',
+      [rule.itemName, rule.targetPrice, rule.enabled ? 1 : 0, id]
+    );
+  } else {
+    await db.runAsync(
+      'INSERT INTO price_alert_rules (id, item_name, target_price, enabled, created_at) VALUES (?, ?, ?, ?, ?)',
+      [id, rule.itemName, rule.targetPrice, rule.enabled ? 1 : 0, createdAt]
+    );
+  }
+  return { id, itemName: rule.itemName, targetPrice: rule.targetPrice, enabled: rule.enabled, createdAt };
+}
+
+export async function deletePriceAlertRule(id: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync('DELETE FROM price_alert_rules WHERE id = ?', [id]);
+}
+
+export async function getDistinctItemNames(): Promise<string[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ name: string }>(
+    'SELECT DISTINCT name FROM receipt_items ORDER BY name ASC'
+  );
+  const seen = new Map<string, string>();
+  for (const row of rows) {
+    const trimmed = row.name.trim();
+    if (!trimmed) continue;
+    const key = trimmed.toLowerCase();
+    if (!seen.has(key)) seen.set(key, trimmed);
+  }
+  return Array.from(seen.values());
 }
 
 export async function initStorage(): Promise<void> {

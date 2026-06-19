@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
@@ -14,22 +15,54 @@ type Props = {
 };
 
 export function PriceAlertCard({ alerts }: Props) {
+  const router = useRouter();
   const [index, setIndex] = useState(0);
 
   if (alerts.length === 0) {
     return (
-      <View style={[styles.card, styles.emptyCard]}>
-        <Text style={styles.title}>Price Alerts</Text>
-        <Text style={styles.emptyText}>Scan receipts to track price drops</Text>
-      </View>
+      <Pressable style={[styles.card, styles.emptyCard]} onPress={() => router.push('/price-alerts')}>
+        <View style={styles.emptyHeader}>
+          <Text style={styles.title}>Price Alerts</Text>
+          <SymbolView
+            name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+            tintColor={SmartCartColors.textMuted}
+            size={14}
+          />
+        </View>
+        <View style={styles.emptyBody}>
+          <View style={styles.bellWrap}>
+            <SymbolView
+              name={{ ios: 'bell.fill', android: 'notifications', web: 'notifications' }}
+              tintColor={SmartCartColors.primary}
+              size={22}
+            />
+          </View>
+          <Text style={styles.emptyTitle}>Notify me when price drops</Text>
+          <Text style={styles.emptyText}>Set alerts for items you buy often</Text>
+        </View>
+      </Pressable>
     );
   }
 
   const alert = alerts[index % alerts.length];
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.title}>Price Alerts</Text>
+    <Pressable style={styles.card} onPress={() => router.push('/price-alerts')}>
+      <View style={styles.cardHeader}>
+        <Text style={styles.title}>Price Alerts</Text>
+        <View style={styles.headerRight}>
+          {alerts.length > 1 && (
+            <View style={styles.countBadge}>
+              <Text style={styles.countText}>{alerts.length}</Text>
+            </View>
+          )}
+          <SymbolView
+            name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+            tintColor={SmartCartColors.textMuted}
+            size={14}
+          />
+        </View>
+      </View>
       <View style={styles.alertBody}>
         <View style={styles.thumbWrap}>
           <Image
@@ -57,7 +90,9 @@ export function PriceAlertCard({ alerts }: Props) {
                 tintColor={SmartCartColors.primaryMid}
                 size={10}
               />
-              <Text style={styles.dropText}>{Math.round(alert.percentDrop)}%</Text>
+              <Text style={styles.dropText}>
+                {alert.source === 'custom' ? 'Target' : `${Math.round(alert.percentDrop)}%`}
+              </Text>
             </View>
           </View>
         </View>
@@ -71,7 +106,7 @@ export function PriceAlertCard({ alerts }: Props) {
           ))}
         </View>
       )}
-    </View>
+    </Pressable>
   );
 }
 
@@ -86,8 +121,29 @@ const styles = StyleSheet.create({
     ...SmartCartShadow.card,
   },
   emptyCard: { minHeight: 140, justifyContent: 'center' },
-  title: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12 },
-  emptyText: { fontSize: 12, color: SmartCartColors.textSecondary },
+  emptyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text },
+  countBadge: {
+    backgroundColor: SmartCartColors.badge,
+    borderRadius: SmartCartRadius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  countText: { fontSize: 10, fontWeight: '700', color: SmartCartColors.primaryDark },
+  emptyBody: { alignItems: 'center', gap: 6 },
+  bellWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: SmartCartColors.badge,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  emptyTitle: { fontSize: 13, fontWeight: '700', color: SmartCartColors.text, textAlign: 'center' },
+  emptyText: { fontSize: 12, color: SmartCartColors.textSecondary, textAlign: 'center' },
   alertBody: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   thumbWrap: {
     width: 48,

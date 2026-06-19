@@ -98,6 +98,14 @@ export type AppSettings = {
   updatedAt: string;
 };
 
+export type PriceAlertRule = {
+  id: string;
+  itemName: string;
+  targetPrice: number;
+  enabled: boolean;
+  createdAt: string;
+};
+
 export type ParsedReceiptDraft = {
   storeName: string;
   date: string;
