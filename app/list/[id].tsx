@@ -54,6 +54,7 @@ export default function ListDetailScreen() {
     setLoading(true);
     const list = await getListById(listId);
     setListName(list?.name ?? 'Weekly Shopping');
+    await useListStore.getState().activateList(listId);
     await refreshItems(listId);
     const stored = await AsyncStorage.getItem(CHECKED_KEY(listId));
     if (stored) setCheckedIds(new Set(JSON.parse(stored) as string[]));

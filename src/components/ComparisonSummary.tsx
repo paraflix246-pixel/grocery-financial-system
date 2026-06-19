@@ -2,6 +2,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import type { ComparisonResult } from '@/src/models/types';
+import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
 
 type ComparisonSummaryProps = {
@@ -59,19 +60,20 @@ export function ComparisonSummary({ comparison, compact }: ComparisonSummaryProp
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.md,
     padding: 16,
-    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
   },
-  title: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  title: { fontSize: 16, fontWeight: '700', marginBottom: 12, color: SmartCartColors.text },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  label: { fontSize: 14, opacity: 0.7 },
-  bold: { fontWeight: '600', opacity: 1 },
-  value: { fontSize: 14, fontWeight: '600' },
-  over: { color: '#F44336' },
-  under: { color: '#4CAF50' },
-  items: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#E0E0E0', paddingTop: 8 },
+  label: { fontSize: 14, color: SmartCartColors.textSecondary },
+  bold: { fontWeight: '600', color: SmartCartColors.text },
+  value: { fontSize: 14, fontWeight: '600', color: SmartCartColors.text },
+  over: { color: SmartCartColors.danger },
+  under: { color: SmartCartColors.success },
+  items: { marginTop: 12, borderTopWidth: 1, borderTopColor: SmartCartColors.border, paddingTop: 8 },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  itemName: { flex: 1, fontSize: 13, marginRight: 8 },
+  itemName: { flex: 1, fontSize: 13, marginRight: 8, color: SmartCartColors.text },
 });

@@ -22,9 +22,11 @@ const cartSavingsHero = require('../../assets/images/cart-savings-hero.png');
 type Props = {
   stores: StoreCartTotal[];
   maxSavings: number;
+  hasHistory?: boolean;
+  hasCommunity?: boolean;
 };
 
-export function CheapestCartComparison({ stores, maxSavings }: Props) {
+export function CheapestCartComparison({ stores, maxSavings, hasHistory, hasCommunity }: Props) {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const [layoutWidth, setLayoutWidth] = useState(1);
@@ -64,7 +66,15 @@ export function CheapestCartComparison({ stores, maxSavings }: Props) {
             <Text style={styles.savingsLabel}>You can save up to</Text>
             <Text style={styles.savingsAmount}>{formatCurrency(maxSavings)}</Text>
             <View style={styles.savingsSubRow}>
-              <Text style={styles.savingsSub}>for similar items</Text>
+              <Text style={styles.savingsSub}>
+                {hasHistory && hasCommunity
+                  ? 'your history + community data'
+                  : hasCommunity
+                    ? 'community price data'
+                    : hasHistory
+                      ? 'from your receipt history'
+                      : 'for similar items'}
+              </Text>
               <View style={styles.infoCircle}>
                 <Text style={styles.infoIcon}>i</Text>
               </View>
@@ -101,6 +111,11 @@ export function CheapestCartComparison({ stores, maxSavings }: Props) {
                   {entry.isCheapest && (
                     <View style={styles.cheapestPill}>
                       <Text style={styles.cheapestPillText}>Cheapest</Text>
+                    </View>
+                  )}
+                  {entry.primarySource === 'community' && (
+                    <View style={styles.communityPill}>
+                      <Text style={styles.communityPillText}>Community</Text>
                     </View>
                   )}
                 </View>
@@ -237,6 +252,13 @@ const styles = StyleSheet.create({
     ...SmartCartShadow.pill,
   },
   cheapestPillText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.1 },
+  communityPill: {
+    backgroundColor: SmartCartColors.accentBlue,
+    borderRadius: SmartCartRadius.pill,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  communityPillText: { color: '#fff', fontSize: 9, fontWeight: '700' },
   storePriceRow: {
     flexDirection: 'row',
     alignItems: 'center',

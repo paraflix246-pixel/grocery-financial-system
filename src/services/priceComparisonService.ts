@@ -8,19 +8,20 @@ import {
 import type { ListItem } from '@/src/models/types';
 import { FUZZY_MATCH_THRESHOLD } from '@/src/services/matchingService';
 import { getAllStores } from '@/src/services/storeService';
+import { getCommunityPricesForItem } from '@/src/services/crowdsourcedPricingService';
 import { getReceiptItemsWithStore } from '@/src/services/storageService';
 
 export type StorePrice = {
   store: string;
   price: number;
-  source: 'history' | 'estimate';
+  source: 'history' | 'estimate' | 'community';
   sampleCount?: number;
 };
 
 export type CheapestOption = {
   store: string;
   price: number;
-  source: 'history' | 'estimate';
+  source: 'history' | 'estimate' | 'community';
 };
 
 export type ListSavingsBreakdownItem = {
@@ -44,9 +45,14 @@ export type StoreCartTotal = {
   store: string;
   total: number;
   isCheapest: boolean;
+  /** Primary data source used for this store's cart total */
+  primarySource?: 'history' | 'community' | 'estimate';
 };
 
-const DEMO_CART_ITEMS = ['milk', 'bananas', 'cereal', 'bread'];
+export type CartComparisonSources = {
+  hasHistory: boolean;
+  hasCommunity: boolean;
+};
 
 type StoreHistoryBucket = {
   prices: number[];
@@ -128,7 +134,18 @@ export async function getStorePricesForItem(itemName: string): Promise<StorePric
   }
 
   const historyStores = new Set(results.map((entry) => entry.store));
-  for (const estimate of await mergeEstimatePrices(historyStores, trimmed)) {
+  for (const community of await getCommunityPricesForItem(trimmed)) {
+    if (historyStores.has(community.store)) continue;
+    results.push({
+      store: community.store,
+      price: community.avgPrice,
+      source: 'community',
+      sampleCount: community.sampleCount,
+    });
+  }
+
+  const coveredStores = new Set(results.map((entry) => entry.store));
+  for (const estimate of await mergeEstimatePrices(coveredStores, trimmed)) {
     results.push({
       store: estimate.store,
       price: estimate.price,
@@ -234,33 +251,26 @@ export async function getActiveListCheapestInsight(
 }
 
 export async function getStoreCartTotals(listItems: ListItem[]): Promise<StoreCartTotal[]> {
+  if (listItems.length === 0) return [];
+
   const allStores = await getAllStores();
-  const itemsToPrice =
-    listItems.length > 0
-      ? listItems
-      : DEMO_CART_ITEMS.map((name, index) => ({
-          id: `demo-${index}`,
-          listId: 'demo',
-          name,
-          expectedPrice: 0,
-          quantity: 1,
-          category: '',
-          sortOrder: index,
-        }));
 
   const storeNames = allStores.map((s) => s.name);
 
   const storeTotals = new Map<string, number>();
+  const storeSources = new Map<string, Set<StorePrice['source']>>();
   for (const store of storeNames) {
     storeTotals.set(store, 0);
+    storeSources.set(store, new Set());
   }
 
-  for (const item of itemsToPrice) {
+  for (const item of listItems) {
     const prices = await getStorePricesForItem(item.name);
     for (const store of storeNames) {
       const entry = prices.find((p) => p.store.toLowerCase() === store.toLowerCase());
       if (entry) {
         storeTotals.set(store, (storeTotals.get(store) ?? 0) + entry.price * item.quantity);
+        storeSources.get(store)?.add(entry.source);
       }
     }
   }
@@ -272,11 +282,32 @@ export async function getStoreCartTotals(listItems: ListItem[]): Promise<StoreCa
   if (ranked.length === 0) return [];
 
   const cheapestTotal = ranked[0][1];
-  return ranked.map(([store, total]) => ({
-    store,
-    total,
-    isCheapest: total === cheapestTotal,
-  }));
+  return ranked.map(([store, total]) => {
+    const sources = storeSources.get(store) ?? new Set();
+    const primarySource: StoreCartTotal['primarySource'] = sources.has('history')
+      ? 'history'
+      : sources.has('community')
+        ? 'community'
+        : 'estimate';
+    return {
+      store,
+      total,
+      isCheapest: total === cheapestTotal,
+      primarySource,
+    };
+  });
+}
+
+export async function getCartComparisonSources(listItems: ListItem[]): Promise<CartComparisonSources> {
+  let hasHistory = false;
+  let hasCommunity = false;
+  for (const item of listItems) {
+    const prices = await getStorePricesForItem(item.name);
+    if (prices.some((p) => p.source === 'history')) hasHistory = true;
+    if (prices.some((p) => p.source === 'community')) hasCommunity = true;
+    if (hasHistory && hasCommunity) break;
+  }
+  return { hasHistory, hasCommunity };
 }
 
 export function getMaxCartSavings(storeTotals: StoreCartTotal[]): number {

@@ -3,7 +3,9 @@ import { Platform } from 'react-native';
 
 import { DB_NAME, MIGRATIONS, SCHEMA_VERSION } from '@/src/models/schema';
 import type {
+  AppSettings,
   BudgetSettings,
+  CategoryLimits,
   Comparison,
   ComparisonItem,
   GroceryList,
@@ -14,6 +16,11 @@ import type {
 } from '@/src/models/types';
 import type { StoreDefinition } from '@/src/data/stores';
 import { generateId } from '@/src/utils/id';
+import { defaultCategoryLimits } from '@/src/utils/budgetDefaults';
+import {
+  isDuplicateReceiptTotal,
+  normalizeStoreForDuplicate,
+} from '@/src/utils/duplicateReceipt';
 
 type DbInitState = {
   instance: SQLite.SQLiteDatabase | null;
@@ -87,6 +94,43 @@ async function runMigrations(db: SQLite.SQLiteDatabase): Promise<void> {
       'INSERT INTO budget_settings (id, weekly_budget, alert_threshold, updated_at) VALUES (?, ?, ?, ?)',
       [generateId(), 150, 0.9, now]
     );
+    await seedAppSettings(db);
+    return;
+  }
+
+  if (row.version < SCHEMA_VERSION) {
+    await migrateSchema(db, row.version);
+    await db.runAsync('UPDATE schema_version SET version = ?', [SCHEMA_VERSION]);
+  }
+}
+
+async function seedAppSettings(db: SQLite.SQLiteDatabase): Promise<void> {
+  const existing = await db.getFirstAsync('SELECT id FROM app_settings LIMIT 1');
+  if (existing) return;
+  const now = new Date().toISOString();
+  await db.runAsync(
+    'INSERT INTO app_settings (id, display_name, notify_price_alerts, notify_budget_alerts, updated_at) VALUES (?, ?, ?, ?, ?)',
+    [generateId(), '', 1, 1, now]
+  );
+}
+
+async function migrateSchema(db: SQLite.SQLiteDatabase, fromVersion: number): Promise<void> {
+  if (fromVersion < 3) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(budget_settings)');
+    const hasCategoryLimits = columns.some((column) => column.name === 'category_limits');
+    if (!hasCategoryLimits) {
+      await db.execAsync('ALTER TABLE budget_settings ADD COLUMN category_limits TEXT');
+    }
+    await seedAppSettings(db);
+  }
+}
+
+function parseCategoryLimits(raw: unknown, weeklyBudget: number): CategoryLimits | undefined {
+  if (typeof raw !== 'string' || !raw.trim()) return undefined;
+  try {
+    return JSON.parse(raw) as CategoryLimits;
+  } catch {
+    return defaultCategoryLimits(weeklyBudget * 4);
   }
 }
 
@@ -353,6 +397,26 @@ export async function getReceiptItems(receiptId: string): Promise<ReceiptItem[]>
   return rows.map((r) => mapReceiptItem(r as Record<string, unknown>));
 }
 
+export async function findDuplicateReceipt(
+  storeName: string,
+  date: string,
+  total: number,
+  excludeId?: string
+): Promise<Receipt | null> {
+  const db = await getDatabase();
+  const normalizedStore = normalizeStoreForDuplicate(storeName);
+  const rows = await db.getAllAsync('SELECT * FROM receipts WHERE date = ?', [date]);
+  for (const row of rows) {
+    const receipt = mapReceipt(row as Record<string, unknown>);
+    if (excludeId && receipt.id === excludeId) continue;
+    if (normalizeStoreForDuplicate(receipt.storeName) !== normalizedStore) continue;
+    if (isDuplicateReceiptTotal(receipt.total, total)) {
+      return receipt;
+    }
+  }
+  return null;
+}
+
 export async function saveReceipt(
   receipt: Omit<Receipt, 'createdAt' | 'updatedAt' | 'items'> & {
     items: Array<Omit<ReceiptItem, 'id' | 'receiptId'>>;
@@ -387,7 +451,7 @@ export async function saveReceipt(
   }
   const { registerStoreFromReceipt } = await import('@/src/services/storeService');
   await registerStoreFromReceipt(receipt.storeName);
-  return {
+  const saved = {
     ...receipt,
     id,
     createdAt: now,
@@ -398,11 +462,14 @@ export async function saveReceipt(
       receiptId: id,
     })),
   };
+  const { contributeFromReceipt } = await import('@/src/services/crowdsourcedPricingService');
+  await contributeFromReceipt(saved);
+  return saved;
 }
 
 export async function updateReceipt(
   id: string,
-  receipt: Partial<Receipt> & { items?: Array<Omit<ReceiptItem, 'receiptId'>> }
+  receipt: Partial<Omit<Receipt, 'items'>> & { items?: Array<Omit<ReceiptItem, 'receiptId'>> }
 ): Promise<void> {
   const db = await getDatabase();
   const now = new Date().toISOString();
@@ -515,6 +582,12 @@ export async function getLatestComparison(): Promise<(Comparison & { items: Comp
   return { ...comparison, items };
 }
 
+export async function getAllComparisons(): Promise<Comparison[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync('SELECT * FROM comparisons ORDER BY created_at DESC');
+  return rows.map((r) => mapComparison(r as Record<string, unknown>));
+}
+
 export async function deleteComparisonByReceiptId(receiptId: string): Promise<void> {
   const db = await getDatabase();
   const comparison = await getComparisonByReceiptId(receiptId);
@@ -538,26 +611,83 @@ export async function getBudgetSettings(): Promise<BudgetSettings> {
     return { id, weeklyBudget: 150, alertThreshold: 0.9, updatedAt: now };
   }
   const r = row as Record<string, unknown>;
+  const weeklyBudget = r.weekly_budget as number;
   return {
     id: r.id as string,
-    weeklyBudget: r.weekly_budget as number,
+    weeklyBudget,
     alertThreshold: r.alert_threshold as number,
+    categoryLimits: parseCategoryLimits(r.category_limits, weeklyBudget),
     updatedAt: r.updated_at as string,
   };
 }
 
 export async function updateBudgetSettings(
   weeklyBudget: number,
-  alertThreshold: number
+  alertThreshold: number,
+  categoryLimits?: CategoryLimits
 ): Promise<BudgetSettings> {
   const db = await getDatabase();
   const existing = await getBudgetSettings();
   const now = new Date().toISOString();
+  const limitsJson = categoryLimits ? JSON.stringify(categoryLimits) : null;
   await db.runAsync(
-    'UPDATE budget_settings SET weekly_budget = ?, alert_threshold = ?, updated_at = ? WHERE id = ?',
-    [weeklyBudget, alertThreshold, now, existing.id]
+    'UPDATE budget_settings SET weekly_budget = ?, alert_threshold = ?, category_limits = ?, updated_at = ? WHERE id = ?',
+    [weeklyBudget, alertThreshold, limitsJson, now, existing.id]
   );
-  return { ...existing, weeklyBudget, alertThreshold, updatedAt: now };
+  return {
+    ...existing,
+    weeklyBudget,
+    alertThreshold,
+    categoryLimits: categoryLimits ?? existing.categoryLimits,
+    updatedAt: now,
+  };
+}
+
+function mapAppSettings(row: Record<string, unknown>): AppSettings {
+  return {
+    id: row.id as string,
+    displayName: row.display_name as string,
+    notifyPriceAlerts: Boolean(row.notify_price_alerts),
+    notifyBudgetAlerts: Boolean(row.notify_budget_alerts),
+    updatedAt: row.updated_at as string,
+  };
+}
+
+export async function getAppSettings(): Promise<AppSettings> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync('SELECT * FROM app_settings LIMIT 1');
+  if (!row) {
+    await seedAppSettings(db);
+    const seeded = await db.getFirstAsync('SELECT * FROM app_settings LIMIT 1');
+    return mapAppSettings(seeded as Record<string, unknown>);
+  }
+  return mapAppSettings(row as Record<string, unknown>);
+}
+
+export async function updateAppSettings(
+  partial: Partial<Omit<AppSettings, 'id' | 'updatedAt'>>
+): Promise<AppSettings> {
+  const db = await getDatabase();
+  const existing = await getAppSettings();
+  const now = new Date().toISOString();
+  const next: AppSettings = {
+    ...existing,
+    displayName: partial.displayName ?? existing.displayName,
+    notifyPriceAlerts: partial.notifyPriceAlerts ?? existing.notifyPriceAlerts,
+    notifyBudgetAlerts: partial.notifyBudgetAlerts ?? existing.notifyBudgetAlerts,
+    updatedAt: now,
+  };
+  await db.runAsync(
+    'UPDATE app_settings SET display_name = ?, notify_price_alerts = ?, notify_budget_alerts = ?, updated_at = ? WHERE id = ?',
+    [
+      next.displayName,
+      next.notifyPriceAlerts ? 1 : 0,
+      next.notifyBudgetAlerts ? 1 : 0,
+      now,
+      existing.id,
+    ]
+  );
+  return next;
 }
 
 export async function getReceiptsInDateRange(startDate: string, endDate: string): Promise<Receipt[]> {

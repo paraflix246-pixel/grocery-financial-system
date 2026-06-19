@@ -31,7 +31,7 @@ export default function ScanScreen() {
   const photoOutput = usePhotoOutput();
   const [processing, setProcessing] = useState(false);
   const [flashOn, setFlashOn] = useState(false);
-  const { setImageUri, setRawOcrText, setDraft } = useScanStore();
+  const { setImageUri, setRawOcrText, setDraft, startManualEntry } = useScanStore();
 
   useEffect(() => {
     requestPermission();
@@ -98,6 +98,14 @@ export default function ScanScreen() {
         <Pressable style={styles.secondaryButton} onPress={pickImage}>
           <Text style={styles.secondaryText}>Or pick from gallery</Text>
         </Pressable>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={() => {
+            startManualEntry();
+            router.push('/receipt/edit');
+          }}>
+          <Text style={styles.secondaryText}>Add receipt manually</Text>
+        </Pressable>
       </View>
     );
   }
@@ -126,8 +134,12 @@ export default function ScanScreen() {
       </View>
 
       <View style={[styles.controls, { paddingBottom: insets.bottom + 24 }]}>
-        <Pressable onPress={pickImage}>
-          <Text style={styles.retakeText}>Retake</Text>
+        <Pressable
+          onPress={() => {
+            startManualEntry();
+            router.push('/receipt/edit');
+          }}>
+          <Text style={styles.retakeText}>Manual</Text>
         </Pressable>
         <Pressable style={styles.captureBtn} onPress={capturePhoto}>
           <View style={styles.captureInner} />

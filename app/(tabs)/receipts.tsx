@@ -1,6 +1,7 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
@@ -17,6 +18,7 @@ import { formatCurrency } from '@/src/utils/priceParser';
 
 export default function ReceiptsScreen() {
   const router = useRouter();
+  const { store: storeFilter } = useLocalSearchParams<{ store?: string }>();
   const insets = useSafeAreaInsets();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,8 @@ export default function ReceiptsScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [data, monthly] = await Promise.all([getReceipts(), getMonthlySpendAnalytics()]);
+      const filters = storeFilter ? { storeName: storeFilter } : undefined;
+      const [data, monthly] = await Promise.all([getReceipts(filters), getMonthlySpendAnalytics()]);
       setReceipts(data);
       setAnalytics(monthly);
     } catch (error) {
@@ -33,7 +36,7 @@ export default function ReceiptsScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeFilter]);
 
   useFocusEffect(
     useCallback(() => {
@@ -71,7 +74,16 @@ export default function ReceiptsScreen() {
       <AppHeader />
 
       <Text style={styles.pageTitle}>Receipts</Text>
-      <Text style={styles.pageSub}>All scanned receipts and spending trends</Text>
+      <Text style={styles.pageSub}>
+        {storeFilter ? `Showing receipts from ${storeFilter}` : 'All scanned receipts and spending trends'}
+      </Text>
+
+      <Pressable
+        style={({ pressed }) => [styles.manualBtn, pressed && styles.manualBtnPressed]}
+        onPress={() => router.push('/receipt/manual')}>
+        <SymbolView name={{ ios: 'square.and.pencil', android: 'edit_note', web: 'edit_note' }} tintColor={SmartCartColors.primary} size={20} />
+        <Text style={styles.manualBtnText}>Add receipt manually</Text>
+      </Pressable>
 
       <View style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
@@ -123,6 +135,21 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: SmartCartColors.background },
   pageTitle: { fontSize: 28, fontWeight: '800', color: SmartCartColors.text, letterSpacing: -0.5 },
   pageSub: { fontSize: 14, color: SmartCartColors.textSecondary, marginBottom: 20, marginTop: 4 },
+  manualBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.md,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: SmartCartColors.primary,
+    ...SmartCartShadow.cardSoft,
+  },
+  manualBtnPressed: { backgroundColor: SmartCartColors.badge },
+  manualBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.primaryDark },
   sectionCard: {
     backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,

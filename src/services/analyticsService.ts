@@ -1,4 +1,4 @@
-import type { Receipt } from '@/src/models/types';
+import type { CategoryLimits, ComparisonResult, Receipt } from '@/src/models/types';
 import {
   getComparisonByReceiptId,
   getComparisonItems,
@@ -8,7 +8,6 @@ import {
 } from '@/src/services/storageService';
 import { endOfWeekISO, startOfWeekISO, todayISO } from '@/src/utils/dateParser';
 import { getTopVarianceDriver } from '@/src/services/matchingService';
-import type { ComparisonResult } from '@/src/models/types';
 import { CATEGORY_COLORS, mapToSpendingCategory } from '@/src/theme/smartCart';
 
 export type WeeklySpendPoint = { label: string; value: number };
@@ -146,7 +145,10 @@ export async function getDashboardCategoryBreakdown(): Promise<CategoryBreakdown
   }));
 }
 
-export async function getCategoryBudgets(monthlyBudget: number): Promise<CategoryBudget[]> {
+export async function getCategoryBudgets(
+  monthlyBudget: number,
+  categoryLimits?: CategoryLimits | null
+): Promise<CategoryBudget[]> {
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const thisMonthEnd = todayISO();
@@ -158,12 +160,8 @@ export async function getCategoryBudgets(monthlyBudget: number): Promise<Categor
     })
   );
   const breakdown = await getCategoryBreakdown(full);
-  const limits: Record<string, number> = {
-    Groceries: monthlyBudget * 0.5,
-    Household: monthlyBudget * 0.2,
-    Snacks: monthlyBudget * 0.15,
-    Beverages: monthlyBudget * 0.15,
-  };
+  const { resolveCategoryLimits } = await import('@/src/utils/budgetDefaults');
+  const limits = resolveCategoryLimits(monthlyBudget, categoryLimits);
   return (['Groceries', 'Household', 'Snacks', 'Beverages'] as const).map((category) => ({
     category,
     spent: breakdown.find((b) => b.category === category)?.amount ?? 0,
@@ -399,3 +397,278 @@ export async function getComparisonForReceipt(receiptId: string) {
   const items = await getComparisonItems(comparison.id);
   return { ...comparison, items };
 }
+
+// --- Phase 3: Pro insights & usage analytics ---
+
+export type OverspendCategory = {
+  category: string;
+  spent: number;
+  limit: number;
+  overAmount: number;
+  percentOfLimit: number;
+  color: string;
+};
+
+export type StoreTrend = {
+  store: string;
+  thisMonth: number;
+  lastMonth: number;
+  changePercent: number;
+  tripCount: number;
+};
+
+export type ShoppingFrequency = {
+  tripsThisMonth: number;
+  tripsLastMonth: number;
+  avgDaysBetweenTrips: number | null;
+  busiestDay: string | null;
+};
+
+export type ProInsights = {
+  overspendCategories: OverspendCategory[];
+  storeTrends: StoreTrend[];
+  frequency: ShoppingFrequency;
+  summaryLine: string;
+};
+
+export type InflationDataPoint = {
+  label: string;
+  index: number;
+  monthKey: string;
+};
+
+export type PersonalInflation = {
+  points: InflationDataPoint[];
+  currentIndex: number;
+  changePercent: number;
+  trackedItems: number;
+  hasEnoughData: boolean;
+};
+
+export type UsageStats = {
+  receiptCount: number;
+  listCount: number;
+  itemLineCount: number;
+  comparisonCount: number;
+  firstReceiptDate: string | null;
+  lastReceiptDate: string | null;
+  totalSpent: number;
+  avgReceiptTotal: number;
+  storesVisited: number;
+};
+
+export async function getProInsights(
+  monthlyBudget: number,
+  categoryLimits?: CategoryLimits | null
+): Promise<ProInsights> {
+  const budgets = await getCategoryBudgets(monthlyBudget, categoryLimits);
+  const overspendCategories = budgets
+    .filter((b) => b.spent > b.limit)
+    .map((b) => ({
+      category: b.category,
+      spent: b.spent,
+      limit: b.limit,
+      overAmount: b.spent - b.limit,
+      percentOfLimit: b.limit > 0 ? (b.spent / b.limit) * 100 : 0,
+      color: b.color,
+    }))
+    .sort((a, b) => b.overAmount - a.overAmount);
+
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const thisMonthEnd = todayISO();
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+
+  const [thisMonthReceipts, lastMonthReceipts] = await Promise.all([
+    getReceiptsInDateRange(thisMonthStart, thisMonthEnd),
+    getReceiptsInDateRange(lastMonthStart, lastMonthEnd),
+  ]);
+
+  const storeThis = new Map<string, { total: number; trips: number }>();
+  for (const r of thisMonthReceipts) {
+    const entry = storeThis.get(r.storeName) ?? { total: 0, trips: 0 };
+    entry.total += r.total;
+    entry.trips += 1;
+    storeThis.set(r.storeName, entry);
+  }
+
+  const storeLast = new Map<string, number>();
+  for (const r of lastMonthReceipts) {
+    storeLast.set(r.storeName, (storeLast.get(r.storeName) ?? 0) + r.total);
+  }
+
+  const allStores = new Set([...storeThis.keys(), ...storeLast.keys()]);
+  const storeTrends: StoreTrend[] = [...allStores].map((store) => {
+    const thisData = storeThis.get(store);
+    const thisMonth = thisData?.total ?? 0;
+    const lastMonth = storeLast.get(store) ?? 0;
+    const changePercent =
+      lastMonth > 0 ? ((thisMonth - lastMonth) / lastMonth) * 100 : thisMonth > 0 ? 100 : 0;
+    return {
+      store,
+      thisMonth,
+      lastMonth,
+      changePercent,
+      tripCount: thisData?.trips ?? 0,
+    };
+  }).sort((a, b) => b.thisMonth - a.thisMonth);
+
+  const tripsThisMonth = thisMonthReceipts.length;
+  const tripsLastMonth = lastMonthReceipts.length;
+
+  const sortedDates = thisMonthReceipts.map((r) => r.date).sort();
+  let avgDaysBetweenTrips: number | null = null;
+  if (sortedDates.length >= 2) {
+    const gaps: number[] = [];
+    for (let i = 1; i < sortedDates.length; i++) {
+      const a = new Date(sortedDates[i - 1] + 'T12:00:00').getTime();
+      const b = new Date(sortedDates[i] + 'T12:00:00').getTime();
+      gaps.push((b - a) / (1000 * 60 * 60 * 24));
+    }
+    avgDaysBetweenTrips = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+  }
+
+  const dayCounts = new Map<string, number>();
+  for (const r of thisMonthReceipts) {
+    const day = new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
+    dayCounts.set(day, (dayCounts.get(day) ?? 0) + 1);
+  }
+  let busiestDay: string | null = null;
+  let maxDayCount = 0;
+  dayCounts.forEach((count, day) => {
+    if (count > maxDayCount) {
+      maxDayCount = count;
+      busiestDay = day;
+    }
+  });
+
+  const topOverspend = overspendCategories[0];
+  const topStore = storeTrends[0];
+  let summaryLine = 'Keep scanning receipts to unlock personalized insights.';
+  if (topOverspend) {
+    summaryLine = `${topOverspend.category} is ${formatCurrencyShort(topOverspend.overAmount)} over budget this month.`;
+  } else if (topStore && topStore.thisMonth > 0) {
+    summaryLine = `Most spending at ${topStore.store} — $${topStore.thisMonth.toFixed(0)} this month.`;
+  } else if (tripsThisMonth > 0) {
+    summaryLine = `${tripsThisMonth} shopping trips this month${avgDaysBetweenTrips ? `, ~every ${Math.round(avgDaysBetweenTrips)} days` : ''}.`;
+  }
+
+  return {
+    overspendCategories,
+    storeTrends,
+    frequency: {
+      tripsThisMonth,
+      tripsLastMonth,
+      avgDaysBetweenTrips,
+      busiestDay,
+    },
+    summaryLine,
+  };
+}
+
+function formatCurrencyShort(amount: number): string {
+  return `$${amount.toFixed(2)}`;
+}
+
+function normalizeItemName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+export async function getPersonalInflation(months = 6): Promise<PersonalInflation> {
+  const items = await getReceiptItemsWithStore();
+  if (items.length < 4) {
+    return { points: [], currentIndex: 100, changePercent: 0, trackedItems: 0, hasEnoughData: false };
+  }
+
+  const now = new Date();
+  const monthBuckets = new Map<string, Map<string, number[]>>();
+
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthBuckets.set(key, new Map());
+  }
+
+  for (const item of items) {
+    const monthKey = item.receiptDate.slice(0, 7);
+    if (!monthBuckets.has(monthKey)) continue;
+    const bucket = monthBuckets.get(monthKey)!;
+    const itemKey = normalizeItemName(item.name);
+    const prices = bucket.get(itemKey) ?? [];
+    prices.push(item.price);
+    bucket.set(itemKey, prices);
+  }
+
+  const itemFirstMonth = new Map<string, string>();
+  for (const item of items) {
+    const key = normalizeItemName(item.name);
+    const month = item.receiptDate.slice(0, 7);
+    const existing = itemFirstMonth.get(key);
+    if (!existing || month < existing) itemFirstMonth.set(key, month);
+  }
+
+  const baseMonth = [...monthBuckets.keys()].sort()[0];
+  const baseAverages = new Map<string, number>();
+  const baseBucket = monthBuckets.get(baseMonth);
+  if (baseBucket) {
+    for (const [itemKey, prices] of baseBucket) {
+      baseAverages.set(itemKey, prices.reduce((s, p) => s + p, 0) / prices.length);
+    }
+  }
+
+  const points: InflationDataPoint[] = [];
+  const sortedMonths = [...monthBuckets.keys()].sort();
+
+  for (const monthKey of sortedMonths) {
+    const bucket = monthBuckets.get(monthKey)!;
+    const ratios: number[] = [];
+
+    for (const [itemKey, prices] of bucket) {
+      const base = baseAverages.get(itemKey);
+      if (!base || base <= 0) continue;
+      const avg = prices.reduce((s, p) => s + p, 0) / prices.length;
+      ratios.push(avg / base);
+    }
+
+    if (ratios.length === 0) continue;
+    const avgRatio = ratios.reduce((s, r) => s + r, 0) / ratios.length;
+    const label = new Date(monthKey + '-01T12:00:00').toLocaleDateString(undefined, {
+      month: 'short',
+    });
+    points.push({ label, index: Math.round(avgRatio * 100), monthKey });
+  }
+
+  const trackedItems = itemFirstMonth.size;
+  const hasEnoughData = points.length >= 2 && trackedItems >= 2;
+  const currentIndex = points.length > 0 ? points[points.length - 1].index : 100;
+  const firstIndex = points.length > 0 ? points[0].index : 100;
+  const changePercent = firstIndex > 0 ? ((currentIndex - firstIndex) / firstIndex) * 100 : 0;
+
+  return { points, currentIndex, changePercent, trackedItems, hasEnoughData };
+}
+
+export async function getUsageStats(): Promise<UsageStats> {
+  const { getAllLists, getAllComparisons } = await import('@/src/services/storageService');
+  const items = await getReceiptItemsWithStore();
+  const receipts = await getReceiptsInDateRange('1970-01-01', todayISO());
+  const lists = await getAllLists();
+  const comparisons = await getAllComparisons();
+
+  const dates = receipts.map((r) => r.date).sort();
+  const totalSpent = receipts.reduce((s, r) => s + r.total, 0);
+  const stores = new Set(receipts.map((r) => r.storeName.toLowerCase()));
+
+  return {
+    receiptCount: receipts.length,
+    listCount: lists.length,
+    itemLineCount: items.length,
+    comparisonCount: comparisons.length,
+    firstReceiptDate: dates[0] ?? null,
+    lastReceiptDate: dates[dates.length - 1] ?? null,
+    totalSpent,
+    avgReceiptTotal: receipts.length > 0 ? totalSpent / receipts.length : 0,
+    storesVisited: stores.size,
+  };
+}
+

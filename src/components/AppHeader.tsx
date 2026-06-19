@@ -8,9 +8,10 @@ import { SmartCartColors } from '@/src/theme/smartCart';
 type Props = {
   notificationCount?: number;
   onMenuPress?: () => void;
+  onNotificationPress?: () => void;
 };
 
-export function AppHeader({ notificationCount = 3, onMenuPress }: Props) {
+export function AppHeader({ notificationCount = 0, onMenuPress, onNotificationPress }: Props) {
   const router = useRouter();
 
   return (
@@ -35,7 +36,10 @@ export function AppHeader({ notificationCount = 3, onMenuPress }: Props) {
         <Text style={styles.logo}>SmartCart</Text>
       </View>
 
-      <Pressable style={styles.iconBtn} accessibilityLabel="Notifications">
+      <Pressable
+        style={styles.iconBtn}
+        accessibilityLabel="Notifications"
+        onPress={onNotificationPress ?? (() => router.push('/price-alerts'))}>
         <SymbolView
           name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
           tintColor={SmartCartColors.text}

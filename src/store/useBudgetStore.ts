@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-import type { BudgetSettings } from '@/src/models/types';
+import type { BudgetSettings, CategoryLimits } from '@/src/models/types';
 import { getBudgetSettings, updateBudgetSettings } from '@/src/services/storageService';
 
 const ONBOARDING_KEY = 'grocery_onboarding_complete';
@@ -11,7 +11,7 @@ type BudgetStore = {
   onboardingComplete: boolean;
   loading: boolean;
   loadSettings: () => Promise<void>;
-  saveSettings: (weeklyBudget: number, alertThreshold: number) => Promise<void>;
+  saveSettings: (weeklyBudget: number, alertThreshold: number, categoryLimits?: CategoryLimits) => Promise<void>;
   checkOnboarding: () => Promise<boolean>;
   completeOnboarding: () => Promise<void>;
 };
@@ -27,8 +27,8 @@ export const useBudgetStore = create<BudgetStore>((set) => ({
     set({ settings, loading: false });
   },
 
-  saveSettings: async (weeklyBudget, alertThreshold) => {
-    const settings = await updateBudgetSettings(weeklyBudget, alertThreshold);
+  saveSettings: async (weeklyBudget, alertThreshold, categoryLimits) => {
+    const settings = await updateBudgetSettings(weeklyBudget, alertThreshold, categoryLimits);
     set({ settings });
   },
 

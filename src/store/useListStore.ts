@@ -8,6 +8,7 @@ import {
   getAllLists,
   getListItems,
   setActiveList,
+  updateList,
 } from '@/src/services/storageService';
 
 type ListStore = {
@@ -19,6 +20,7 @@ type ListStore = {
   loadListItems: (listId: string) => Promise<ListItem[]>;
   addList: (name: string) => Promise<GroceryList>;
   removeList: (id: string) => Promise<void>;
+  renameList: (id: string, name: string) => Promise<void>;
   activateList: (id: string) => Promise<void>;
   refreshItems: (listId: string) => Promise<void>;
 };
@@ -112,6 +114,11 @@ export const useListStore = create<ListStore>((set, get) => ({
         activeListId: s.activeListId === id ? null : s.activeListId,
       };
     });
+    await get().loadLists();
+  },
+
+  renameList: async (id, name) => {
+    await updateList(id, name);
     await get().loadLists();
   },
 

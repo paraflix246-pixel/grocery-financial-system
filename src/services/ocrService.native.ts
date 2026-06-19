@@ -18,8 +18,12 @@ export async function recognizeTextFromImage(imageUri: string): Promise<string> 
     const TextRecognition = require('@react-native-ml-kit/text-recognition').default;
     const result = await TextRecognition.recognize(imageUri);
     const text = result.blocks?.map((b: { text: string }) => b.text).join('\n') ?? result.text ?? '';
-    return cleanOcrText(text || MOCK_RECEIPT_TEXT);
-  } catch {
-    return cleanOcrText(MOCK_RECEIPT_TEXT);
+    const cleaned = cleanOcrText(text.trim());
+    if (cleaned.length > 10) {
+      return cleaned;
+    }
+  } catch (error) {
+    console.warn('ML Kit OCR unavailable, using sample fallback:', error);
   }
+  return cleanOcrText(MOCK_RECEIPT_TEXT);
 }

@@ -113,6 +113,11 @@ export async function getAllStores(): Promise<StoreDefinition[]> {
   return merged.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export async function getStoreById(id: string): Promise<StoreDefinition | null> {
+  const stores = await getAllStores();
+  return stores.find((store) => store.id === id) ?? null;
+}
+
 export async function registerStoreFromReceipt(storeName: string): Promise<StoreDefinition | null> {
   const trimmed = storeName.trim();
   if (!trimmed) return null;

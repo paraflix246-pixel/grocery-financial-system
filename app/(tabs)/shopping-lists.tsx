@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   RefreshControl,
@@ -48,6 +49,7 @@ export default function ListsScreen() {
     setCreating(true);
     try {
       const list = await useListStore.getState().addList('Weekly Shopping');
+      await useListStore.getState().activateList(list.id);
       if (withStarterItems) {
         await Promise.all(
           STARTER_LIST_ITEMS.map((item, index) =>
@@ -138,6 +140,7 @@ export default function ListsScreen() {
               setCreating(true);
               try {
                 const list = await useListStore.getState().addList('Weekly Shopping');
+      await useListStore.getState().activateList(list.id);
                 router.push(`/list/${list.id}`);
               } finally {
                 setCreating(false);
@@ -192,7 +195,41 @@ export default function ListsScreen() {
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${item.name}`}
-                onPress={() => router.push(`/list/${item.id}`)}>
+                onPress={async () => {
+                  await useListStore.getState().activateList(item.id);
+                  router.push(`/list/${item.id}`);
+                }}
+                onLongPress={() => {
+                  Alert.alert(item.name, 'List options', [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Set active',
+                      onPress: () => useListStore.getState().activateList(item.id),
+                    },
+                    {
+                      text: 'Rename',
+                      onPress: () => {
+                        if (Platform.OS === 'web') {
+                          const next = window.prompt('Rename list', item.name);
+                          if (next?.trim()) {
+                            void useListStore.getState().renameList(item.id, next.trim());
+                          }
+                          return;
+                        }
+                        Alert.prompt?.('Rename list', undefined, (name) => {
+                          if (name?.trim()) {
+                            void useListStore.getState().renameList(item.id, name.trim());
+                          }
+                        }, 'plain-text', item.name);
+                      },
+                    },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: () => useListStore.getState().removeList(item.id),
+                    },
+                  ]);
+                }}>
                 <Text style={styles.cardTitle}>{item.name}</Text>
                 <Text style={styles.cardMeta}>
                   {items.length} items · {formatCurrency(planned)} est.
