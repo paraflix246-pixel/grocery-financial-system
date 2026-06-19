@@ -80,6 +80,14 @@ export default function PriceAlertsScreen() {
             Price drops detected from your receipt history — same item at the same store, compared to recent purchases.
           </Text>
 
+          {alerts.length > 0 && (
+            <View style={styles.summaryPill}>
+              <Text style={styles.summaryPillText}>
+                {alerts.length} active alert{alerts.length === 1 ? '' : 's'}
+              </Text>
+            </View>
+          )}
+
           {alerts.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>No alerts yet</Text>
@@ -125,6 +133,15 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 22 },
   content: { padding: 16, paddingBottom: 40 },
   lead: { fontSize: 14, color: SmartCartColors.textSecondary, lineHeight: 20, marginBottom: 16 },
+  summaryPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: SmartCartColors.badge,
+    borderRadius: SmartCartRadius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 12,
+  },
+  summaryPillText: { fontSize: 12, fontWeight: '700', color: SmartCartColors.primaryDark },
   listCard: {
     backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,

@@ -59,6 +59,7 @@ export default function EditReceiptScreen() {
 
   const receiptId = editingReceiptId ?? routeId ?? null;
   const isEditingSaved = Boolean(receiptId);
+  const isManualEntry = !isEditingSaved && !imageUri;
 
   const loadSavedReceipt = useCallback(async () => {
     if (!routeId || draft) return;
@@ -157,7 +158,9 @@ export default function EditReceiptScreen() {
         <Pressable onPress={() => router.back()}>
           <SymbolView name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }} tintColor={SmartCartColors.text} size={22} />
         </Pressable>
-        <Text style={styles.headerTitle}>{isEditingSaved ? 'Edit Receipt' : 'Review Receipt'}</Text>
+        <Text style={styles.headerTitle}>
+          {isEditingSaved ? 'Edit Receipt' : isManualEntry ? 'Add Receipt' : 'Review Receipt'}
+        </Text>
         <Pressable onPress={handleSave} disabled={saving}>
           <Text style={styles.saveLink}>{saving ? '...' : 'Save'}</Text>
         </Pressable>

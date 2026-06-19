@@ -3,7 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { StoreDefinition } from '@/src/data/stores';
 import { SCHEMA_VERSION } from '@/src/models/schema';
 import type {
+  AppSettings,
   BudgetSettings,
+  CategoryLimits,
   Comparison,
   ComparisonItem,
   GroceryList,
@@ -13,6 +15,7 @@ import type {
   ReceiptItem,
 } from '@/src/models/types';
 import { generateId } from '@/src/utils/id';
+import { defaultCategoryLimits } from '@/src/utils/budgetDefaults';
 import {
   isDuplicateReceiptTotal,
   normalizeStoreForDuplicate,
@@ -29,6 +32,7 @@ type WebStore = {
   comparisons: Comparison[];
   comparisonItems: ComparisonItem[];
   budgetSettings: BudgetSettings;
+  appSettings: AppSettings;
   customStores: StoreDefinition[];
 };
 
@@ -53,19 +57,31 @@ async function loadStore(): Promise<void> {
         receiptId: receipt.id,
       }))
     );
+    const budgetSettings: BudgetSettings =
+      parsed.budgetSettings ?? {
+        id: generateId(),
+        weeklyBudget: 150,
+        alertThreshold: 0.9,
+        updatedAt: new Date().toISOString(),
+      };
+    if (!budgetSettings.categoryLimits) {
+      budgetSettings.categoryLimits = defaultCategoryLimits(budgetSettings.weeklyBudget * 4);
+    }
     store = {
-      schemaVersion: parsed.schemaVersion ?? SCHEMA_VERSION,
+      schemaVersion: SCHEMA_VERSION,
       lists: parsed.lists ?? [],
       listItems: parsed.listItems ?? [],
       receipts: receipts.map(({ items: _items, ...receipt }) => receipt),
       receiptItems: receiptItems.length > 0 ? receiptItems : migratedReceiptItems,
       comparisons: parsed.comparisons ?? [],
       comparisonItems: parsed.comparisonItems ?? [],
-      budgetSettings:
-        parsed.budgetSettings ?? {
+      budgetSettings,
+      appSettings:
+        parsed.appSettings ?? {
           id: generateId(),
-          weeklyBudget: 150,
-          alertThreshold: 0.9,
+          displayName: '',
+          notifyPriceAlerts: true,
+          notifyBudgetAlerts: true,
           updatedAt: new Date().toISOString(),
         },
       customStores: parsed.customStores ?? [],
@@ -86,6 +102,14 @@ async function loadStore(): Promise<void> {
       id: generateId(),
       weeklyBudget: 150,
       alertThreshold: 0.9,
+      categoryLimits: defaultCategoryLimits(600),
+      updatedAt: now,
+    },
+    appSettings: {
+      id: generateId(),
+      displayName: '',
+      notifyPriceAlerts: true,
+      notifyBudgetAlerts: true,
       updatedAt: now,
     },
     customStores: [],
@@ -443,7 +467,8 @@ export async function getBudgetSettings(): Promise<BudgetSettings> {
 
 export async function updateBudgetSettings(
   weeklyBudget: number,
-  alertThreshold: number
+  alertThreshold: number,
+  categoryLimits?: CategoryLimits
 ): Promise<BudgetSettings> {
   const data = await ensureLoaded();
   const now = new Date().toISOString();
@@ -451,10 +476,32 @@ export async function updateBudgetSettings(
     ...data.budgetSettings,
     weeklyBudget,
     alertThreshold,
+    categoryLimits: categoryLimits ?? data.budgetSettings.categoryLimits,
     updatedAt: now,
   };
   await persist();
   return { ...data.budgetSettings };
+}
+
+export async function getAppSettings(): Promise<AppSettings> {
+  const data = await ensureLoaded();
+  return { ...data.appSettings };
+}
+
+export async function updateAppSettings(
+  partial: Partial<Omit<AppSettings, 'id' | 'updatedAt'>>
+): Promise<AppSettings> {
+  const data = await ensureLoaded();
+  const now = new Date().toISOString();
+  data.appSettings = {
+    ...data.appSettings,
+    displayName: partial.displayName ?? data.appSettings.displayName,
+    notifyPriceAlerts: partial.notifyPriceAlerts ?? data.appSettings.notifyPriceAlerts,
+    notifyBudgetAlerts: partial.notifyBudgetAlerts ?? data.appSettings.notifyBudgetAlerts,
+    updatedAt: now,
+  };
+  await persist();
+  return { ...data.appSettings };
 }
 
 export async function getReceiptsInDateRange(startDate: string, endDate: string): Promise<Receipt[]> {

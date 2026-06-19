@@ -16,6 +16,7 @@ type ScanStore = {
   addDraftItem: () => void;
   removeDraftItem: (index: number) => void;
   reset: () => void;
+  startManualEntry: () => void;
 };
 
 const emptyDraft = (): ParsedReceiptDraft => ({
@@ -83,4 +84,12 @@ export const useScanStore = create<ScanStore>((set, get) => ({
   },
 
   reset: () => set({ imageUri: null, rawOcrText: '', draft: null, editingReceiptId: null }),
+
+  startManualEntry: () =>
+    set({
+      imageUri: null,
+      rawOcrText: '',
+      editingReceiptId: null,
+      draft: emptyDraft(),
+    }),
 }));

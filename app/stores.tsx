@@ -94,7 +94,7 @@ export default function StoresScreen() {
               <Pressable
                 key={store.id}
                 style={({ pressed }) => [styles.storeRow, pressed && styles.storeRowPressed]}
-                onPress={() => router.push('/(tabs)/receipts')}>
+                onPress={() => router.push(`/stores/${store.id}` as never)}>
                 <StoreBrandAvatar store={store.name} size={44} />
                 <View style={styles.storeInfo}>
                   <Text style={styles.storeName}>{store.name}</Text>

@@ -32,6 +32,7 @@ import type { StoreCartTotal } from '@/src/services/priceComparisonService';
 import { getMaxCartSavings, getStoreCartTotals } from '@/src/services/priceComparisonService';
 import { getActiveList, getListItems, getReceipts } from '@/src/services/storageService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
+import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { getTimeGreeting, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
 
@@ -42,6 +43,8 @@ export default function HomeScreen() {
   const isWide = width >= 640;
   const weeklyBudgetSetting = useBudgetStore((s) => s.settings?.weeklyBudget ?? 200);
   const alertThresholdSetting = useBudgetStore((s) => s.settings?.alertThreshold ?? 0.9);
+  const displayName = useSettingsStore((s) => s.settings?.displayName ?? '');
+  const notifyBudgetAlerts = useSettingsStore((s) => s.settings?.notifyBudgetAlerts ?? true);
   const [loading, setLoading] = useState(true);
   const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
   const [homeInsight, setHomeInsight] = useState<HomeInsight | null>(null);
@@ -69,6 +72,8 @@ export default function HomeScreen() {
         getStoreCartTotals(listItems),
         getMonthlySpendAnalytics(),
       ]);
+
+      await useSettingsStore.getState().loadSettings();
 
       setRecentReceipts(receipts.slice(0, 4));
       setHomeInsight(insight);
@@ -112,6 +117,8 @@ export default function HomeScreen() {
   const weeklySpend = homeInsight?.weeklySpend ?? 0;
   const underBudget = Math.max(weeklyBudget - weeklySpend, 0);
   const budgetPercentLabel = `${Math.round((homeInsight?.budgetPercent ?? 0) * 100)}% of weekly budget`;
+  const greetingName = displayName.trim();
+  const greetingText = greetingName ? `${getTimeGreeting()}, ${greetingName}` : getTimeGreeting();
 
   return (
     <ScrollView
@@ -123,9 +130,25 @@ export default function HomeScreen() {
       />
 
       <View style={styles.greetingBlock}>
-        <Text style={styles.greeting}>{getTimeGreeting()} 👋</Text>
+        <Text style={styles.greeting}>{greetingText} 👋</Text>
         <Text style={styles.greetingSub}>Here's your smart shopping overview</Text>
       </View>
+
+      {homeInsight && notifyBudgetAlerts && homeInsight.isOverBudget && (
+        <StatusBanner
+          message={`Weekly budget exceeded by ${formatCurrency(Math.max(homeInsight.weeklySpend - homeInsight.weeklyBudget, 0))}`}
+          emoji="⚠️"
+          variant="warning"
+        />
+      )}
+
+      {homeInsight && notifyBudgetAlerts && !homeInsight.isOverBudget && homeInsight.isOverThreshold && (
+        <StatusBanner
+          message={`You've used ${Math.round(homeInsight.budgetPercent * 100)}% of your weekly budget — approaching your alert threshold`}
+          emoji="📊"
+          variant="warning"
+        />
+      )}
 
       {homeInsight && (
         <View style={[styles.insightRow, isWide && styles.insightRowWide]}>

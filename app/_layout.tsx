@@ -10,6 +10,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { OnboardingModal } from '@/src/components/OnboardingModal';
 import { initStorage } from '@/src/services/storageService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
+import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useListStore } from '@/src/store/useListStore';
 
 export { ErrorBoundary } from 'expo-router';
@@ -53,6 +54,7 @@ function ensureAppInitialized(): Promise<void> {
     await waitForWebFirstPaint();
     await initStorage();
     await useBudgetStore.getState().loadSettings();
+    await useSettingsStore.getState().loadSettings();
     await useListStore.getState().loadLists();
     await useBudgetStore.getState().checkOnboarding();
     state.initialized = true;
@@ -128,12 +130,15 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="list/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="receipt/preview" options={{ headerShown: false }} />
+        <Stack.Screen name="receipt/manual" options={{ headerShown: false }} />
         <Stack.Screen name="receipt/edit" options={{ headerShown: false }} />
         <Stack.Screen name="receipt/link" options={{ title: 'Link to List' }} />
         <Stack.Screen name="receipt/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/index" options={{ headerShown: false }} />
         <Stack.Screen name="settings/budget" options={{ headerShown: false }} />
         <Stack.Screen name="price-alerts" options={{ headerShown: false }} />
         <Stack.Screen name="stores" options={{ headerShown: false }} />
+        <Stack.Screen name="stores/[id]" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );

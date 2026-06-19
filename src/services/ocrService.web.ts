@@ -51,6 +51,13 @@ Tax                 1.30
 TOTAL              19.85`,
 ];
 
+export type OcrSource = 'tesseract' | 'fallback' | 'empty';
+
+export type OcrRecognitionResult = {
+  text: string;
+  source: OcrSource;
+};
+
 function hashUri(uri: string): number {
   let hash = 0;
   for (let i = 0; i < uri.length; i++) {
@@ -59,8 +66,57 @@ function hashUri(uri: string): number {
   return Math.abs(hash);
 }
 
-export async function recognizeTextFromImage(imageUri: string): Promise<string> {
-  await new Promise((resolve) => setTimeout(resolve, 800));
+function fallbackMockText(imageUri: string): string {
   const index = hashUri(imageUri) % MOCK_RECEIPTS.length;
   return cleanOcrText(MOCK_RECEIPTS[index]);
+}
+
+async function imageUriToDataUrl(imageUri: string): Promise<string> {
+  if (imageUri.startsWith('data:')) return imageUri;
+
+  const response = await fetch(imageUri);
+  const blob = await response.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result ?? ''));
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function recognizeWithTesseract(imageUri: string): Promise<string | null> {
+  try {
+    const { createWorker } = await import('tesseract.js');
+    const worker = await createWorker('eng');
+    try {
+      const source = imageUri.startsWith('blob:') || imageUri.startsWith('data:')
+        ? imageUri
+        : await imageUriToDataUrl(imageUri);
+      const { data } = await worker.recognize(source);
+      const cleaned = cleanOcrText(data.text.trim());
+      return cleaned.length > 10 ? cleaned : null;
+    } finally {
+      await worker.terminate();
+    }
+  } catch (error) {
+    console.warn('Tesseract OCR unavailable, using fallback:', error);
+    return null;
+  }
+}
+
+export async function recognizeTextFromImageDetailed(
+  imageUri: string
+): Promise<OcrRecognitionResult> {
+  const tesseractText = await recognizeWithTesseract(imageUri);
+  if (tesseractText) {
+    return { text: tesseractText, source: 'tesseract' };
+  }
+
+  const fallback = fallbackMockText(imageUri);
+  return { text: fallback, source: 'fallback' };
+}
+
+export async function recognizeTextFromImage(imageUri: string): Promise<string> {
+  const result = await recognizeTextFromImageDetailed(imageUri);
+  return result.text;
 }

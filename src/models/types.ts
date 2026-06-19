@@ -77,10 +77,24 @@ export type ComparisonResult = {
   }>;
 };
 
+export const BUDGET_CATEGORIES = ['Groceries', 'Household', 'Snacks', 'Beverages'] as const;
+export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number];
+
+export type CategoryLimits = Record<BudgetCategory, number>;
+
 export type BudgetSettings = {
   id: string;
   weeklyBudget: number;
   alertThreshold: number;
+  categoryLimits?: CategoryLimits;
+  updatedAt: string;
+};
+
+export type AppSettings = {
+  id: string;
+  displayName: string;
+  notifyPriceAlerts: boolean;
+  notifyBudgetAlerts: boolean;
   updatedAt: string;
 };
 

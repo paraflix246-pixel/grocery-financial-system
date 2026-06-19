@@ -19,6 +19,12 @@ type MenuItem = {
 
 const MENU_ITEMS: MenuItem[] = [
   {
+    label: 'Settings',
+    subtitle: 'Profile, notifications & preferences',
+    icon: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
+    route: '/settings',
+  },
+  {
     label: 'Budget',
     subtitle: 'Monthly limits & category budgets',
     icon: { ios: 'dollarsign.circle', android: 'payments', web: 'payments' },

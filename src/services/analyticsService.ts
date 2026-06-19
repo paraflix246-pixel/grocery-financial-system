@@ -1,4 +1,4 @@
-import type { Receipt } from '@/src/models/types';
+import type { CategoryLimits, ComparisonResult, Receipt } from '@/src/models/types';
 import {
   getComparisonByReceiptId,
   getComparisonItems,
@@ -8,7 +8,6 @@ import {
 } from '@/src/services/storageService';
 import { endOfWeekISO, startOfWeekISO, todayISO } from '@/src/utils/dateParser';
 import { getTopVarianceDriver } from '@/src/services/matchingService';
-import type { ComparisonResult } from '@/src/models/types';
 import { CATEGORY_COLORS, mapToSpendingCategory } from '@/src/theme/smartCart';
 
 export type WeeklySpendPoint = { label: string; value: number };
@@ -146,7 +145,10 @@ export async function getDashboardCategoryBreakdown(): Promise<CategoryBreakdown
   }));
 }
 
-export async function getCategoryBudgets(monthlyBudget: number): Promise<CategoryBudget[]> {
+export async function getCategoryBudgets(
+  monthlyBudget: number,
+  categoryLimits?: CategoryLimits | null
+): Promise<CategoryBudget[]> {
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const thisMonthEnd = todayISO();
@@ -158,12 +160,8 @@ export async function getCategoryBudgets(monthlyBudget: number): Promise<Categor
     })
   );
   const breakdown = await getCategoryBreakdown(full);
-  const limits: Record<string, number> = {
-    Groceries: monthlyBudget * 0.5,
-    Household: monthlyBudget * 0.2,
-    Snacks: monthlyBudget * 0.15,
-    Beverages: monthlyBudget * 0.15,
-  };
+  const { resolveCategoryLimits } = await import('@/src/utils/budgetDefaults');
+  const limits = resolveCategoryLimits(monthlyBudget, categoryLimits);
   return (['Groceries', 'Household', 'Snacks', 'Beverages'] as const).map((category) => ({
     category,
     spent: breakdown.find((b) => b.category === category)?.amount ?? 0,

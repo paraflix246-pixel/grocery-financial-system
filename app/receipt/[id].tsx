@@ -1,15 +1,17 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { ComparisonSummary } from '@/src/components/ComparisonSummary';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
-import { getReceiptById } from '@/src/services/storageService';
+import { getComparisonForReceipt } from '@/src/services/analyticsService';
+import { deleteReceipt, getReceiptById } from '@/src/services/storageService';
 import { useScanStore } from '@/src/store/useScanStore';
 import { mapToSpendingCategory, CATEGORY_COLORS, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
-import type { Receipt, ReceiptItem } from '@/src/models/types';
+import type { Comparison, ComparisonItem, ComparisonResult, Receipt, ReceiptItem } from '@/src/models/types';
 import { formatCurrency } from '@/src/utils/priceParser';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 
@@ -51,13 +53,31 @@ export default function ReceiptDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const r = await getReceiptById(id);
+    const [r, comp] = await Promise.all([getReceiptById(id), getComparisonForReceipt(id)]);
     setReceipt(r);
+    if (comp) {
+      setComparison({
+        plannedTotal: comp.plannedTotal,
+        actualTotal: comp.actualTotal,
+        variance: comp.variance,
+        items: comp.items.map((item: ComparisonItem) => ({
+          name: item.name,
+          matchType: item.matchType,
+          plannedPrice: item.plannedPrice,
+          actualPrice: item.actualPrice,
+          variance: item.variance,
+        })),
+      });
+    } else {
+      setComparison(null);
+    }
     setLoading(false);
   }, [id]);
 
@@ -84,6 +104,35 @@ export default function ReceiptDetailScreen() {
   const items = receipt.items ?? [];
   const subtotal = receipt.subtotal ?? items.reduce((s, i) => s + i.price * i.quantity, 0);
   const tax = receipt.tax ?? Math.max(receipt.total - subtotal, 0);
+
+  const handleDelete = () => {
+    const confirmDelete = async () => {
+      if (!id) return;
+      setDeleting(true);
+      try {
+        await deleteReceipt(id);
+        router.replace('/(tabs)/receipts');
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Delete this receipt? Linked plan-vs-actual comparisons will also be removed.')) {
+        void confirmDelete();
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Delete receipt?',
+      'This removes the receipt and any linked plan-vs-actual comparison.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void confirmDelete() },
+      ]
+    );
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -117,6 +166,12 @@ export default function ReceiptDetailScreen() {
 
         <Text style={styles.bigTotal}>{formatCurrency(receipt.total)}</Text>
 
+        {comparison ? (
+          <View style={styles.comparisonWrap}>
+            <ComparisonSummary comparison={comparison} />
+          </View>
+        ) : null}
+
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Items</Text>
@@ -140,6 +195,14 @@ export default function ReceiptDetailScreen() {
         {items.map((item) => (
           <ReceiptLineItem key={item.id} item={item} />
         ))}
+
+        <Pressable
+          style={[styles.deleteBtn, deleting && styles.deleteBtnDisabled]}
+          onPress={handleDelete}
+          disabled={deleting}>
+          <SymbolView name={{ ios: 'trash', android: 'delete', web: 'delete' }} tintColor="#fff" size={18} />
+          <Text style={styles.deleteBtnText}>{deleting ? 'Deleting...' : 'Delete Receipt'}</Text>
+        </Pressable>
       </ScrollView>
     </View>
   );
@@ -164,6 +227,7 @@ const styles = StyleSheet.create({
   date: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 2 },
   thumb: { width: 64, height: 80, borderRadius: SmartCartRadius.sm, backgroundColor: SmartCartColors.border },
   bigTotal: { fontSize: 36, fontWeight: '800', color: SmartCartColors.text, marginBottom: 20, letterSpacing: -0.5 },
+  comparisonWrap: { marginBottom: 16 },
   summaryCard: {
     backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,
@@ -185,4 +249,16 @@ const styles = StyleSheet.create({
   lineName: { fontSize: 15, fontWeight: '600', color: SmartCartColors.text },
   lineMeta: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },
   lineTotal: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  deleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: SmartCartColors.danger,
+    borderRadius: SmartCartRadius.md,
+    padding: 16,
+    marginTop: 24,
+  },
+  deleteBtnDisabled: { opacity: 0.6 },
+  deleteBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

@@ -14,8 +14,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Themed';
 import { CategoryBudgetRow } from '@/src/components/CategoryBudgetRow';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
+import type { BudgetCategory, CategoryLimits } from '@/src/models/types';
+import { BUDGET_CATEGORIES } from '@/src/models/types';
 import { getCategoryBudgets, getMonthlySpendAnalytics } from '@/src/services/analyticsService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
+import { resolveCategoryLimits } from '@/src/utils/budgetDefaults';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
 
@@ -29,6 +32,12 @@ export default function BudgetSettingsScreen() {
   const [editing, setEditing] = useState(false);
   const [weeklyBudget, setWeeklyBudget] = useState('200');
   const [alertThreshold, setAlertThreshold] = useState('90');
+  const [categoryLimitInputs, setCategoryLimitInputs] = useState<Record<BudgetCategory, string>>({
+    Groceries: '0',
+    Household: '0',
+    Snacks: '0',
+    Beverages: '0',
+  });
 
   const monthlyBudget = (parseFloat(weeklyBudget) || 200) * 4;
 
@@ -39,11 +48,18 @@ export default function BudgetSettingsScreen() {
     if (s) {
       setWeeklyBudget(String(s.weeklyBudget));
       setAlertThreshold(String(Math.round(s.alertThreshold * 100)));
+      const limits = resolveCategoryLimits((s.weeklyBudget ?? 200) * 4, s.categoryLimits);
+      setCategoryLimitInputs(
+        BUDGET_CATEGORIES.reduce(
+          (acc, category) => ({ ...acc, [category]: String(limits[category]) }),
+          {} as Record<BudgetCategory, string>
+        )
+      );
     }
     const budget = (s?.weeklyBudget ?? 200) * 4;
     const [analytics, budgets] = await Promise.all([
       getMonthlySpendAnalytics(),
-      getCategoryBudgets(budget),
+      getCategoryBudgets(budget, s?.categoryLimits),
     ]);
     setMonthlySpent(analytics.monthlyTotal);
     setCategoryBudgets(budgets);
@@ -57,7 +73,14 @@ export default function BudgetSettingsScreen() {
   const handleSave = async () => {
     const budget = parseFloat(weeklyBudget) || 200;
     const threshold = (parseFloat(alertThreshold) || 90) / 100;
-    await saveSettings(budget, Math.min(Math.max(threshold, 0.5), 1));
+    const categoryLimits = BUDGET_CATEGORIES.reduce(
+      (limits, category) => ({
+        ...limits,
+        [category]: parseFloat(categoryLimitInputs[category]) || 0,
+      }),
+      {} as CategoryLimits
+    );
+    await saveSettings(budget, Math.min(Math.max(threshold, 0.5), 1), categoryLimits);
     setEditing(false);
     await load();
   };
@@ -80,7 +103,7 @@ export default function BudgetSettingsScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>Budget</Text>
         <Pressable onPress={() => setEditing((e) => !e)}>
-          <SymbolView name={{ ios: 'plus', android: 'add', web: 'add' }} tintColor={SmartCartColors.text} size={22} />
+          <SymbolView name={{ ios: 'pencil', android: 'edit', web: 'edit' }} tintColor={SmartCartColors.text} size={22} />
         </Pressable>
       </View>
 
@@ -115,6 +138,20 @@ export default function BudgetSettingsScreen() {
               onChangeText={setAlertThreshold}
               keyboardType="number-pad"
             />
+            <Text style={[styles.fieldLabel, styles.categoryLimitsTitle]}>Category Limits ($/month)</Text>
+            {BUDGET_CATEGORIES.map((category) => (
+              <View key={category} style={styles.categoryLimitRow}>
+                <Text style={styles.categoryLimitLabel}>{category}</Text>
+                <TextInput
+                  style={styles.categoryLimitInput}
+                  value={categoryLimitInputs[category]}
+                  onChangeText={(value) =>
+                    setCategoryLimitInputs((prev) => ({ ...prev, [category]: value }))
+                  }
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            ))}
             <Pressable style={styles.saveBtn} onPress={handleSave}>
               <Text style={styles.saveBtnText}>Save Settings</Text>
             </Pressable>
@@ -165,6 +202,20 @@ const styles = StyleSheet.create({
   },
   editTitle: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
   fieldLabel: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 4 },
+  categoryLimitsTitle: { marginTop: 12, fontWeight: '700', color: SmartCartColors.text },
+  categoryLimitRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  categoryLimitLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: SmartCartColors.text },
+  categoryLimitInput: {
+    width: 100,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    borderRadius: SmartCartRadius.sm,
+    padding: 10,
+    fontSize: 14,
+    textAlign: 'right',
+    backgroundColor: SmartCartColors.background,
+    color: SmartCartColors.text,
+  },
   input: {
     borderWidth: 1,
     borderColor: SmartCartColors.border,

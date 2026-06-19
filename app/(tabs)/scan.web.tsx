@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/src/components/AppHeader';
-import { recognizeTextFromImage } from '@/src/services/ocrService.web';
+import { recognizeTextFromImageDetailed } from '@/src/services/ocrService.web';
 import { parseReceiptText } from '@/src/services/receiptParser';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -22,7 +22,8 @@ export default function ScanScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [processing, setProcessing] = useState(false);
-  const { setImageUri, setRawOcrText, setDraft, reset } = useScanStore();
+  const [ocrSource, setOcrSource] = useState<'tesseract' | 'fallback' | 'empty' | null>(null);
+  const { setImageUri, setRawOcrText, setDraft, reset, startManualEntry } = useScanStore();
 
   const processImage = useCallback(
     async (uri: string) => {
@@ -30,7 +31,8 @@ export default function ScanScreen() {
       try {
         reset();
         setImageUri(uri);
-        const text = await recognizeTextFromImage(uri);
+        const { text, source } = await recognizeTextFromImageDetailed(uri);
+        setOcrSource(source);
         setRawOcrText(text);
         const draft = parseReceiptText(text);
         setDraft(draft);
@@ -57,7 +59,11 @@ export default function ScanScreen() {
       <View style={styles.center}>
         <ActivityIndicator size="large" color={SmartCartColors.primary} />
         <Text style={styles.processingText}>Processing receipt...</Text>
-        <Text style={styles.processingHint}>Demo OCR — sample data from your upload</Text>
+        <Text style={styles.processingHint}>
+          {ocrSource === 'tesseract'
+            ? 'Reading text with Tesseract OCR — review and edit before saving'
+            : 'OCR fallback — sample data used; edit all fields before saving'}
+        </Text>
       </View>
     );
   }
@@ -75,7 +81,7 @@ export default function ScanScreen() {
           size={18}
         />
         <Text style={styles.demoBannerText}>
-          Web demo mode — upload a receipt image. OCR uses sample store data keyed to your file (not real text recognition).
+          Web OCR uses Tesseract.js when available. If recognition fails, sample data is prefilled — always review and edit before saving.
         </Text>
       </View>
 
@@ -98,6 +104,16 @@ export default function ScanScreen() {
         </View>
         <Text style={styles.uploadTitle}>Choose from gallery</Text>
         <Text style={styles.uploadHint}>JPG or PNG receipt photo</Text>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [styles.manualBtn, pressed && styles.manualBtnPressed]}
+        onPress={() => {
+          startManualEntry();
+          router.push('/receipt/edit');
+        }}>
+        <SymbolView name={{ ios: 'square.and.pencil', android: 'edit_note', web: 'edit_note' }} tintColor={SmartCartColors.primaryDark} size={20} />
+        <Text style={styles.manualBtnText}>Add receipt manually</Text>
       </Pressable>
 
       <View style={styles.noteCard}>
@@ -159,6 +175,21 @@ const styles = StyleSheet.create({
   },
   uploadTitle: { fontSize: 18, fontWeight: '700', color: SmartCartColors.text },
   uploadHint: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 4 },
+  manualBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.md,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    ...SmartCartShadow.cardSoft,
+  },
+  manualBtnPressed: { backgroundColor: SmartCartColors.badge, borderColor: SmartCartColors.primary },
+  manualBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.primaryDark },
   noteCard: {
     backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,
