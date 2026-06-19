@@ -11,6 +11,7 @@ import { useScanStore } from '@/src/store/useScanStore';
 import { mapToSpendingCategory, CATEGORY_COLORS, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import type { Comparison, ComparisonItem, ComparisonResult, Receipt, ReceiptItem } from '@/src/models/types';
 import { formatCurrency } from '@/src/utils/priceParser';
+import { computeReceiptTotals } from '@/src/utils/receiptTotals';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 
 function categoryEmoji(name: string): string {
@@ -99,8 +100,12 @@ export default function ReceiptDetailScreen() {
   }
 
   const items = receipt.items ?? [];
-  const subtotal = receipt.subtotal ?? items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const tax = receipt.tax ?? Math.max(receipt.total - subtotal, 0);
+  const { subtotal, tax, total } = computeReceiptTotals({
+    items,
+    subtotal: receipt.subtotal,
+    tax: receipt.tax,
+    total: receipt.total,
+  });
 
   const handleDelete = () => {
     const confirmDelete = async () => {
@@ -159,7 +164,7 @@ export default function ReceiptDetailScreen() {
           ) : null}
         </View>
 
-        <Text style={styles.bigTotal}>{formatCurrency(receipt.total)}</Text>
+        <Text style={styles.bigTotal}>{formatCurrency(total)}</Text>
 
         {comparison ? (
           <View style={styles.comparisonWrap}>
@@ -182,7 +187,7 @@ export default function ReceiptDetailScreen() {
           </View>
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{formatCurrency(receipt.total)}</Text>
+            <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
           </View>
         </View>
 

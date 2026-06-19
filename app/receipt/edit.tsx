@@ -24,6 +24,7 @@ import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { generateId } from '@/src/utils/id';
 import { formatCurrency } from '@/src/utils/priceParser';
+import { normalizeReceiptTotalsForSave } from '@/src/utils/receiptTotals';
 
 async function confirmDuplicateSave(message: string): Promise<boolean> {
   if (Platform.OS === 'web') {
@@ -90,10 +91,11 @@ export default function EditReceiptScreen() {
   }
 
   const handleSave = async () => {
+    const totals = normalizeReceiptTotalsForSave(draft.items, draft.tax);
     const duplicate = await findDuplicateReceipt(
       draft.storeName,
       draft.date,
-      draft.total,
+      totals.total,
       receiptId ?? undefined
     );
     if (duplicate) {
@@ -116,9 +118,9 @@ export default function EditReceiptScreen() {
         await updateReceipt(receiptId, {
           storeName: draft.storeName,
           date: draft.date,
-          subtotal: draft.subtotal,
-          tax: draft.tax,
-          total: draft.total,
+          subtotal: totals.subtotal,
+          tax: totals.tax,
+          total: totals.total,
           imageUri: imageUri ?? '',
           userCorrected: true,
           items,
@@ -132,9 +134,9 @@ export default function EditReceiptScreen() {
         id: generateId(),
         storeName: draft.storeName,
         date: draft.date,
-        subtotal: draft.subtotal,
-        tax: draft.tax,
-        total: draft.total,
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+        total: totals.total,
         imageUri: imageUri ?? '',
         userCorrected: true,
         items,

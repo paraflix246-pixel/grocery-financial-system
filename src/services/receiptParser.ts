@@ -1,4 +1,5 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
+import { computeItemsSubtotal, computeReceiptTotals } from '@/src/utils/receiptTotals';
 import { guessDateFromText, todayISO } from '@/src/utils/dateParser';
 import { parsePrice } from '@/src/utils/priceParser';
 import { cleanOcrLine } from '@/src/utils/textCleaner';
@@ -53,10 +54,23 @@ export function parseReceiptText(rawText: string): ParsedReceiptDraft {
     }
   }
 
-  if (total === 0 && items.length > 0) {
-    total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    if (tax) total += tax;
+  if (subtotal == null && items.length > 0) {
+    subtotal = computeItemsSubtotal(items);
   }
 
-  return { storeName, date, subtotal, tax, total, items };
+  const { subtotal: resolvedSubtotal, tax: resolvedTax, total: resolvedTotal } = computeReceiptTotals({
+    items,
+    subtotal,
+    tax,
+    total,
+  });
+
+  return {
+    storeName,
+    date,
+    subtotal: resolvedSubtotal,
+    tax: resolvedTax,
+    total: resolvedTotal,
+    items,
+  };
 }

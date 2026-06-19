@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import type { ParsedReceiptDraft, Receipt } from '@/src/models/types';
+import { normalizeReceiptTotalsForSave } from '@/src/utils/receiptTotals';
 
 type ScanStore = {
   imageUri: string | null;
@@ -26,6 +27,11 @@ const emptyDraft = (): ParsedReceiptDraft => ({
   items: [],
 });
 
+function withSyncedTotals(draft: ParsedReceiptDraft): ParsedReceiptDraft {
+  const totals = normalizeReceiptTotalsForSave(draft.items, draft.tax);
+  return { ...draft, ...totals };
+}
+
 export const useScanStore = create<ScanStore>((set, get) => ({
   imageUri: null,
   rawOcrText: '',
@@ -34,14 +40,14 @@ export const useScanStore = create<ScanStore>((set, get) => ({
 
   setImageUri: (uri) => set({ imageUri: uri }),
   setRawOcrText: (text) => set({ rawOcrText: text }),
-  setDraft: (draft) => set({ draft, editingReceiptId: null }),
+  setDraft: (draft) => set({ draft: withSyncedTotals(draft), editingReceiptId: null }),
 
   loadReceiptForEdit: (receipt) =>
     set({
       editingReceiptId: receipt.id,
       imageUri: receipt.imageUri || null,
       rawOcrText: '',
-      draft: {
+      draft: withSyncedTotals({
         storeName: receipt.storeName,
         date: receipt.date,
         subtotal: receipt.subtotal,
@@ -52,35 +58,36 @@ export const useScanStore = create<ScanStore>((set, get) => ({
           price: item.price,
           quantity: item.quantity,
         })),
-      },
+      }),
     }),
 
   updateDraft: (partial) => {
     const draft = get().draft ?? emptyDraft();
-    set({ draft: { ...draft, ...partial } });
+    const next = { ...draft, ...partial };
+    set({ draft: 'tax' in partial ? withSyncedTotals(next) : next });
   },
 
   updateDraftItem: (index, partial) => {
     const draft = get().draft;
     if (!draft) return;
     const items = draft.items.map((item, i) => (i === index ? { ...item, ...partial } : item));
-    set({ draft: { ...draft, items } });
+    set({ draft: withSyncedTotals({ ...draft, items }) });
   },
 
   addDraftItem: () => {
     const draft = get().draft ?? emptyDraft();
     set({
-      draft: {
+      draft: withSyncedTotals({
         ...draft,
         items: [...draft.items, { name: 'New Item', price: 0, quantity: 1 }],
-      },
+      }),
     });
   },
 
   removeDraftItem: (index) => {
     const draft = get().draft;
     if (!draft) return;
-    set({ draft: { ...draft, items: draft.items.filter((_, i) => i !== index) } });
+    set({ draft: withSyncedTotals({ ...draft, items: draft.items.filter((_, i) => i !== index) }) });
   },
 
   reset: () => set({ imageUri: null, rawOcrText: '', draft: null, editingReceiptId: null }),
