@@ -9,6 +9,7 @@ import {
 import { endOfWeekISO, startOfWeekISO, todayISO } from '@/src/utils/dateParser';
 import { getTopVarianceDriver } from '@/src/services/matchingService';
 import { CATEGORY_COLORS, mapToSpendingCategory } from '@/src/theme/smartCart';
+import { getReceiptDisplayTotal } from '@/src/utils/receiptTotals';
 
 export type WeeklySpendPoint = { label: string; value: number };
 
@@ -68,7 +69,7 @@ export async function getWeeklySpendChart(weeks = 4): Promise<WeeklySpendPoint[]
     const start = startOfWeekISO(d);
     const end = endOfWeekISO(d);
     const receipts = await getReceiptsInDateRange(start, end);
-    const total = receipts.reduce((s, r) => s + r.total, 0);
+    const total = receipts.reduce((s, r) => s + getReceiptDisplayTotal(r), 0);
     const label = new Date(start + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     points.push({ label, value: total });
   }
@@ -79,7 +80,7 @@ export async function getCurrentWeekSpend(): Promise<number> {
   const start = startOfWeekISO();
   const end = endOfWeekISO();
   const receipts = await getReceiptsInDateRange(start, end);
-  return receipts.reduce((s, r) => s + r.total, 0);
+  return receipts.reduce((s, r) => s + getReceiptDisplayTotal(r), 0);
 }
 
 export async function getCategoryBreakdown(receipts: Receipt[]): Promise<CategoryBreakdown[]> {
@@ -87,7 +88,7 @@ export async function getCategoryBreakdown(receipts: Receipt[]): Promise<Categor
   for (const receipt of receipts) {
     const items = receipt.items ?? [];
     if (items.length === 0) {
-      totals.set('Uncategorized', (totals.get('Uncategorized') ?? 0) + receipt.total);
+      totals.set('Uncategorized', (totals.get('Uncategorized') ?? 0) + getReceiptDisplayTotal(receipt));
     } else {
       for (const item of items) {
         const cat = guessCategory(item.name);
@@ -107,7 +108,7 @@ export async function getCategoryBreakdown(receipts: Receipt[]): Promise<Categor
 export async function getStoreBreakdown(receipts: Receipt[]): Promise<StoreBreakdown[]> {
   const totals = new Map<string, number>();
   for (const receipt of receipts) {
-    totals.set(receipt.storeName, (totals.get(receipt.storeName) ?? 0) + receipt.total);
+    totals.set(receipt.storeName, (totals.get(receipt.storeName) ?? 0) + getReceiptDisplayTotal(receipt));
   }
   return Array.from(totals.entries())
     .map(([store, amount]) => ({ store, amount }))
@@ -183,7 +184,7 @@ export async function buildHomeInsight(
 
   const avgReceiptValue =
     weekReceipts.length > 0
-      ? weekReceipts.reduce((s, r) => s + r.total, 0) / weekReceipts.length
+      ? weekReceipts.reduce((s, r) => s + getReceiptDisplayTotal(r), 0) / weekReceipts.length
       : 0;
 
   const storeBreakdown = await getStoreBreakdown(weekReceipts);
@@ -258,7 +259,7 @@ export async function getSpendingTrend(month = new Date()): Promise<SpendingTren
   const receipts = await getReceiptsInDateRange(monthStart, rangeEnd);
   const dailyTotals = new Map<string, number>();
   for (const receipt of receipts) {
-    dailyTotals.set(receipt.date, (dailyTotals.get(receipt.date) ?? 0) + receipt.total);
+    dailyTotals.set(receipt.date, (dailyTotals.get(receipt.date) ?? 0) + getReceiptDisplayTotal(receipt));
   }
 
   const points: SpendingTrendPoint[] = [];
@@ -290,15 +291,15 @@ export async function getMonthlySpendAnalytics(): Promise<MonthlySpendAnalytics>
     getReceiptsInDateRange(lastMonthStart, lastMonthEnd),
   ]);
 
-  const monthlyTotal = thisMonthReceipts.reduce((sum, r) => sum + r.total, 0);
-  const lastMonthTotal = lastMonthReceipts.reduce((sum, r) => sum + r.total, 0);
+  const monthlyTotal = thisMonthReceipts.reduce((sum, r) => sum + getReceiptDisplayTotal(r), 0);
+  const lastMonthTotal = lastMonthReceipts.reduce((sum, r) => sum + getReceiptDisplayTotal(r), 0);
   const percentChange =
     lastMonthTotal > 0 ? ((monthlyTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0;
 
   const weekBuckets = new Map<string, number>();
   for (const receipt of thisMonthReceipts) {
     const weekStart = startOfWeekISO(new Date(receipt.date + 'T12:00:00'));
-    weekBuckets.set(weekStart, (weekBuckets.get(weekStart) ?? 0) + receipt.total);
+    weekBuckets.set(weekStart, (weekBuckets.get(weekStart) ?? 0) + getReceiptDisplayTotal(receipt));
   }
 
   const chartPoints = Array.from(weekBuckets.entries())
@@ -317,7 +318,7 @@ export async function getMonthlySpendAnalytics(): Promise<MonthlySpendAnalytics>
 
   const dailyBuckets = new Map<string, number>();
   for (const receipt of thisMonthReceipts) {
-    dailyBuckets.set(receipt.date, (dailyBuckets.get(receipt.date) ?? 0) + receipt.total);
+    dailyBuckets.set(receipt.date, (dailyBuckets.get(receipt.date) ?? 0) + getReceiptDisplayTotal(receipt));
   }
   const dailyPoints = Array.from(dailyBuckets.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -488,14 +489,14 @@ export async function getProInsights(
   const storeThis = new Map<string, { total: number; trips: number }>();
   for (const r of thisMonthReceipts) {
     const entry = storeThis.get(r.storeName) ?? { total: 0, trips: 0 };
-    entry.total += r.total;
+    entry.total += getReceiptDisplayTotal(r);
     entry.trips += 1;
     storeThis.set(r.storeName, entry);
   }
 
   const storeLast = new Map<string, number>();
   for (const r of lastMonthReceipts) {
-    storeLast.set(r.storeName, (storeLast.get(r.storeName) ?? 0) + r.total);
+    storeLast.set(r.storeName, (storeLast.get(r.storeName) ?? 0) + getReceiptDisplayTotal(r));
   }
 
   const allStores = new Set([...storeThis.keys(), ...storeLast.keys()]);
@@ -656,7 +657,7 @@ export async function getUsageStats(): Promise<UsageStats> {
   const comparisons = await getAllComparisons();
 
   const dates = receipts.map((r) => r.date).sort();
-  const totalSpent = receipts.reduce((s, r) => s + r.total, 0);
+  const totalSpent = receipts.reduce((s, r) => s + getReceiptDisplayTotal(r), 0);
   const stores = new Set(receipts.map((r) => r.storeName.toLowerCase()));
 
   return {

@@ -20,6 +20,10 @@ import {
   isDuplicateReceiptTotal,
   normalizeStoreForDuplicate,
 } from '@/src/utils/duplicateReceipt';
+import {
+  applyReceiptTotals,
+  normalizeReceiptTotalsForSave,
+} from '@/src/utils/receiptTotals';
 
 const STORAGE_KEY = '@grocery_financial_web_data_v1';
 
@@ -86,6 +90,9 @@ async function loadStore(): Promise<void> {
         },
       customStores: parsed.customStores ?? [],
     };
+    if (migrateReceiptTotalsWeb(store)) {
+      await persist();
+    }
     return;
   }
 
@@ -264,6 +271,23 @@ export async function deleteListItem(id: string): Promise<void> {
 
 // --- Receipts ---
 
+function migrateReceiptTotalsWeb(data: WebStore): boolean {
+  let changed = false;
+  const now = new Date().toISOString();
+  for (const receipt of data.receipts) {
+    if ((receipt.total ?? 0) > 0) continue;
+    const items = data.receiptItems.filter((item) => item.receiptId === receipt.id);
+    if (items.length === 0) continue;
+    const totals = normalizeReceiptTotalsForSave(items, receipt.tax);
+    receipt.subtotal = totals.subtotal;
+    receipt.tax = totals.tax;
+    receipt.total = totals.total;
+    receipt.updatedAt = now;
+    changed = true;
+  }
+  return changed;
+}
+
 export async function getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> {
   const data = await ensureLoaded();
   let receipts = [...data.receipts];
@@ -277,20 +301,23 @@ export async function getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> 
   if (filters?.endDate) {
     receipts = receipts.filter((receipt) => receipt.date <= filters.endDate!);
   }
-  return receipts.sort((a, b) => {
-    const byDate = b.date.localeCompare(a.date);
-    return byDate !== 0 ? byDate : b.createdAt.localeCompare(a.createdAt);
-  });
+  return receipts
+    .sort((a, b) => {
+      const byDate = b.date.localeCompare(a.date);
+      return byDate !== 0 ? byDate : b.createdAt.localeCompare(a.createdAt);
+    })
+    .map((receipt) => {
+      const items = data.receiptItems.filter((item) => item.receiptId === receipt.id);
+      return applyReceiptTotals(receipt, items);
+    });
 }
 
 export async function getReceiptById(id: string): Promise<Receipt | null> {
   const data = await ensureLoaded();
   const receipt = data.receipts.find((entry) => entry.id === id);
   if (!receipt) return null;
-  return {
-    ...receipt,
-    items: await getReceiptItems(id),
-  };
+  const items = await getReceiptItems(id);
+  return applyReceiptTotals({ ...receipt, items }, items);
 }
 
 export async function getReceiptItems(receiptId: string): Promise<ReceiptItem[]> {

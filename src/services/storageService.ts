@@ -21,6 +21,10 @@ import {
   isDuplicateReceiptTotal,
   normalizeStoreForDuplicate,
 } from '@/src/utils/duplicateReceipt';
+import {
+  applyReceiptTotals,
+  normalizeReceiptTotalsForSave,
+} from '@/src/utils/receiptTotals';
 
 type DbInitState = {
   instance: SQLite.SQLiteDatabase | null;
@@ -59,6 +63,7 @@ async function openDatabaseOnce(state: DbInitState): Promise<SQLite.SQLiteDataba
 
   const db = await SQLite.openDatabaseAsync(DB_NAME);
   await runMigrations(db);
+  await migrateReceiptTotals(db);
   state.instance = db;
   state.initialized = true;
   return db;
@@ -359,6 +364,51 @@ export async function deleteListItem(id: string): Promise<void> {
 
 // --- Receipts ---
 
+async function getItemsGroupedByReceiptId(
+  db: SQLite.SQLiteDatabase,
+  receiptIds: string[]
+): Promise<Map<string, ReceiptItem[]>> {
+  const grouped = new Map<string, ReceiptItem[]>();
+  if (receiptIds.length === 0) return grouped;
+
+  const placeholders = receiptIds.map(() => '?').join(',');
+  const rows = await db.getAllAsync(
+    `SELECT * FROM receipt_items WHERE receipt_id IN (${placeholders})`,
+    receiptIds
+  );
+  for (const row of rows) {
+    const item = mapReceiptItem(row as Record<string, unknown>);
+    const bucket = grouped.get(item.receiptId) ?? [];
+    bucket.push(item);
+    grouped.set(item.receiptId, bucket);
+  }
+  return grouped;
+}
+
+async function migrateReceiptTotals(db: SQLite.SQLiteDatabase): Promise<void> {
+  const rows = await db.getAllAsync<{ id: string; tax: number | null; total: number | null }>(
+    'SELECT id, tax, total FROM receipts WHERE total IS NULL OR total <= 0'
+  );
+  const now = new Date().toISOString();
+  for (const row of rows) {
+    const items = await getReceiptItemsFromDb(db, row.id);
+    if (items.length === 0) continue;
+    const { subtotal, tax, total } = normalizeReceiptTotalsForSave(items, row.tax ?? undefined);
+    await db.runAsync(
+      'UPDATE receipts SET subtotal = ?, tax = ?, total = ?, updated_at = ? WHERE id = ?',
+      [subtotal, tax, total, now, row.id]
+    );
+  }
+}
+
+async function getReceiptItemsFromDb(
+  db: SQLite.SQLiteDatabase,
+  receiptId: string
+): Promise<ReceiptItem[]> {
+  const rows = await db.getAllAsync('SELECT * FROM receipt_items WHERE receipt_id = ?', [receiptId]);
+  return rows.map((r) => mapReceiptItem(r as Record<string, unknown>));
+}
+
 export async function getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> {
   const db = await getDatabase();
   let query = 'SELECT * FROM receipts WHERE 1=1';
@@ -377,7 +427,16 @@ export async function getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> 
   }
   query += ' ORDER BY date DESC, created_at DESC';
   const rows = await db.getAllAsync(query, params);
-  return rows.map((r) => mapReceipt(r as Record<string, unknown>));
+  const receipts = rows.map((r) => mapReceipt(r as Record<string, unknown>));
+  if (receipts.length === 0) return [];
+
+  const itemsByReceipt = await getItemsGroupedByReceiptId(
+    db,
+    receipts.map((receipt) => receipt.id)
+  );
+  return receipts.map((receipt) =>
+    applyReceiptTotals(receipt, itemsByReceipt.get(receipt.id))
+  );
 }
 
 export async function getReceiptById(id: string): Promise<Receipt | null> {
@@ -385,8 +444,8 @@ export async function getReceiptById(id: string): Promise<Receipt | null> {
   const row = await db.getFirstAsync('SELECT * FROM receipts WHERE id = ?', [id]);
   if (!row) return null;
   const receipt = mapReceipt(row as Record<string, unknown>);
-  receipt.items = await getReceiptItems(id);
-  return receipt;
+  const items = await getReceiptItems(id);
+  return applyReceiptTotals({ ...receipt, items }, items);
 }
 
 export async function getReceiptItems(receiptId: string): Promise<ReceiptItem[]> {

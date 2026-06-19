@@ -15,6 +15,7 @@ import { getReceipts } from '@/src/services/storageService';
 import type { Receipt } from '@/src/models/types';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
+import { getReceiptDisplayTotal } from '@/src/utils/receiptTotals';
 
 export default function ReceiptsScreen() {
   const router = useRouter();
@@ -98,7 +99,7 @@ export default function ReceiptsScreen() {
               key={item.id}
               storeName={item.storeName}
               date={item.date}
-              total={item.total}
+              total={getReceiptDisplayTotal(item)}
               isLast={i === receipts.length - 1}
               onPress={() => router.push(`/receipt/${item.id}`)}
             />

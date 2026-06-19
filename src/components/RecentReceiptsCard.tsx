@@ -7,6 +7,7 @@ import type { Receipt } from '@/src/models/types';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
+import { getReceiptDisplayTotal } from '@/src/utils/receiptTotals';
 
 type Props = {
   receipts: Receipt[];
@@ -39,7 +40,7 @@ export function RecentReceiptsCard({ receipts }: Props) {
               </Text>
               <Text style={styles.date}>{formatDisplayDate(receipt.date)}</Text>
             </View>
-            <Text style={styles.total}>{formatCurrency(receipt.total)}</Text>
+            <Text style={styles.total}>{formatCurrency(getReceiptDisplayTotal(receipt))}</Text>
           </Pressable>
         ))
       )}

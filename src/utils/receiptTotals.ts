@@ -44,3 +44,23 @@ export function normalizeReceiptTotalsForSave(
   const normalizedTax = tax ?? 0;
   return { subtotal, tax: normalizedTax, total: subtotal + normalizedTax };
 }
+
+/** Single total for list cards, analytics, and aggregations. */
+export function getReceiptDisplayTotal(input: ReceiptTotalsInput): number {
+  return computeReceiptTotals(input).total;
+}
+
+/** Apply computed subtotal/tax/total onto a receipt (optionally with preloaded items). */
+export function applyReceiptTotals<T extends ReceiptTotalsInput>(
+  receipt: T,
+  items?: LineItem[]
+): T & { subtotal: number; tax: number; total: number } {
+  const resolvedItems = items ?? receipt.items ?? [];
+  const totals = computeReceiptTotals({
+    items: resolvedItems,
+    subtotal: receipt.subtotal,
+    tax: receipt.tax,
+    total: receipt.total,
+  });
+  return { ...receipt, ...totals };
+}
