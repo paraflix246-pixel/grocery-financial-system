@@ -12,8 +12,12 @@ import {
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
+import { ReceiptDraftLinesList, formatReceiptLineCountSummary } from '@/src/components/ReceiptDraftLinesList';
 import { ReceiptScanWarnings } from '@/src/components/ReceiptScanWarnings';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
+import { StoreLocationSection } from '@/src/components/StoreLocationSection';
+import { StoreSearchField } from '@/src/components/StoreSearchField';
+import { useUnscannedRescanPrompt } from '@/src/hooks/useUnscannedRescanPrompt';
 import {
   findDuplicateReceipt,
   getReceiptById,
@@ -21,13 +25,22 @@ import {
   updateReceipt,
 } from '@/src/services/storageService';
 import { checkPriceAlertsAfterReceiptSave } from '@/src/services/priceAlertService';
+import { savePriceRecords } from '@/src/services/communityPricingService';
+import { getScanLimitStatus } from '@/src/services/scanLimitService';
+import { invalidatePrimaryStoreCache } from '@/src/services/tierLimits';
 import { useScanStore } from '@/src/store/useScanStore';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { generateId } from '@/src/utils/id';
 import { formatCurrency } from '@/src/utils/priceParser';
 import { normalizeReceiptTotalsForSave } from '@/src/utils/receiptTotals';
-import { validateParsedReceipt } from '@/src/utils/receiptValidation';
+import { formatTaxSummary } from '@/src/utils/taxRateUtils';
+import { formatItemsSubtotalGapDetail } from '@/src/utils/receiptItemLabels';
+import { canonicalizeItemName } from '@/src/utils/itemCanonicalizer';
+import { getReceiptBannerWarnings, shouldShowInlineSubtotalGap, validateParsedReceipt } from '@/src/utils/receiptValidation';
+import { ScanLimitError, StoreLimitError } from '@/src/services/tierLimits';
+import { promptScanLimitReached } from '@/src/utils/promptScanLimit';
+import { promptStoreLimitReached } from '@/src/utils/promptPantryLimit';
 
 async function confirmDuplicateSave(message: string): Promise<boolean> {
   if (Platform.OS === 'web') {
@@ -56,6 +69,7 @@ export default function EditReceiptScreen() {
     reset,
     ocrSource,
     ocrConfidence,
+    parseMethod,
   } = useScanStore();
   const [saving, setSaving] = useState(false);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
@@ -67,10 +81,17 @@ export default function EditReceiptScreen() {
   const warnings = useMemo(
     () =>
       draft
-        ? validateParsedReceipt(draft, { ocrSource: ocrSource ?? undefined, ocrConfidence: ocrConfidence ?? undefined })
+        ? validateParsedReceipt(draft, {
+            ocrSource: ocrSource ?? undefined,
+            ocrConfidence: ocrConfidence ?? undefined,
+            parseMethod,
+          })
         : [],
-    [draft, ocrConfidence, ocrSource]
+    [draft, ocrConfidence, ocrSource, parseMethod]
   );
+  const bannerWarnings = useMemo(() => getReceiptBannerWarnings(warnings), [warnings]);
+
+  useUnscannedRescanPrompt(!isEditingSaved && Boolean(draft?.items.length));
 
   const loadSavedReceipt = useCallback(async () => {
     if (!routeId || draft) return;
@@ -114,7 +135,8 @@ export default function EditReceiptScreen() {
       draft.storeName,
       draft.date,
       totals.total,
-      receiptId ?? undefined
+      receiptId ?? undefined,
+      draft.storeRegion
     );
     if (duplicate) {
       const proceed = await confirmDuplicateSave(
@@ -123,14 +145,37 @@ export default function EditReceiptScreen() {
       if (!proceed) return;
     }
 
+    if (!isEditingSaved) {
+      const scanLimit = await getScanLimitStatus();
+      if (!scanLimit.allowed) {
+        promptScanLimitReached(() => router.push('/paywall' as never));
+        return;
+      }
+    }
+
     setSaving(true);
     try {
-      const items = draft.items.map((item) => ({
-        id: generateId(),
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-      }));
+      const items = draft.items.map((item) => {
+        const isMerch = (item.lineKind ?? 'merchandise') === 'merchandise';
+        return {
+          id: generateId(),
+          name: isMerch ? canonicalizeItemName(item.name) : item.name,
+          price: item.price,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          unit: item.unit,
+          lineKind: item.lineKind,
+        };
+      });
+      const merchandiseForAlerts = items.filter((item) => (item.lineKind ?? 'merchandise') === 'merchandise');
+
+      const locationFields = {
+        storeAddress: draft.storeAddress,
+        storeCity: draft.storeCity,
+        storeRegion: draft.storeRegion,
+        storePostalCode: draft.storePostalCode,
+        storeCountry: draft.storeCountry,
+      };
 
       if (isEditingSaved && receiptId) {
         await updateReceipt(receiptId, {
@@ -141,9 +186,11 @@ export default function EditReceiptScreen() {
           total: totals.total,
           imageUri: imageUri ?? '',
           userCorrected: true,
+          ...locationFields,
           items,
         });
-        await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
+        await checkPriceAlertsAfterReceiptSave(merchandiseForAlerts, draft.storeName);
+        invalidatePrimaryStoreCache();
         reset();
         router.replace(`/receipt/${receiptId}`);
         return;
@@ -158,11 +205,33 @@ export default function EditReceiptScreen() {
         total: totals.total,
         imageUri: imageUri ?? '',
         userCorrected: true,
+        ...locationFields,
         items,
       });
       await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
+      void savePriceRecords(
+        items.filter((item) => (item.lineKind ?? 'merchandise') === 'merchandise'),
+        {
+          storeName: draft.storeName,
+          city: draft.storeCity ?? undefined,
+          state: draft.storeRegion ?? undefined,
+          zip: draft.storePostalCode ?? undefined,
+        },
+        draft.date
+      );
+      invalidatePrimaryStoreCache();
       reset();
       router.replace({ pathname: '/receipt/link', params: { receiptId: receipt.id } });
+    } catch (error) {
+      if (error instanceof ScanLimitError) {
+        promptScanLimitReached(() => router.push('/paywall' as never));
+        return;
+      }
+      if (error instanceof StoreLimitError) {
+        promptStoreLimitReached(() => router.push('/paywall' as never));
+        return;
+      }
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -181,15 +250,16 @@ export default function EditReceiptScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {!isEditingSaved && <ReceiptScanWarnings warnings={warnings} />}
+        {!isEditingSaved && <ReceiptScanWarnings warnings={bannerWarnings} draft={draft} />}
 
         <View style={styles.storeRow}>
           <StoreBrandAvatar store={draft.storeName} size={44} />
           <View style={styles.storeFields}>
-            <TextInput
-              style={styles.storeInput}
+            <StoreSearchField
               value={draft.storeName}
-              onChangeText={(v) => updateDraft({ storeName: v })}
+              onChangeText={(storeName) => updateDraft({ storeName })}
+              onSelectStore={(partial) => updateDraft(partial)}
+              placeholder="Search or enter store name"
             />
             <TextInput
               style={styles.dateInput}
@@ -201,6 +271,12 @@ export default function EditReceiptScreen() {
           </View>
         </View>
 
+        <StoreLocationSection
+          location={draft}
+          editable
+          onChange={(partial) => updateDraft(partial)}
+        />
+
         <View style={styles.totalSection}>
           <Text style={styles.totalLabel}>Total</Text>
           <TextInput
@@ -209,31 +285,28 @@ export default function EditReceiptScreen() {
             onChangeText={(v) => updateDraft({ total: parseFloat(v) || 0 })}
             keyboardType="decimal-pad"
           />
-          <Text style={styles.itemCount}>{draft.items.length} items</Text>
+          <Text style={styles.itemCount}>{formatReceiptLineCountSummary(draft.items)}</Text>
+          {formatTaxSummary(draft) ? (
+            <Text style={styles.taxHint}>{formatTaxSummary(draft)}</Text>
+          ) : null}
+          {draft && shouldShowInlineSubtotalGap(warnings) && formatItemsSubtotalGapDetail(draft) ? (
+            <Text style={styles.gapHint}>{formatItemsSubtotalGapDetail(draft)}</Text>
+          ) : null}
         </View>
 
         <View style={styles.itemsHeader}>
-          <Text style={styles.itemsTitle}>ITEMS ({draft.items.length})</Text>
+          <Text style={styles.itemsTitle}>LINES ({draft.items.length})</Text>
         </View>
 
-        {draft.items.map((item, index) => (
-          <View key={index} style={styles.itemRow}>
-            <TextInput
-              style={styles.itemName}
-              value={item.name}
-              onChangeText={(v) => updateDraftItem(index, { name: v })}
-            />
-            <TextInput
-              style={styles.itemPrice}
-              value={item.price > 0 ? item.price.toFixed(2) : ''}
-              onChangeText={(v) => updateDraftItem(index, { price: parseFloat(v) || 0 })}
-              keyboardType="decimal-pad"
-            />
-            <Pressable onPress={() => removeDraftItem(index)} hitSlop={8}>
-              <SymbolView name={{ ios: 'xmark.circle.fill', android: 'cancel', web: 'cancel' }} tintColor={SmartCartColors.textMuted} size={20} />
-            </Pressable>
-          </View>
-        ))}
+        <ReceiptDraftLinesList
+          items={draft.items}
+          variant="edit"
+          editable
+          onNameChange={(index, name) => updateDraftItem(index, { name })}
+          onPriceChange={(index, price) => updateDraftItem(index, { price })}
+          onItemChange={(index, partial) => updateDraftItem(index, partial)}
+          onRemove={(index) => removeDraftItem(index)}
+        />
 
         <Pressable style={styles.addItemLink} onPress={addDraftItem}>
           <Text style={styles.addItemText}>+ Add Item</Text>
@@ -298,18 +371,10 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 14, color: SmartCartColors.textSecondary },
   totalInput: { fontSize: 36, fontWeight: '800', color: SmartCartColors.text, padding: 0, marginTop: 4 },
   itemCount: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4 },
+  taxHint: { fontSize: 13, color: SmartCartColors.textMuted, marginTop: 4 },
+  gapHint: { fontSize: 13, color: SmartCartColors.accentOrange, marginTop: 4, lineHeight: 18 },
   itemsHeader: { marginBottom: 8 },
   itemsTitle: { fontSize: 13, fontWeight: '700', color: SmartCartColors.textSecondary, letterSpacing: 0.5 },
-  itemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: SmartCartColors.border,
-  },
-  itemName: { flex: 1, fontSize: 16, color: SmartCartColors.text, padding: 0 },
-  itemPrice: { width: 72, fontSize: 16, fontWeight: '600', textAlign: 'right', padding: 0, color: SmartCartColors.text },
   addItemLink: { marginTop: 16, marginBottom: 20 },
   addItemText: { fontSize: 15, fontWeight: '600', color: SmartCartColors.primary },
   breakdown: { marginBottom: 24, gap: 8 },

@@ -11,16 +11,22 @@ import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
 import { ReceiptRow } from '@/src/components/ReceiptRow';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
-import { getStoreById } from '@/src/services/storeService';
-import { getReceipts } from '@/src/services/storageService';
+import type { StoreDefinition } from '@/src/data/stores';
 import type { Receipt } from '@/src/models/types';
+import { getStoreMemoryStats, type StoreMemoryStats } from '@/src/services/storeMemoryService';
+import { getReceipts } from '@/src/services/storageService';
+import { getStoreById, removeStoreFromList } from '@/src/services/storeService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { confirmDestructiveAction } from '@/src/utils/confirmDelete';
+import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
 
 export default function StoreReceiptsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const [storeName, setStoreName] = useState('');
+  const [store, setStore] = useState<StoreDefinition | null>(null);
+  const [memory, setMemory] = useState<StoreMemoryStats | null>(null);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,8 +36,14 @@ export default function StoreReceiptsScreen() {
     try {
       const store = await getStoreById(id);
       const name = store?.name ?? id;
+      setStore(store);
       setStoreName(name);
-      setReceipts(await getReceipts({ storeName: name }));
+      const [storeReceipts, stats] = await Promise.all([
+        getReceipts({ storeName: name }),
+        getStoreMemoryStats(name),
+      ]);
+      setReceipts(storeReceipts);
+      setMemory(stats);
     } finally {
       setLoading(false);
     }
@@ -45,6 +57,23 @@ export default function StoreReceiptsScreen() {
 
   const totalSpent = receipts.reduce((sum, receipt) => sum + receipt.total, 0);
 
+  function confirmRemoveStore() {
+    if (!store) return;
+    const receiptNote =
+      receipts.length > 0
+        ? ` Your ${receipts.length} receipt${receipts.length === 1 ? '' : 's'} from ${store.name} will stay in history.`
+        : '';
+    confirmDestructiveAction({
+      title: `Remove ${store.name}?`,
+      message: `Remove this store from your list.${receiptNote}`,
+      confirmLabel: 'Remove',
+      onConfirm: async () => {
+        await removeStoreFromList(store);
+        router.replace('/stores');
+      },
+    });
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -52,7 +81,13 @@ export default function StoreReceiptsScreen() {
         <Text style={styles.headerTitle} numberOfLines={1}>
           {storeName || 'Store'}
         </Text>
-        <View style={styles.headerSpacer} />
+        <Pressable
+          style={({ pressed }) => [styles.headerAction, pressed && styles.headerActionPressed]}
+          accessibilityRole="button"
+          accessibilityLabel={`Remove ${storeName}`}
+          onPress={confirmRemoveStore}>
+          <SymbolView name={{ ios: 'trash', android: 'delete', web: 'delete' }} tintColor={SmartCartColors.danger} size={20} />
+        </Pressable>
       </View>
 
       {loading ? (
@@ -71,6 +106,28 @@ export default function StoreReceiptsScreen() {
               </Text>
             </View>
           </View>
+
+          {memory && memory.visitCount > 0 ? (
+            <View style={styles.memoryCard}>
+              <Text style={styles.memoryTitle}>Store memory</Text>
+              <Text style={styles.memoryStat}>
+                Avg trip {formatCurrency(memory.averageTripTotal)} · {memory.visitsThisYear} visits this year
+              </Text>
+              {memory.lastVisitDate ? (
+                <Text style={styles.memoryMeta}>Last visit {formatDisplayDate(memory.lastVisitDate)}</Text>
+              ) : null}
+              {memory.favoriteItems.length > 0 ? (
+                <>
+                  <Text style={styles.favoritesTitle}>Favorite items</Text>
+                  {memory.favoriteItems.map((item) => (
+                    <Text key={item.name} style={styles.favoriteRow}>
+                      {item.name} · bought {item.purchaseCount}x
+                    </Text>
+                  ))}
+                </>
+              ) : null}
+            </View>
+          ) : null}
 
           {receipts.length === 0 ? (
             <View style={styles.emptyCard}>
@@ -94,6 +151,16 @@ export default function StoreReceiptsScreen() {
               ))}
             </View>
           )}
+
+          {store ? (
+            <Pressable
+              style={({ pressed }) => [styles.removeBtn, pressed && styles.removeBtnPressed]}
+              accessibilityRole="button"
+              onPress={confirmRemoveStore}>
+              <SymbolView name={{ ios: 'trash', android: 'delete', web: 'delete' }} tintColor={SmartCartColors.danger} size={18} />
+              <Text style={styles.removeBtnText}>Remove store from list</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       )}
     </View>
@@ -111,7 +178,15 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
-  headerSpacer: { width: 72 },
+  headerSpacer: { width: 36 },
+  headerAction: {
+    width: 36,
+    height: 36,
+    borderRadius: SmartCartRadius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerActionPressed: { opacity: 0.7 },
   content: { padding: 16, paddingBottom: 40 },
   summaryCard: {
     flexDirection: 'row',
@@ -126,6 +201,18 @@ const styles = StyleSheet.create({
   summaryInfo: { flex: 1 },
   storeName: { fontSize: 20, fontWeight: '800', color: SmartCartColors.text },
   summaryMeta: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 4 },
+  memoryCard: {
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.lg,
+    padding: 16,
+    marginBottom: 16,
+    ...SmartCartShadow.cardSoft,
+  },
+  memoryTitle: { fontSize: 15, fontWeight: '800', color: SmartCartColors.text },
+  memoryStat: { fontSize: 13, fontWeight: '600', color: SmartCartColors.primaryDark, marginTop: 6 },
+  memoryMeta: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 4 },
+  favoritesTitle: { fontSize: 13, fontWeight: '700', color: SmartCartColors.text, marginTop: 12, marginBottom: 6 },
+  favoriteRow: { fontSize: 13, color: SmartCartColors.textSecondary, marginBottom: 4 },
   listCard: {
     backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,
@@ -149,4 +236,18 @@ const styles = StyleSheet.create({
     borderRadius: SmartCartRadius.pill,
   },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  removeBtn: {
+    marginTop: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: SmartCartRadius.md,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: SmartCartColors.card,
+  },
+  removeBtnPressed: { opacity: 0.85 },
+  removeBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.danger },
 });

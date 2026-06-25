@@ -3,14 +3,24 @@ import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import {
   getComparisonByReceiptId,
   getComparisonItems,
+  getDistinctRegions,
   getLatestComparison,
   getReceiptItemsWithStore,
+  getReceipts,
   getReceiptsInDateRange,
 } from '@/src/services/storageService';
-import { endOfWeekISO, startOfWeekISO, todayISO } from '@/src/utils/dateParser';
-import { getTopVarianceDriver } from '@/src/services/matchingService';
+import { endOfWeekISO, normalizeReceiptDate, startOfWeekISO, todayISO } from '@/src/utils/dateParser';
+import { getTopVarianceDriver } from '@/src/utils/comparisonSummaryText';
 import { CATEGORY_COLORS, mapToSpendingCategory } from '@/src/theme/smartCart';
 import { getReceiptDisplayTotal } from '@/src/utils/receiptTotals';
+import { canonicalizeItemName } from '@/src/utils/itemCanonicalizer';
+import { buildPeriodSpendAnalytics } from '@/src/utils/spendingPeriodAnalytics';
+import { canAccessFeature } from '@/src/services/featureGateService';
+import { filterReceiptDatesByTier } from '@/src/services/tierLimits';
+import {
+  buildSpendingOverviewBreakdown,
+  getSpendingOverviewReceipts,
+} from '@/src/utils/spendingOverview';
 
 export type WeeklySpendPoint = { label: string; value: number };
 
@@ -26,6 +36,7 @@ export type HomeInsight = {
   isOverBudget: boolean;
   topInsight: string | null;
   comparisonSummary: string | null;
+  planComparison: ComparisonResult | null;
   avgReceiptValue: number;
   mostExpensiveStore: string | null;
   mostBoughtItem: string | null;
@@ -62,6 +73,31 @@ export type PriceAlert = {
 };
 
 const CHART_COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#9C27B0', '#F44336', '#00BCD4', '#795548'];
+
+const DASHBOARD_CATEGORIES = ['Groceries', 'Household', 'Snacks', 'Beverages'] as const;
+
+function filterReceiptsByDateRange(
+  receipts: Receipt[],
+  startDate: string,
+  endDate: string
+): Receipt[] {
+  return receipts.filter((receipt) => {
+    const date = normalizeReceiptDate(receipt.date);
+    return date >= startDate && date <= endDate;
+  });
+}
+
+export function getWeekReceipts(receipts: Receipt[]): Receipt[] {
+  return filterReceiptsByDateRange(receipts, startOfWeekISO(), endOfWeekISO());
+}
+
+export { getSpendingOverviewReceipts } from '@/src/utils/spendingOverview';
+
+export async function getDashboardCategoryBreakdownFromReceipts(
+  sourceReceipts: Receipt[]
+): Promise<CategoryBreakdown[]> {
+  return buildSpendingOverviewBreakdown(sourceReceipts);
+}
 
 export async function getWeeklySpendChart(weeks = 4): Promise<WeeklySpendPoint[]> {
   const points: WeeklySpendPoint[] = [];
@@ -132,22 +168,10 @@ export function getWeekDateRangeLabel(date = new Date()): string {
 }
 
 export async function getDashboardCategoryBreakdown(): Promise<CategoryBreakdown[]> {
-  const start = startOfWeekISO();
-  const end = endOfWeekISO();
-  const receipts = await getReceiptsInDateRange(start, end);
-  const full = await Promise.all(
-    receipts.map(async (r) => {
-      const { getReceiptById } = await import('@/src/services/storageService');
-      return (await getReceiptById(r.id))!;
-    })
+  const receipts = await getReceipts();
+  return getDashboardCategoryBreakdownFromReceipts(
+    getSpendingOverviewReceipts(receipts, 'month').receipts
   );
-  const raw = await getCategoryBreakdown(full);
-  const groups = ['Groceries', 'Household', 'Snacks', 'Beverages'] as const;
-  return groups.map((category) => ({
-    category,
-    amount: raw.find((r) => r.category === category)?.amount ?? 0,
-    color: CATEGORY_COLORS[category],
-  }));
 }
 
 export async function getCategoryBudgets(
@@ -158,13 +182,7 @@ export async function getCategoryBudgets(
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const thisMonthEnd = todayISO();
   const receipts = await getReceiptsInDateRange(thisMonthStart, thisMonthEnd);
-  const full = await Promise.all(
-    receipts.map(async (r) => {
-      const { getReceiptById } = await import('@/src/services/storageService');
-      return (await getReceiptById(r.id))!;
-    })
-  );
-  const breakdown = await getCategoryBreakdown(full);
+  const breakdown = await getCategoryBreakdown(receipts);
   const { resolveCategoryLimits } = await import('@/src/utils/budgetDefaults');
   const limits = resolveCategoryLimits(monthlyBudget, categoryLimits);
   return (['Groceries', 'Household', 'Snacks', 'Beverages'] as const).map((category) => ({
@@ -177,14 +195,14 @@ export async function getCategoryBudgets(
 
 export async function buildHomeInsight(
   weeklyBudget: number,
-  alertThreshold: number
+  alertThreshold: number,
+  preloadedWeekReceipts?: Receipt[]
 ): Promise<HomeInsight> {
-  const weeklySpend = await getCurrentWeekSpend();
+  const weekReceipts =
+    preloadedWeekReceipts ??
+    await getReceiptsInDateRange(startOfWeekISO(), endOfWeekISO());
+  const weeklySpend = weekReceipts.reduce((sum, receipt) => sum + getReceiptDisplayTotal(receipt), 0);
   const budgetPercent = weeklyBudget > 0 ? weeklySpend / weeklyBudget : 0;
-
-  const start = startOfWeekISO();
-  const end = endOfWeekISO();
-  const weekReceipts = await getReceiptsInDateRange(start, end);
 
   const avgReceiptValue =
     weekReceipts.length > 0
@@ -212,14 +230,14 @@ export async function buildHomeInsight(
   const latest = await getLatestComparison();
   let topInsight: string | null = null;
   let comparisonSummary: string | null = null;
+  let planComparison: ComparisonResult | null = null;
 
   if (latest) {
-    const items = await getComparisonItems(latest.id);
     const result: ComparisonResult = {
       plannedTotal: latest.plannedTotal,
       actualTotal: latest.actualTotal,
       variance: latest.variance,
-      items: items.map((i) => ({
+      items: latest.items.map((i) => ({
         name: i.name,
         matchType: i.matchType,
         plannedPrice: i.plannedPrice,
@@ -227,14 +245,11 @@ export async function buildHomeInsight(
         variance: i.variance,
       })),
     };
+    planComparison = result;
     const driver = getTopVarianceDriver(result);
     const direction = latest.variance >= 0 ? 'Over' : 'Under';
     comparisonSummary = `${direction} plan by $${Math.abs(latest.variance).toFixed(2)}`;
-    if (driver) {
-      topInsight = `${comparisonSummary} — ${driver}`;
-    } else {
-      topInsight = comparisonSummary;
-    }
+    topInsight = driver ? `${comparisonSummary} — ${driver}` : null;
   }
 
   return {
@@ -245,6 +260,7 @@ export async function buildHomeInsight(
     isOverBudget: budgetPercent >= 1,
     topInsight,
     comparisonSummary,
+    planComparison,
     avgReceiptValue,
     mostExpensiveStore,
     mostBoughtItem,
@@ -284,21 +300,12 @@ export async function getSpendingTrend(month = new Date()): Promise<SpendingTren
 }
 
 export async function getMonthlySpendAnalytics(): Promise<MonthlySpendAnalytics> {
+  const receipts = await getReceipts();
+  const periodAnalytics = buildPeriodSpendAnalytics(receipts, 'month');
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
   const thisMonthEnd = todayISO();
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
-
-  const [thisMonthReceipts, lastMonthReceipts] = await Promise.all([
-    getReceiptsInDateRange(thisMonthStart, thisMonthEnd),
-    getReceiptsInDateRange(lastMonthStart, lastMonthEnd),
-  ]);
-
-  const monthlyTotal = thisMonthReceipts.reduce((sum, r) => sum + getReceiptDisplayTotal(r), 0);
-  const lastMonthTotal = lastMonthReceipts.reduce((sum, r) => sum + getReceiptDisplayTotal(r), 0);
-  const percentChange =
-    lastMonthTotal > 0 ? ((monthlyTotal - lastMonthTotal) / lastMonthTotal) * 100 : 0;
+  const thisMonthReceipts = receipts.filter((r) => r.date >= thisMonthStart && r.date <= thisMonthEnd);
 
   const weekBuckets = new Map<string, number>();
   for (const receipt of thisMonthReceipts) {
@@ -313,10 +320,10 @@ export async function getMonthlySpendAnalytics(): Promise<MonthlySpendAnalytics>
       value,
     }));
 
-  if (chartPoints.length === 0 && monthlyTotal > 0) {
+  if (chartPoints.length === 0 && periodAnalytics.periodTotal > 0) {
     chartPoints.push({
       label: new Date(thisMonthStart + 'T12:00:00').toLocaleDateString(undefined, { month: 'short' }),
-      value: monthlyTotal,
+      value: periodAnalytics.periodTotal,
     });
   }
 
@@ -331,22 +338,33 @@ export async function getMonthlySpendAnalytics(): Promise<MonthlySpendAnalytics>
       value,
     }));
 
-  const categoryBreakdown = await getCategoryBreakdown(
-    await Promise.all(
-      thisMonthReceipts.map(async (r) => {
-        const { getReceiptById } = await import('@/src/services/storageService');
-        return (await getReceiptById(r.id))!;
-      })
-    )
-  );
+  const categoryBreakdown = canAccessFeature('insights_pro')
+    ? await getCategoryBreakdown(
+        await Promise.all(
+          thisMonthReceipts.map(async (r) => {
+            const { getReceiptById } = await import('@/src/services/storageService');
+            return (await getReceiptById(r.id))!;
+          })
+        )
+      )
+    : [];
 
-  const spendingTrend = await getSpendingTrend(now);
-
-  return { monthlyTotal, percentChange, chartPoints, dailyPoints, spendingTrend, categoryBreakdown };
+  return {
+    monthlyTotal: periodAnalytics.periodTotal,
+    percentChange: periodAnalytics.percentChange,
+    chartPoints,
+    dailyPoints,
+    spendingTrend: periodAnalytics.spendingTrend,
+    categoryBreakdown,
+  };
 }
 
 export async function getPriceAlerts(limit = 5): Promise<PriceAlert[]> {
-  const items = await getReceiptItemsWithStore();
+  if (!canAccessFeature('price_drop_alerts')) {
+    return [];
+  }
+
+  const items = filterReceiptDatesByTier(await getReceiptItemsWithStore());
   const grouped = new Map<string, typeof items>();
 
   for (const item of items) {
@@ -417,6 +435,86 @@ export type ShoppingFrequency = {
   busiestDay: string | null;
 };
 
+export type DayTripCount = { day: string; count: number };
+
+export type ShoppingFrequencyDetails = ShoppingFrequency & {
+  thisMonthSpend: number;
+  lastMonthSpend: number;
+  dayBreakdown: DayTripCount[];
+  gapDays: number[];
+  recentTripDates: string[];
+};
+
+async function computeShoppingFrequencyDetails(): Promise<ShoppingFrequencyDetails> {
+  const bundle = await computeShoppingFrequencyBundle();
+  return bundle.details;
+}
+
+async function computeShoppingFrequencyBundle(): Promise<{
+  details: ShoppingFrequencyDetails;
+  thisMonthReceipts: Awaited<ReturnType<typeof getReceiptsInDateRange>>;
+  lastMonthReceipts: Awaited<ReturnType<typeof getReceiptsInDateRange>>;
+}> {
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const thisMonthEnd = todayISO();
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+
+  const [thisMonthReceipts, lastMonthReceipts] = await Promise.all([
+    getReceiptsInDateRange(thisMonthStart, thisMonthEnd),
+    getReceiptsInDateRange(lastMonthStart, lastMonthEnd),
+  ]);
+
+  const tripsThisMonth = thisMonthReceipts.length;
+  const tripsLastMonth = lastMonthReceipts.length;
+  const thisMonthSpend = thisMonthReceipts.reduce((sum, r) => sum + getReceiptDisplayTotal(r), 0);
+  const lastMonthSpend = lastMonthReceipts.reduce((sum, r) => sum + getReceiptDisplayTotal(r), 0);
+
+  const sortedDates = thisMonthReceipts.map((r) => r.date).sort();
+  const gapDays: number[] = [];
+  if (sortedDates.length >= 2) {
+    for (let i = 1; i < sortedDates.length; i++) {
+      const a = new Date(sortedDates[i - 1] + 'T12:00:00').getTime();
+      const b = new Date(sortedDates[i] + 'T12:00:00').getTime();
+      gapDays.push((b - a) / (1000 * 60 * 60 * 24));
+    }
+  }
+  const avgDaysBetweenTrips =
+    gapDays.length > 0 ? gapDays.reduce((s, g) => s + g, 0) / gapDays.length : null;
+
+  const dayCounts = new Map<string, number>();
+  for (const r of thisMonthReceipts) {
+    const day = new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
+    dayCounts.set(day, (dayCounts.get(day) ?? 0) + 1);
+  }
+  const dayBreakdown = [...dayCounts.entries()]
+    .map(([day, count]) => ({ day, count }))
+    .sort((a, b) => b.count - a.count);
+
+  const busiestDay: string | null = dayBreakdown[0]?.day ?? null;
+
+  return {
+    details: {
+      tripsThisMonth,
+      tripsLastMonth,
+      avgDaysBetweenTrips,
+      busiestDay,
+      thisMonthSpend,
+      lastMonthSpend,
+      dayBreakdown,
+      gapDays,
+      recentTripDates: sortedDates.slice().reverse(),
+    },
+    thisMonthReceipts,
+    lastMonthReceipts,
+  };
+}
+
+export async function getShoppingFrequencyDetails(): Promise<ShoppingFrequencyDetails> {
+  return computeShoppingFrequencyDetails();
+}
+
 export type ProInsights = {
   overspendCategories: OverspendCategory[];
   storeTrends: StoreTrend[];
@@ -454,6 +552,20 @@ export async function getProInsights(
   monthlyBudget: number,
   categoryLimits?: CategoryLimits | null
 ): Promise<ProInsights> {
+  if (!canAccessFeature('insights_pro')) {
+    return {
+      overspendCategories: [],
+      storeTrends: [],
+      frequency: {
+        tripsThisMonth: 0,
+        tripsLastMonth: 0,
+        avgDaysBetweenTrips: null,
+        busiestDay: null,
+      },
+      summaryLine: 'Upgrade to Pro for spending breakdowns by category and store.',
+    };
+  }
+
   const budgets = await getCategoryBudgets(monthlyBudget, categoryLimits);
   const overspendCategories = budgets
     .filter((b) => b.spent > b.limit)
@@ -467,16 +579,8 @@ export async function getProInsights(
     }))
     .sort((a, b) => b.overAmount - a.overAmount);
 
-  const now = new Date();
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const thisMonthEnd = todayISO();
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-  const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
-
-  const [thisMonthReceipts, lastMonthReceipts] = await Promise.all([
-    getReceiptsInDateRange(thisMonthStart, thisMonthEnd),
-    getReceiptsInDateRange(lastMonthStart, lastMonthEnd),
-  ]);
+  const { details: frequencyDetails, thisMonthReceipts, lastMonthReceipts } =
+    await computeShoppingFrequencyBundle();
 
   const storeThis = new Map<string, { total: number; trips: number }>();
   for (const r of thisMonthReceipts) {
@@ -507,34 +611,7 @@ export async function getProInsights(
     };
   }).sort((a, b) => b.thisMonth - a.thisMonth);
 
-  const tripsThisMonth = thisMonthReceipts.length;
-  const tripsLastMonth = lastMonthReceipts.length;
-
-  const sortedDates = thisMonthReceipts.map((r) => r.date).sort();
-  let avgDaysBetweenTrips: number | null = null;
-  if (sortedDates.length >= 2) {
-    const gaps: number[] = [];
-    for (let i = 1; i < sortedDates.length; i++) {
-      const a = new Date(sortedDates[i - 1] + 'T12:00:00').getTime();
-      const b = new Date(sortedDates[i] + 'T12:00:00').getTime();
-      gaps.push((b - a) / (1000 * 60 * 60 * 24));
-    }
-    avgDaysBetweenTrips = gaps.reduce((s, g) => s + g, 0) / gaps.length;
-  }
-
-  const dayCounts = new Map<string, number>();
-  for (const r of thisMonthReceipts) {
-    const day = new Date(r.date + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long' });
-    dayCounts.set(day, (dayCounts.get(day) ?? 0) + 1);
-  }
-  let busiestDay: string | null = null;
-  let maxDayCount = 0;
-  dayCounts.forEach((count, day) => {
-    if (count > maxDayCount) {
-      maxDayCount = count;
-      busiestDay = day;
-    }
-  });
+  const { tripsThisMonth, tripsLastMonth, avgDaysBetweenTrips, busiestDay } = frequencyDetails;
 
   const topOverspend = overspendCategories[0];
   const topStore = storeTrends[0];
@@ -568,8 +645,25 @@ function normalizeItemName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-export async function getPersonalInflation(months = 6): Promise<PersonalInflation> {
-  const items = await getReceiptItemsWithStore();
+export async function getPersonalInflation(
+  months = 6,
+  regionCode?: string | null
+): Promise<PersonalInflation> {
+  if (!canAccessFeature('inflation_tracker')) {
+    return { points: [], currentIndex: 100, changePercent: 0, trackedItems: 0, hasEnoughData: false };
+  }
+
+  let items = filterReceiptDatesByTier(await getReceiptItemsWithStore());
+  const normalizedRegion = regionCode?.trim().toUpperCase();
+  if (normalizedRegion) {
+    const regional = items.filter(
+      (item) => (item.storeRegion ?? '').toUpperCase() === normalizedRegion
+    );
+    if (regional.length >= 4) {
+      items = regional;
+    }
+  }
+
   if (items.length < 4) {
     return { points: [], currentIndex: 100, changePercent: 0, trackedItems: 0, hasEnoughData: false };
   }
@@ -640,6 +734,188 @@ export async function getPersonalInflation(months = 6): Promise<PersonalInflatio
 
   return { points, currentIndex, changePercent, trackedItems, hasEnoughData };
 }
+
+export type RegionalInsightRow = {
+  region: string;
+  receiptCount: number;
+  avgReceiptTotal: number;
+  inflationIndex: number;
+  hasInflationData: boolean;
+};
+
+export async function getRegionalInsights(months = 6): Promise<RegionalInsightRow[]> {
+  const regions = await getDistinctRegions();
+  if (regions.length === 0) return [];
+
+  const receipts = await getReceipts();
+  const rows: RegionalInsightRow[] = [];
+
+  for (const region of regions) {
+    const regionalReceipts = receipts.filter(
+      (receipt) => (receipt.storeRegion ?? '').toUpperCase() === region.toUpperCase()
+    );
+    const avgReceiptTotal =
+      regionalReceipts.length > 0
+        ? regionalReceipts.reduce((sum, receipt) => sum + getReceiptDisplayTotal(receipt), 0) /
+          regionalReceipts.length
+        : 0;
+    const inflation = await getPersonalInflation(months, region);
+    rows.push({
+      region,
+      receiptCount: regionalReceipts.length,
+      avgReceiptTotal,
+      inflationIndex: inflation.currentIndex,
+      hasInflationData: inflation.hasEnoughData,
+    });
+  }
+
+  return rows.sort((a, b) => a.avgReceiptTotal - b.avgReceiptTotal);
+}
+
+export { getDistinctRegions };
+
+export type RegionalComparisonHighlight = {
+  message: string;
+  regionA: string;
+  regionB: string;
+  percentDiff: number;
+};
+
+export async function getRegionalComparisonHighlights(
+  months = 6
+): Promise<RegionalComparisonHighlight[]> {
+  const rows = await getRegionalInsights(months);
+  const withInflation = rows.filter((row) => row.hasInflationData);
+  if (withInflation.length < 2) return [];
+
+  const highlights: RegionalComparisonHighlight[] = [];
+  const sorted = [...withInflation].sort((a, b) => a.inflationIndex - b.inflationIndex);
+  const lowest = sorted[0];
+  const highest = sorted[sorted.length - 1];
+  if (lowest.region === highest.region) return highlights;
+
+  const percentDiff =
+    lowest.inflationIndex > 0
+      ? ((highest.inflationIndex - lowest.inflationIndex) / lowest.inflationIndex) * 100
+      : 0;
+
+  if (percentDiff >= 3) {
+    highlights.push({
+      regionA: highest.region,
+      regionB: lowest.region,
+      percentDiff,
+      message: `Your grocery index is ~${percentDiff.toFixed(0)}% higher in ${highest.region} than ${lowest.region}.`,
+    });
+  }
+
+  const avgSorted = [...rows].sort((a, b) => b.avgReceiptTotal - a.avgReceiptTotal);
+  const priciest = avgSorted[0];
+  const cheapest = avgSorted[avgSorted.length - 1];
+  if (
+    priciest &&
+    cheapest &&
+    priciest.region !== cheapest.region &&
+    cheapest.avgReceiptTotal > 0
+  ) {
+    const spendDiff =
+      ((priciest.avgReceiptTotal - cheapest.avgReceiptTotal) / cheapest.avgReceiptTotal) * 100;
+    if (spendDiff >= 8) {
+      highlights.push({
+        regionA: priciest.region,
+        regionB: cheapest.region,
+        percentDiff: spendDiff,
+        message: `Average receipts cost ~${spendDiff.toFixed(0)}% more in ${priciest.region} than ${cheapest.region}.`,
+      });
+    }
+  }
+
+  return highlights;
+};
+
+export type ItemRegionalPriceComparison = {
+  itemName: string;
+  regions: Array<{
+    region: string;
+    avgPrice: number;
+    avgUnitPrice?: number;
+    unit?: string;
+    sampleCount: number;
+  }>;
+  message?: string;
+};
+
+export async function getItemRegionalPriceComparisons(
+  minSamplesPerRegion = 2,
+  limit = 12
+): Promise<ItemRegionalPriceComparison[]> {
+  const items = await getReceiptItemsWithStore();
+  const buckets = new Map<
+    string,
+    Map<string, { prices: number[]; unitPrices: number[]; unit?: string }>
+  >();
+
+  for (const item of items) {
+    const region = item.storeRegion?.trim().toUpperCase();
+    if (!region) continue;
+    const itemName = canonicalizeItemName(item.name);
+    if (!itemName || itemName === '(name hidden)') continue;
+
+    const itemBuckets = buckets.get(itemName) ?? new Map();
+    const regionBucket = itemBuckets.get(region) ?? { prices: [], unitPrices: [], unit: item.unit };
+    regionBucket.prices.push(item.price);
+    if (item.unitPrice != null && item.unitPrice > 0) {
+      regionBucket.unitPrices.push(item.unitPrice);
+      regionBucket.unit = item.unit ?? regionBucket.unit;
+    }
+    itemBuckets.set(region, regionBucket);
+    buckets.set(itemName, itemBuckets);
+  }
+
+  const comparisons: ItemRegionalPriceComparison[] = [];
+
+  for (const [itemName, regionMap] of buckets) {
+    const regions = [...regionMap.entries()]
+      .filter(([, bucket]) => bucket.prices.length >= minSamplesPerRegion)
+      .map(([region, bucket]) => ({
+        region,
+        avgPrice: bucket.prices.reduce((sum, price) => sum + price, 0) / bucket.prices.length,
+        avgUnitPrice:
+          bucket.unitPrices.length > 0
+            ? bucket.unitPrices.reduce((sum, price) => sum + price, 0) / bucket.unitPrices.length
+            : undefined,
+        unit: bucket.unit,
+        sampleCount: bucket.prices.length,
+      }));
+
+    if (regions.length < 2) continue;
+
+    regions.sort((a, b) => a.avgPrice - b.avgPrice);
+    const cheapest = regions[0];
+    const priciest = regions[regions.length - 1];
+    let message: string | undefined;
+
+    if (cheapest.avgPrice > 0) {
+      const useUnit =
+        cheapest.avgUnitPrice != null &&
+        priciest.avgUnitPrice != null &&
+        cheapest.unit &&
+        priciest.unit === cheapest.unit;
+      const low = useUnit ? cheapest.avgUnitPrice! : cheapest.avgPrice;
+      const high = useUnit ? priciest.avgUnitPrice! : priciest.avgPrice;
+      const diff = ((high - low) / low) * 100;
+      if (diff >= 5) {
+        const unitSuffix = useUnit ? `/${cheapest.unit}` : '';
+        message = `${itemName} costs ~${diff.toFixed(0)}% more in ${priciest.region} than ${cheapest.region}${unitSuffix ? ` (${low.toFixed(2)} vs ${high.toFixed(2)}${unitSuffix})` : ''}.`;
+      }
+    }
+
+    comparisons.push({ itemName, regions, message });
+  }
+
+  return comparisons
+    .sort((a, b) => (b.message ? 1 : 0) - (a.message ? 1 : 0))
+    .slice(0, limit);
+};
 
 export async function getUsageStats(): Promise<UsageStats> {
   const { getAllLists, getAllComparisons } = await import('@/src/services/storageService');

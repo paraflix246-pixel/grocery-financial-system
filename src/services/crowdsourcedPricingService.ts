@@ -17,6 +17,7 @@ export type CommunityPricePoint = {
   /** Normalized item name (lowercase, trimmed) */
   itemKey: string;
   storeName: string;
+  storeRegion?: string;
   price: number;
   /** ISO date from receipt */
   observedAt: string;
@@ -93,6 +94,7 @@ export async function contributeFromReceipt(receipt: Receipt): Promise<void> {
     const point: CommunityPricePoint = {
       itemKey: normalizeItemKey(item.name),
       storeName: receipt.storeName,
+      storeRegion: receipt.storeRegion,
       price: item.price,
       observedAt: receipt.date,
       contributions: 1,
@@ -103,11 +105,24 @@ export async function contributeFromReceipt(receipt: Receipt): Promise<void> {
   await persistCache({ points, lastSyncedAt: cache.lastSyncedAt });
 }
 
-export async function getCommunityPricesForItem(itemName: string): Promise<CommunityStorePrice[]> {
+export async function getCommunityPricesForItem(
+  itemName: string,
+  regionCode?: string | null
+): Promise<CommunityStorePrice[]> {
   const cache = await loadCache();
   if (cache.points.length === 0) return [];
 
-  const fuse = new Fuse(cache.points, {
+  const normalizedRegion = regionCode?.trim().toUpperCase();
+  const scopedPoints =
+    normalizedRegion != null && normalizedRegion.length > 0
+      ? cache.points.filter(
+          (point) => (point.storeRegion ?? '').toUpperCase() === normalizedRegion
+        )
+      : cache.points;
+
+  const points = scopedPoints.length > 0 ? scopedPoints : cache.points;
+
+  const fuse = new Fuse(points, {
     keys: ['itemKey'],
     threshold: 1 - FUZZY_MATCH_THRESHOLD,
     includeScore: true,
@@ -132,7 +147,7 @@ export async function getCommunityPricesForItem(itemName: string): Promise<Commu
       const avg = bucket.prices.reduce((s, v) => s + v, 0) / bucket.prices.length;
       const latestDate = bucket.dates.sort((a, b) => b.localeCompare(a))[0];
       const storeName =
-        cache.points.find((p) => p.storeName.toLowerCase() === storeKey)?.storeName ?? storeKey;
+        points.find((p) => p.storeName.toLowerCase() === storeKey)?.storeName ?? storeKey;
       return {
         store: storeName,
         avgPrice: avg,

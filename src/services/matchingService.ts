@@ -113,10 +113,4 @@ export async function runMatchingAndSave(
   return result;
 }
 
-export function getTopVarianceDriver(comparison: ComparisonResult): string | null {
-  const matched = comparison.items.filter((i) => i.matchType === 'matched' && (i.variance ?? 0) > 0);
-  if (matched.length === 0) return null;
-  matched.sort((a, b) => (b.variance ?? 0) - (a.variance ?? 0));
-  const top = matched[0];
-  return `${top.name} +$${(top.variance ?? 0).toFixed(2)}`;
-}
+export { getTopVarianceDriver, getOverspendDrivers } from '@/src/utils/comparisonSummaryText';

@@ -1,4 +1,12 @@
-export type OcrSource = 'mlkit' | 'tesseract' | 'ocr_space' | 'cloud_vision' | 'fallback' | 'empty';
+export type OcrSource =
+  | 'mlkit'
+  | 'tesseract'
+  | 'ocr_space'
+  | 'cloud_vision'
+  | 'paddleocr'
+  | 'deepread'
+  | 'fallback'
+  | 'empty';
 
 export type OcrStructuredLine = {
   text: string;

@@ -24,7 +24,7 @@ export default function AffiliateLinksScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.lead}>
-          Order groceries for delivery through our affiliate partners. SmartCart may earn a commission on qualifying orders.
+          Order groceries for delivery through our affiliate partners. Penny Pantry may earn a commission on qualifying orders.
         </Text>
 
         {PARTNERS.map((partner) => (

@@ -1,5 +1,5 @@
 export const DB_NAME = 'grocery_financial.db';
-export const SCHEMA_VERSION = 8;
+export const SCHEMA_VERSION = 19;
 
 export const MIGRATIONS: string[] = [
   `CREATE TABLE IF NOT EXISTS schema_version (
@@ -103,5 +103,12 @@ export const MIGRATIONS: string[] = [
     target_price REAL NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL
+  );`,
+  `CREATE TABLE IF NOT EXISTS store_preferences (
+    store_id TEXT PRIMARY KEY NOT NULL,
+    is_favorite INTEGER NOT NULL DEFAULT 0,
+    is_hidden INTEGER NOT NULL DEFAULT 0,
+    region TEXT,
+    updated_at TEXT NOT NULL
   );`,
 ];

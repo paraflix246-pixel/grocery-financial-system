@@ -18,7 +18,8 @@ export type GroceryCategory =
   | 'Beverages'
   | 'Household'
   | 'Snacks'
-  | 'Bakery';
+  | 'Bakery'
+  | 'Other';
 
 export type GroceryItem = {
   id: string;
@@ -46,12 +47,13 @@ export const GROCERY_CATEGORIES: GroceryCategory[] = [
   'Household',
   'Snacks',
   'Bakery',
+  'Other',
 ];
 
 export const GROCERY_CATALOG: GroceryItem[] = [
 
   // Dairy
-  { id: 'gc-milk', name: 'Milk', canonicalName: 'Milk', category: 'Dairy', emoji: '🥛', typicalPriceRange: [3.49, 4.99], unit: '1 gallon', aliases: ['whole milk', '2% milk', 'skim milk', 'great value milk'], stores: ['walmart', 'target', 'kroger', 'aldi', 'costco', 'publix', 'safeway', 'food-lion', 'bjs'] },
+  { id: 'gc-milk', name: 'Milk', canonicalName: 'Milk', category: 'Dairy', emoji: '🥛', typicalPriceRange: [3.49, 4.99], unit: '1 gallon', aliases: ['whole milk', '2% milk', 'skim milk', 'great value milk', 'lactose free milk', 'lactose-free milk', 'almond milk', 'oat milk'], stores: ['walmart', 'target', 'kroger', 'aldi', 'costco', 'publix', 'safeway', 'food-lion', 'bjs'] },
   { id: 'gc-eggs', name: 'Eggs', canonicalName: 'Eggs', category: 'Dairy', emoji: '🥚', typicalPriceRange: [2.99, 4.49], unit: '1 dozen', aliases: ['large eggs', 'dozen eggs', 'grade a eggs'], stores: ['walmart', 'target', 'kroger', 'aldi', 'costco', 'publix', 'safeway', 'food-lion', 'bjs'] },
   { id: 'gc-butter', name: 'Butter', canonicalName: 'Butter', category: 'Dairy', emoji: '🧈', typicalPriceRange: [3.49, 5.49], unit: '1 lb', aliases: ['salted butter', 'unsalted butter'], stores: ['walmart', 'target', 'kroger', 'aldi', 'costco', 'publix', 'safeway', 'food-lion', 'bjs'] },
   { id: 'gc-yogurt', name: 'Yogurt', canonicalName: 'Yogurt', category: 'Dairy', emoji: '🥣', typicalPriceRange: [0.59, 1.29], unit: '1 cup', aliases: ['greek yogurt', 'plain yogurt', 'yoplait'], stores: ['walmart', 'target', 'kroger', 'aldi', 'costco', 'publix', 'safeway', 'food-lion', 'bjs'] },
@@ -325,16 +327,13 @@ export function getGroceryTypicalPrice(item: GroceryItem): number {
   return 3.99;
 }
 
-export function getGroceryItemEmoji(canonicalName?: string, itemName?: string): string {
-  if (canonicalName) {
-    const match = getGroceryItemByCanonical(canonicalName);
-    if (match) return match.emoji;
-  }
-  if (itemName) {
-    const match = getGroceryItemByName(itemName);
-    if (match) return match.emoji;
-  }
-  return '🛒';
+export function getGroceryItemEmoji(
+  canonicalName?: string,
+  itemName?: string,
+  options?: import('@/src/utils/itemEmojiResolver').ResolveItemEmojiOptions
+): string {
+  const { resolveItemEmoji } = require('@/src/utils/itemEmojiResolver') as typeof import('@/src/utils/itemEmojiResolver');
+  return resolveItemEmoji(canonicalName, itemName, options);
 }
 
 export function getGroceryItemsByCategory(category: GroceryCategory): GroceryItem[] {
@@ -344,6 +343,13 @@ export function getGroceryItemsByCategory(category: GroceryCategory): GroceryIte
 export function getPopularGroceryItems(): GroceryItem[] {
   return POPULAR_ITEM_NAMES.map((name) => getGroceryItemByCanonical(name)).filter(
     (item): item is GroceryItem => item != null
+  );
+}
+
+/** Canonical names for edible grocery items (excludes Household). */
+export function getFoodCatalogCanonicalNames(): string[] {
+  return GROCERY_CATALOG.filter((item) => item.category !== 'Household').map(
+    (item) => item.canonicalName
   );
 }
 

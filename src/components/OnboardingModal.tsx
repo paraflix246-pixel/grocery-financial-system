@@ -30,7 +30,12 @@ type OnboardingModalProps = {
 function OnboardingContent({ onComplete }: { onComplete: () => void }) {
   return (
     <View style={styles.backdrop} pointerEvents="box-none">
-      <View style={styles.dimmer} pointerEvents="auto" />
+      <Pressable
+        style={styles.dimmer}
+        onPress={onComplete}
+        accessibilityRole="button"
+        accessibilityLabel="Close onboarding"
+      />
       <View style={styles.sheet} pointerEvents="auto">
         <ScrollView contentContainerStyle={styles.content}>
           {SLIDES.map((slide, i) => (

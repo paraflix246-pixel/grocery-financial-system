@@ -50,6 +50,13 @@ export const SmartCartShadow = {
     shadowRadius: 4,
     elevation: 2,
   },
+  glow: {
+    shadowColor: '#16A34A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 6,
+  },
 };
 
 export const SmartCartRadius = {
@@ -85,6 +92,18 @@ export function getTimeGreeting(): string {
   return 'Good evening';
 }
 
+export function getGreetingFirstName(displayName?: string): string {
+  const trimmed = displayName?.trim();
+  if (!trimmed) return '';
+  return trimmed.split(/\s+/)[0] ?? '';
+}
+
+export function formatHomeGreeting(displayName?: string): string {
+  const timeGreeting = getTimeGreeting();
+  const firstName = getGreetingFirstName(displayName);
+  return firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
+}
+
 export function getStoreInitials(store: string): string {
   return store.slice(0, 1).toUpperCase();
 }
@@ -110,8 +129,8 @@ export function mapToSpendingCategory(name: string): string {
   if (/milk|cheese|yogurt|egg|butter|banana|apple|orange|berry|fruit|vegetable|lettuce|tomato|bread|bagel|chicken|beef|pork|fish|meat/.test(lower)) {
     return 'Groceries';
   }
-  if (/paper|soap|detergent|clean|tissue|towel|household/.test(lower)) return 'Household';
+  if (/paper|soap|detergent|clean|tissue|towel|household|broom|mop|sponge/.test(lower)) return 'Household';
   if (/chip|snack|candy|cookie|cracker/.test(lower)) return 'Snacks';
-  if (/soda|juice|water|coffee|tea|beverage|drink/.test(lower)) return 'Beverages';
+  if (/soda|juice|water|coffee|\btea\b|beverage|\bdrink\b/.test(lower)) return 'Beverages';
   return 'Groceries';
 }

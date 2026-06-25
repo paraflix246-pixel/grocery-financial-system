@@ -43,6 +43,13 @@ export function resolveCanonicalName(name: string): string | undefined {
   return undefined;
 }
 
+/** Direct alias lookup only — for user-typed custom items (no fuzzy catalog guessing). */
+export function resolveCanonicalNameExact(name: string): string | undefined {
+  const trimmed = name.trim();
+  if (!trimmed) return undefined;
+  return ALIAS_TO_CANONICAL.get(trimmed.toLowerCase());
+}
+
 export function fuzzyMatchItemName(ruleName: string, itemName: string): boolean {
   const fuse = new Fuse([{ name: itemName.trim() }], {
     keys: ['name'],
@@ -78,15 +85,13 @@ export function suggestTargetPrice(basePrice: number, discountPercent = SUGGESTE
 }
 
 export function getMatchExamples(canonicalName?: string, itemName?: string): string[] {
-  const catalog = canonicalName ? getCatalogItem(canonicalName) : undefined;
-  if (catalog && catalog.aliases.length > 0) {
-    return catalog.aliases.slice(0, 3).map((alias) => alias.replace(/\b\w/g, (c) => c.toUpperCase()));
-  }
+  const name = (canonicalName ?? itemName ?? '').trim();
+  if (!name) return [];
 
-  const resolved = canonicalName ?? resolveCanonicalName(itemName ?? '');
-  if (!resolved) return [];
+  const exact = resolveCanonicalNameExact(name);
+  if (!exact) return [];
 
-  const match = getCatalogItem(resolved);
-  if (!match) return [];
-  return match.aliases.slice(0, 3).map((alias) => alias.replace(/\b\w/g, (c) => c.toUpperCase()));
+  const catalog = getCatalogItem(exact);
+  if (!catalog) return [];
+  return catalog.aliases.slice(0, 3).map((alias) => alias.replace(/\b\w/g, (c) => c.toUpperCase()));
 }

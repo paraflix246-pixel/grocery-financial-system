@@ -5,6 +5,12 @@ import { SymbolView } from 'expo-symbols';
 
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
+import {
+  HOUSEHOLD_PLAN_FEATURES,
+  householdMonthlyLabel,
+  PRO_PLAN_FEATURES,
+  proMonthlyLabel,
+} from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
@@ -18,7 +24,7 @@ export default function SubscriptionsScreen() {
   }, [loadSubscription]);
 
   const handleDowngrade = () => {
-    Alert.alert('Downgrade to Free?', 'You will lose access to Pro features.', [
+    Alert.alert('Downgrade to Free?', 'You will lose unlimited scanning, live price alerts, and full price history.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Downgrade',
@@ -28,59 +34,73 @@ export default function SubscriptionsScreen() {
     ]);
   };
 
-  const isPro = tier === 'pro';
+  const isPaid = tier === 'pro' || tier === 'household';
+  const isHousehold = tier === 'household';
+  const planLabel = isHousehold ? 'Penny Pantry Household' : isPaid ? 'Penny Pantry Pro' : 'Penny Pantry Free';
+  const benefits = isHousehold ? HOUSEHOLD_PLAN_FEATURES : PRO_PLAN_FEATURES;
 
   return (
     <View style={styles.container}>
       <ScreenHeader title="Subscription" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.statusCard, isPro && styles.statusCardPro]}>
+        <View style={[styles.statusCard, isPaid && styles.statusCardPro, isHousehold && styles.statusCardHousehold]}>
           <SymbolView
-            name={{ ios: isPro ? 'star.fill' : 'person.fill', android: isPro ? 'star' : 'person', web: isPro ? 'star' : 'person' }}
-            tintColor={isPro ? SmartCartColors.accentPurple : SmartCartColors.textSecondary}
+            name={{
+              ios: isPaid ? 'star.fill' : 'person.fill',
+              android: isPaid ? 'star' : 'person',
+              web: isPaid ? 'star' : 'person',
+            }}
+            tintColor={isHousehold ? '#7C3AED' : isPaid ? SmartCartColors.accentPurple : SmartCartColors.textSecondary}
             size={32}
           />
-          <Text style={styles.statusTitle}>{isPro ? 'SmartCart Pro' : 'SmartCart Free'}</Text>
+          <Text style={styles.statusTitle}>{planLabel}</Text>
           <Text style={styles.statusSub}>
-            {isPro
+            {isPaid
               ? `${plan === 'yearly' ? 'Annual' : 'Monthly'} plan · mock local subscription`
-              : 'Upgrade for advanced insights and community pricing'}
+              : `Upgrade for price drop alerts, inflation tracking & live store comparison — from ${proMonthlyLabel}`}
           </Text>
-          {isPro && expiresAt && (
+          {isPaid && expiresAt && (
             <Text style={styles.expires}>Renews {formatDisplayDate(expiresAt.split('T')[0])}</Text>
           )}
         </View>
 
-        {isPro ? (
+        {isPaid ? (
           <>
-            <Text style={styles.sectionTitle}>Active benefits</Text>
-            {['AI Insights Pro', 'Inflation tracker', 'Community pricing', 'Family sharing', 'API access'].map(
-              (benefit) => (
-                <View key={benefit} style={styles.benefitRow}>
-                  <SymbolView
-                    name={{ ios: 'checkmark.seal.fill', android: 'verified', web: 'verified' }}
-                    tintColor={SmartCartColors.primary}
-                    size={18}
-                  />
-                  <Text style={styles.benefitText}>{benefit}</Text>
-                </View>
-              )
+            <Text style={styles.sectionTitle}>{isHousehold ? 'Your Household benefits' : 'Your Pro benefits'}</Text>
+            {benefits.map((benefit) => (
+              <View key={benefit} style={styles.benefitRow}>
+                <SymbolView
+                  name={{ ios: 'checkmark.seal.fill', android: 'verified', web: 'verified' }}
+                  tintColor={isHousehold ? '#7C3AED' : SmartCartColors.primary}
+                  size={18}
+                />
+                <Text style={styles.benefitText}>{benefit}</Text>
+              </View>
+            ))}
+
+            {!isHousehold && (
+              <Pressable style={styles.householdUpsell} onPress={() => router.push('/paywall' as never)}>
+                <Text style={styles.householdUpsellTitle}>Need family sync & CSV export?</Text>
+                <Text style={styles.householdUpsellSub}>Household plan from {householdMonthlyLabel}</Text>
+              </Pressable>
             )}
+
             <Pressable style={styles.downgradeBtn} onPress={handleDowngrade}>
               <Text style={styles.downgradeText}>Downgrade to Free</Text>
             </Pressable>
           </>
         ) : (
           <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall' as never)}>
-            <Text style={styles.upgradeBtnText}>View Pro plans</Text>
+            <Text style={styles.upgradeBtnText}>Compare Free, Pro & Household</Text>
           </Pressable>
         )}
 
         <View style={styles.infoCard}>
           <Text style={styles.infoTitle}>Local-first billing</Text>
           <Text style={styles.infoBody}>
-            Subscriptions are stored on this device for MVP testing. A production build would connect to App Store / Play Store billing.
+            Subscriptions are stored on this device for MVP testing. A production build would connect to App Store /
+            Play Store billing.
           </Text>
         </View>
       </ScrollView>
@@ -102,12 +122,24 @@ const styles = StyleSheet.create({
     ...SmartCartShadow.card,
   },
   statusCardPro: { borderColor: SmartCartColors.accentPurple, backgroundColor: '#FAF5FF' },
+  statusCardHousehold: { borderColor: '#7C3AED', backgroundColor: '#F5F3FF' },
   statusTitle: { fontSize: 22, fontWeight: '800', color: SmartCartColors.text, marginTop: 12 },
   statusSub: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4, textAlign: 'center' },
   expires: { fontSize: 12, color: SmartCartColors.textMuted, marginTop: 8 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12 },
   benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  benefitText: { fontSize: 15, color: SmartCartColors.text },
+  benefitText: { fontSize: 15, color: SmartCartColors.text, flex: 1, lineHeight: 21 },
+  householdUpsell: {
+    marginTop: 16,
+    marginBottom: 8,
+    padding: 14,
+    borderRadius: SmartCartRadius.md,
+    backgroundColor: '#F5F3FF',
+    borderWidth: 1,
+    borderColor: '#DDD6FE',
+  },
+  householdUpsellTitle: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text },
+  householdUpsellSub: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 4 },
   upgradeBtn: {
     backgroundColor: SmartCartColors.primary,
     borderRadius: SmartCartRadius.md,

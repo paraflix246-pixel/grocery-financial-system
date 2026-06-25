@@ -1,0 +1,24 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node vercel-prebuilt-or-export.js",
+  "outputDirectory": "dist/client",
+  "installCommand": "npm install --omit=dev",
+  "framework": null,
+  "functions": {
+    "api/index.ts": {
+      "runtime": "@vercel/node@5.1.8",
+      "includeFiles": "dist/server/**",
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "routes": [
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/api/index"
+    }
+  ]
+}

@@ -55,7 +55,7 @@ export default function LinkListScreen() {
       <ScreenHeader title="Link to List" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.subtitle}>
-          Compare your receipt against a planned list to see plan vs actual.
+          Your receipt is saved. Tap a list to see what you planned vs what you bought.
         </Text>
 
         {lists.map((list) => (
@@ -79,7 +79,7 @@ export default function LinkListScreen() {
 
         <View style={styles.actions}>
           <Pressable style={styles.skipBtn} onPress={handleSkip}>
-            <Text style={styles.skipText}>Skip for now</Text>
+            <Text style={styles.skipText}>Skip — go home</Text>
           </Pressable>
           {comparison && (
             <Pressable style={styles.doneBtn} onPress={handleDone}>

@@ -1,5 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { SymbolView } from 'expo-symbols';
+
 import { Text } from '@/components/Themed';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { SmartCartColors } from '@/src/theme/smartCart';
@@ -11,13 +13,36 @@ type Props = {
   date: string;
   total: number;
   onPress?: () => void;
+  onLongPress?: () => void;
   isLast?: boolean;
+  selectMode?: boolean;
+  selected?: boolean;
 };
 
-export function ReceiptRow({ storeName, date, total, onPress, isLast }: Props) {
+export function ReceiptRow({
+  storeName,
+  date,
+  total,
+  onPress,
+  onLongPress,
+  isLast,
+  selectMode,
+  selected,
+}: Props) {
   return (
-    <Pressable style={[styles.row, isLast && styles.rowLast]} onPress={onPress}>
-      <StoreBrandAvatar store={storeName} variant="card" size={42} />
+    <Pressable
+      style={[styles.row, isLast && styles.rowLast, selected && styles.rowSelected]}
+      onPress={onPress}
+      onLongPress={onLongPress}>
+      {selectMode ? (
+        <View style={[styles.checkbox, selected && styles.checkboxChecked]}>
+          {selected ? (
+            <SymbolView name={{ ios: 'checkmark', android: 'check', web: 'check' }} tintColor="#fff" size={14} />
+          ) : null}
+        </View>
+      ) : (
+        <StoreBrandAvatar store={storeName} variant="card" size={42} />
+      )}
       <View style={styles.body}>
         <Text style={styles.store} numberOfLines={1}>
           {storeName}
@@ -39,6 +64,17 @@ const styles = StyleSheet.create({
     borderBottomColor: SmartCartColors.border,
   },
   rowLast: { borderBottomWidth: 0 },
+  rowSelected: { backgroundColor: SmartCartColors.badge },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: SmartCartColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: SmartCartColors.primary, borderColor: SmartCartColors.primary },
   body: { flex: 1, minWidth: 0 },
   store: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
   date: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },

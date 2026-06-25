@@ -8,6 +8,7 @@ import { Text } from '@/components/Themed';
 import { AppHeader } from '@/src/components/AppHeader';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -44,13 +45,25 @@ const SECTIONS: MenuSection[] = [
         label: 'Spending Analytics',
         subtitle: 'Trends and category breakdown',
         icon: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' },
-        route: '/(tabs)/receipts',
+        route: '/spending-analytics',
+      },
+      {
+        label: 'Cart Comparison',
+        subtitle: 'Compare store totals for your list',
+        icon: { ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' },
+        route: '/cart-comparison',
+      },
+      {
+        label: 'Pantry',
+        subtitle: 'Track items from your receipts',
+        icon: { ios: 'cabinet.fill', android: 'kitchen', web: 'kitchen' },
+        route: '/pantry',
       },
       {
         label: 'Shopping Lists',
         subtitle: 'Manage your grocery lists',
         icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
-        route: '/(tabs)/shopping-lists',
+        route: '/(tabs)/shopping-lists?browse=1',
       },
       {
         label: 'Scan Receipt',
@@ -64,16 +77,23 @@ const SECTIONS: MenuSection[] = [
     title: 'Pro & Insights',
     items: [
       {
-        label: 'SmartCart Pro',
+        label: 'Penny Pantry Pro',
         subtitle: 'Subscription & plan management',
         icon: { ios: 'star.fill', android: 'star', web: 'star' },
         route: '/subscriptions',
       },
       {
-        label: 'AI Insights Pro',
-        subtitle: 'Overspend, store trends & frequency',
+        label: 'Spending Insights',
+        subtitle: 'Category & store breakdowns from your receipts',
         icon: { ios: 'brain.head.profile', android: 'psychology', web: 'psychology' },
         route: '/insights_pro',
+        pro: true,
+      },
+      {
+        label: 'Brand Intelligence',
+        subtitle: 'Brand ownership & corporate insights',
+        icon: { ios: 'building.columns.fill', android: 'corporate_fare', web: 'corporate_fare' },
+        route: '/brand-intelligence',
         pro: true,
       },
       {
@@ -81,6 +101,13 @@ const SECTIONS: MenuSection[] = [
         subtitle: 'Personal price index from receipts',
         icon: { ios: 'chart.xyaxis.line', android: 'show_chart', web: 'show_chart' },
         route: '/inflation_tracker',
+        pro: true,
+      },
+      {
+        label: 'Regional Insights',
+        subtitle: 'Compare spend and inflation by state/province',
+        icon: { ios: 'map.fill', android: 'map', web: 'map' },
+        route: '/regional_insights',
         pro: true,
       },
       {
@@ -93,55 +120,13 @@ const SECTIONS: MenuSection[] = [
     ],
   },
   {
-    title: 'Deals & Partners',
-    items: [
-      {
-        label: 'Marketplace',
-        subtitle: 'Curated grocery deals',
-        icon: { ios: 'bag.fill', android: 'shopping_bag', web: 'shopping_bag' },
-        route: '/marketplace',
-      },
-      {
-        label: 'Delivery Partners',
-        subtitle: 'Affiliate grocery delivery links',
-        icon: { ios: 'shippingbox.fill', android: 'local_shipping', web: 'local_shipping' },
-        route: '/affiliate_links',
-      },
-      {
-        label: 'Cashback',
-        subtitle: 'Earn back on qualifying purchases',
-        icon: { ios: 'dollarsign.arrow.circlepath', android: 'savings', web: 'savings' },
-        route: '/cashback',
-      },
-      {
-        label: 'Sponsored Offers',
-        subtitle: 'Featured brand promotions',
-        icon: { ios: 'megaphone.fill', android: 'campaign', web: 'campaign' },
-        route: '/sponsored_offers',
-      },
-    ],
-  },
-  {
-    title: 'Collaboration & Business',
+    title: 'Collaboration',
     items: [
       {
         label: 'Family Plans',
         subtitle: 'Share lists with household members',
         icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' },
         route: '/family_plans',
-        pro: true,
-      },
-      {
-        label: 'Enterprise',
-        subtitle: 'Teams & corporate grocery spend',
-        icon: { ios: 'building.2.fill', android: 'business', web: 'business' },
-        route: '/enterprise',
-      },
-      {
-        label: 'API Access',
-        subtitle: 'Developer integrations',
-        icon: { ios: 'curlybraces', android: 'code', web: 'code' },
-        route: '/api_access',
         pro: true,
       },
     ],
@@ -156,10 +141,16 @@ export default function MoreScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + 12,
+          paddingBottom: getTabScreenScrollBottomPadding(insets.bottom),
+        },
+      ]}>
       <AppHeader />
       <Text style={styles.title}>More</Text>
-      <Text style={styles.subtitle}>Settings, Pro features & partners</Text>
+      <Text style={styles.subtitle}>Settings & Pro features</Text>
 
       {tier === 'free' && (
         <Pressable
@@ -167,8 +158,10 @@ export default function MoreScreen() {
           onPress={() => router.push('/paywall' as never)}>
           <SymbolView name={{ ios: 'star.fill', android: 'star', web: 'star' }} tintColor="#fff" size={22} />
           <View style={styles.proBannerText}>
-            <Text style={styles.proBannerTitle}>Upgrade to SmartCart Pro</Text>
-            <Text style={styles.proBannerSub}>AI insights, inflation tracker & more</Text>
+            <Text style={styles.proBannerTitle}>Stop missing price drops</Text>
+            <Text style={styles.proBannerSub}>
+              Real-time alerts, inflation tracking & live multi-store comparison
+            </Text>
           </View>
           <SymbolView
             name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
@@ -216,7 +209,7 @@ export default function MoreScreen() {
 
       <View style={styles.footer}>
         <Text style={styles.footerLeaf}>🌿</Text>
-        <Text style={styles.footerBrand}>SmartCart</Text>
+        <Text style={styles.footerBrand}>Penny Pantry</Text>
         <Text style={styles.footerVersion}>Grocery Financial System</Text>
       </View>
     </ScrollView>

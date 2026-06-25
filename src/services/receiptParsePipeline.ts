@@ -1,95 +1,165 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
-import { recognizeTextFromImageDetailed } from '@/src/services/ocrService';
-import type { OcrRecognitionResult } from '@/src/services/ocrTypes';
-import { parseReceiptFromOcr } from '@/src/services/receiptParserStructured';
-import { getAppSettings } from '@/src/services/storageService';
 
-import { cleanupReceiptWithAi, type ReceiptParseMethod } from './receiptAiCleanup';
+import type { OcrRecognitionResult } from '@/src/services/ocrTypes';
+
+import {
+  fetchDeepReadServerConfigured,
+  isDeepReadClientConfigured,
+  scanReceiptWithDeepRead,
+  type DeepReadScanProgress,
+  type DeepReadScanResult,
+} from '@/src/services/deepreadReceiptParse';
+import { cleanupReceiptWithAi, isAiReceiptCleanupConfigured } from '@/src/services/receiptAiCleanup';
+import { parseReceiptFromOcr } from '@/src/services/receiptParserStructured';
+import {
+  getReceiptAiCleanupReasons,
+  shouldRunReceiptAiCleanup,
+} from '@/src/utils/receiptAiCleanupGate';
+import { validateParsedReceipt } from '@/src/utils/receiptValidation';
+import type { ReceiptScanStage } from '@/src/utils/scanWaitTime';
+import { savePriceRecords } from '@/src/services/communityPricingService';
+
+export type ReceiptParseMethod = 'openai' | 'deepseek' | 'paddleocr' | 'deepread' | 'rules';
+
+export type ScanReceiptOptions = DeepReadScanProgress & {
+  onStage?: (stage: ReceiptScanStage) => void;
+};
 
 export type ScanReceiptResult = {
   draft: ParsedReceiptDraft;
   parseMethod: ReceiptParseMethod;
   ocrResult: OcrRecognitionResult;
   parseVerified?: boolean;
+  deepseekAudited?: boolean;
+  locationNeedsReview?: boolean;
 };
 
-function emptyDraft(): ParsedReceiptDraft {
+export const DEEPREAD_CLIENT_NOT_CONFIGURED_ERROR =
+  'Receipt scanning is not set up. Set EXPO_PUBLIC_RECEIPT_DEEPREAD_API_URL or scan from the web app.';
+
+export const DEEPREAD_SERVER_NOT_CONFIGURED_ERROR =
+  'DeepRead is not configured. Set DEEPREAD_API_KEY in .env and restart Expo.';
+
+function deepReadToScanResult(
+  deepReadResult: DeepReadScanResult,
+  overrides?: Partial<ScanReceiptResult>
+): ScanReceiptResult {
   return {
-    storeName: '',
-    date: new Date().toISOString().split('T')[0],
-    total: 0,
-    items: [],
+    draft: deepReadResult.draft,
+    parseMethod: 'deepread',
+    ocrResult: {
+      text: deepReadResult.rawText,
+      source: 'deepread',
+    },
+    parseVerified: deepReadResult.parseVerified,
+    locationNeedsReview: deepReadResult.locationNeedsReview,
+    ...overrides,
   };
 }
 
-function isUsableDraft(draft: ParsedReceiptDraft): boolean {
-  return draft.items.length > 0 && draft.total > 0;
+async function maybeRefineDeepReadWithAi(
+  deepReadResult: DeepReadScanResult,
+  imageUri: string,
+  options?: ScanReceiptOptions
+): Promise<ScanReceiptResult> {
+  const base = deepReadToScanResult(deepReadResult);
+
+  const cleanupOptions = {
+    draft: deepReadResult.draft,
+    ocrText: deepReadResult.rawText,
+    needsReview: deepReadResult.needsReview,
+    parseVerified: deepReadResult.parseVerified,
+  };
+
+  if (!shouldRunReceiptAiCleanup(cleanupOptions)) {
+    return base;
+  }
+
+  if (!isAiReceiptCleanupConfigured()) {
+    return base;
+  }
+
+  options?.onStage?.('refining');
+
+  const cleanupReasons = getReceiptAiCleanupReasons(cleanupOptions);
+  const useVision =
+    cleanupReasons.includes('missing_fee_line') ||
+    cleanupReasons.includes('items_total_mismatch') ||
+    cleanupReasons.includes('survey_junk');
+
+  const cleaned = await cleanupReceiptWithAi({
+    ocrText: deepReadResult.rawText,
+    initialDraft: deepReadResult.draft,
+    imageUri: useVision ? imageUri : null,
+    textOnly: !useVision,
+    doubleCheck: false,
+  });
+
+  if (!cleaned) {
+    return base;
+  }
+
+  const warnings = validateParsedReceipt(cleaned.draft, { parseMethod: 'openai' });
+  const parseVerified =
+    cleaned.verified ??
+    (warnings.length === 0 ||
+      !warnings.some(
+        (warning) =>
+          warning === 'items_total_mismatch' ||
+          warning === 'no_items' ||
+          warning === 'no_total'
+      ));
+
+  return deepReadToScanResult(deepReadResult, {
+    draft: cleaned.draft,
+    parseMethod: cleaned.provider,
+    parseVerified,
+  });
 }
 
-async function isAiScanEnabled(): Promise<boolean> {
+/** @deprecated Use scanReceiptFromImage — DeepRead is the only scan path. */
+export async function tryDeepReadScan(imageUri: string): Promise<ScanReceiptResult | null> {
   try {
-    const settings = await getAppSettings();
-    return settings.aiReceiptCleanup;
+    return await scanReceiptFromImage(imageUri);
   } catch {
-    return true;
+    return null;
   }
 }
 
-/** Scan receipt image via ChatGPT API first; fall back to OCR + rules if API fails. */
-export async function scanReceiptFromImage(imageUri: string): Promise<ScanReceiptResult> {
-  const aiEnabled = await isAiScanEnabled();
-
-  if (aiEnabled) {
-    const apiResult = await cleanupReceiptWithAi({
-      ocrText: '',
-      initialDraft: emptyDraft(),
-      imageUri,
-    });
-
-    if (apiResult && isUsableDraft(apiResult.draft)) {
-      return {
-        draft: apiResult.draft,
-        parseMethod: apiResult.provider,
-        ocrResult: { text: '', source: 'empty' },
-        parseVerified: apiResult.verified,
-      };
-    }
+/**
+ * Receipt scan via DeepRead only. Throws when DeepRead is unavailable or the scan fails.
+ */
+export async function scanReceiptFromImage(
+  imageUri: string,
+  options?: ScanReceiptOptions
+): Promise<ScanReceiptResult> {
+  if (!isDeepReadClientConfigured()) {
+    throw new Error(DEEPREAD_CLIENT_NOT_CONFIGURED_ERROR);
   }
 
-  const ocrResult = await recognizeTextFromImageDetailed(imageUri);
-  const rulesDraft = parseReceiptFromOcr(ocrResult);
-
-  if (aiEnabled) {
-    const apiResult = await cleanupReceiptWithAi({
-      ocrText: ocrResult.text,
-      initialDraft: rulesDraft,
-      imageUri,
-    });
-
-    if (apiResult && isUsableDraft(apiResult.draft)) {
-      return {
-        draft: apiResult.draft,
-        parseMethod: apiResult.provider,
-        ocrResult,
-        parseVerified: apiResult.verified,
-      };
-    }
+  const serverConfigured = await fetchDeepReadServerConfigured();
+  if (!serverConfigured) {
+    throw new Error(DEEPREAD_SERVER_NOT_CONFIGURED_ERROR);
   }
 
-  return {
-    draft: rulesDraft,
-    parseMethod: 'rules',
-    ocrResult,
-  };
+  const deepReadResult = await scanReceiptWithDeepRead(imageUri, options);
+  const result = await maybeRefineDeepReadWithAi(deepReadResult, imageUri, options);
+
+  void savePriceRecords(
+    result.draft.items ?? [],
+    {
+      storeName: result.draft.storeName,
+      city: result.draft.storeCity ?? undefined,
+      state: result.draft.storeRegion ?? undefined,
+      zip: result.draft.storePostalCode ?? undefined,
+    },
+    result.draft.date
+  );
+
+  return result;
 }
 
-export function shouldOpenPreview(result: ScanReceiptResult): boolean {
-  if (result.parseMethod === 'openai' || result.parseMethod === 'deepseek') {
-    return true;
-  }
-  if (result.ocrResult.source === 'empty') {
-    return result.draft.items.length > 0;
-  }
+export function shouldOpenPreview(_result: ScanReceiptResult): boolean {
   return true;
 }
 
@@ -103,22 +173,10 @@ export async function parseReceiptFromScan(
     return { draft: scanned.draft, parseMethod: scanned.parseMethod };
   }
 
-  const rulesDraft = parseReceiptFromOcr(ocrResult);
-  const aiEnabled = await isAiScanEnabled();
+  return { draft: parseReceiptFromOcr(ocrResult), parseMethod: 'rules' };
+}
 
-  if (!aiEnabled || !ocrResult.text.trim()) {
-    return { draft: rulesDraft, parseMethod: 'rules' };
-  }
-
-  const apiResult = await cleanupReceiptWithAi({
-    ocrText: ocrResult.text,
-    initialDraft: rulesDraft,
-    imageUri,
-  });
-
-  if (apiResult) {
-    return { draft: apiResult.draft, parseMethod: apiResult.provider };
-  }
-
-  return { draft: rulesDraft, parseMethod: 'rules' };
+/** @deprecated DeepRead is the only scan path — ML Kit is no longer used for receipt scans. */
+export async function scanReceiptFromMlkit(_imageUri: string): Promise<ScanReceiptResult> {
+  throw new Error('Receipt scans use DeepRead only. Configure EXPO_PUBLIC_RECEIPT_DEEPREAD_API_URL.');
 }

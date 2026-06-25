@@ -2,19 +2,22 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '@/components/Themed';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
+import type { ParsedReceiptDraft } from '@/src/models/types';
 import type { ReceiptParseWarning } from '@/src/utils/receiptValidation';
-import { warningMessage } from '@/src/utils/receiptValidation';
+import { getConsolidatedBannerMessages } from '@/src/utils/receiptValidation';
 
 type Props = {
   warnings: ReceiptParseWarning[];
+  draft?: ParsedReceiptDraft | null;
   onEdit?: () => void;
 };
 
-export function ReceiptScanWarnings({ warnings, onEdit }: Props) {
-  if (warnings.length === 0) return null;
+export function ReceiptScanWarnings({ warnings, draft, onEdit }: Props) {
+  const messages = getConsolidatedBannerMessages(warnings, draft ?? undefined);
+  if (messages.length === 0) return null;
 
   const isCritical = warnings.some((w) =>
-    ['ocr_fallback', 'ocr_empty', 'ocr_low_confidence', 'items_total_mismatch'].includes(w)
+    ['ocr_fallback', 'ocr_empty', 'ocr_low_confidence'].includes(w)
   );
 
   return (
@@ -29,9 +32,9 @@ export function ReceiptScanWarnings({ warnings, onEdit }: Props) {
         size={20}
       />
       <View style={styles.body}>
-        {warnings.map((warning) => (
-          <Text key={warning} style={styles.message}>
-            {warningMessage(warning)}
+        {messages.map((message) => (
+          <Text key={message} style={styles.message}>
+            {message}
           </Text>
         ))}
         {onEdit && (

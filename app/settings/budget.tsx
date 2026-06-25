@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +12,9 @@ import {
 import { Text } from '@/components/Themed';
 import { CategoryBudgetRow } from '@/src/components/CategoryBudgetRow';
 import { LinearProgressBar } from '@/src/components/LinearProgressBar';
+import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
+import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { getFeatureLabel } from '@/src/services/featureGateService';
 import type { BudgetCategory, CategoryLimits } from '@/src/models/types';
 import { BUDGET_CATEGORIES } from '@/src/models/types';
 import { getCategoryBudgets, getMonthlySpendAnalytics } from '@/src/services/analyticsService';
@@ -21,7 +24,8 @@ import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/s
 import { formatCurrency } from '@/src/utils/priceParser';
 
 export default function BudgetSettingsScreen() {
-  const router = useRouter();
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const { unlocked: forecastUnlocked } = useFeatureGate('budget_forecasting');
   const { settings, loadSettings, saveSettings } = useBudgetStore();
   const [loading, setLoading] = useState(true);
   const [monthlySpent, setMonthlySpent] = useState(0);
@@ -66,6 +70,12 @@ export default function BudgetSettingsScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (edit === '1') {
+      setEditing(true);
+    }
+  }, [edit]);
 
   const handleSave = async () => {
     const budget = parseFloat(weeklyBudget) || 200;
@@ -115,6 +125,18 @@ export default function BudgetSettingsScreen() {
           <LinearProgressBar percent={percent} height={10} />
           <Text style={styles.percentText}>{Math.round(percent * 100)}%</Text>
         </View>
+
+        {!forecastUnlocked ? (
+          <ProUpgradeBanner featureName={getFeatureLabel('budget_forecasting')} requiredTier="household" />
+        ) : (
+          <View style={styles.forecastCard}>
+            <Text style={styles.forecastTitle}>Smart budget forecast</Text>
+            <Text style={styles.forecastBody}>
+              Based on your last 3 months, you are on track to spend{' '}
+              {formatCurrency(monthlySpent * 1.05)} this month.
+            </Text>
+          </View>
+        )}
 
         {editing && (
           <View style={styles.editCard}>
@@ -188,6 +210,17 @@ const styles = StyleSheet.create({
   monthlyAmount: { fontSize: 36, fontWeight: '800', color: SmartCartColors.text, marginTop: 8, letterSpacing: -0.5 },
   spentText: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 8, marginBottom: 12 },
   percentText: { fontSize: 13, fontWeight: '700', color: SmartCartColors.textSecondary, marginTop: 6, textAlign: 'right' },
+  forecastCard: {
+    backgroundColor: SmartCartColors.card,
+    borderRadius: SmartCartRadius.md,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    ...SmartCartShadow.card,
+  },
+  forecastTitle: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  forecastBody: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 6, lineHeight: 19 },
   editCard: {
     backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,

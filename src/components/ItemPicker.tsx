@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
+import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { getItemEmoji } from '@/src/data/commonGroceryItems';
+import { getEmojiForUserDefinedItem } from '@/src/utils/itemEmojiResolver';
 import {
   getChipSuggestions,
   getQuickPriceButtons,
   GROCERY_CATALOG_LABEL,
   loadItemPickerOptions,
   optionToSelection,
+  buildCustomItemSelection,
   searchItemPickerOptions,
   type ItemPickerOption,
   type ItemPickerSelection,
@@ -23,15 +26,27 @@ type Props = {
   selection: ItemPickerSelection | null;
   onSelect: (selection: ItemPickerSelection) => void;
   onClear?: () => void;
+  onQueryChange?: (query: string) => void;
+  /** Bump to reload catalog + custom items from storage. */
+  refreshKey?: number;
+  categoryHint?: string;
 };
 
 function sourceLabel(source: ItemPickerOption['source']): string {
   if (source === 'both') return 'Yours';
   if (source === 'history') return 'Receipt';
+  if (source === 'custom') return 'Custom';
   return 'Common';
 }
 
-export function ItemPicker({ selection, onSelect, onClear }: Props) {
+export function ItemPicker({
+  selection,
+  onSelect,
+  onClear,
+  onQueryChange,
+  refreshKey = 0,
+  categoryHint,
+}: Props) {
   const [query, setQuery] = useState(selection?.itemName ?? '');
   const [options, setOptions] = useState<ItemPickerOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +54,7 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     void loadItemPickerOptions().then((loaded) => {
       if (active) {
         setOptions(loaded);
@@ -48,7 +64,7 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [refreshKey]);
 
   useEffect(() => {
     setQuery(selection?.itemName ?? '');
@@ -63,7 +79,10 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
   const showTypeahead = !selection && query.trim().length > 0;
 
   const selectionEmoji =
-    selection?.emoji ?? getItemEmoji(selection?.canonicalName, selection?.itemName);
+    selection?.emoji ??
+    (selection?.isUserDefined
+      ? getEmojiForUserDefinedItem()
+      : getItemEmoji(selection?.canonicalName, selection?.itemName));
 
   const handleSelectOption = (option: ItemPickerOption) => {
     const next = optionToSelection(option);
@@ -74,9 +93,19 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
 
   const handleChangeText = (text: string) => {
     setQuery(text);
+    onQueryChange?.(text);
     if (selection && text.trim() !== selection.itemName.trim()) {
       onClear?.();
     }
+  };
+
+  const handleUseCustomName = () => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    const next = buildCustomItemSelection(trimmed, categoryHint);
+    setQuery(next.itemName);
+    setInputFocused(false);
+    onSelect(next);
   };
 
   return (
@@ -88,7 +117,13 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
           <ItemEmojiAvatar emoji={selectionEmoji} size="lg" active />
           <View style={styles.selectionBody}>
             <Text style={styles.selectionName}>{selection.itemName}</Text>
-            <Text style={styles.selectionHint}>Tap search to change item</Text>
+            {selection.isUserDefined ? (
+              <Text style={styles.selectionHint}>
+                Custom item · {selection.category ?? 'Other'} category
+              </Text>
+            ) : (
+              <Text style={styles.selectionHint}>Tap search to change item</Text>
+            )}
           </View>
           {onClear && (
             <Pressable style={styles.clearBtn} onPress={onClear} accessibilityLabel="Clear selection">
@@ -103,14 +138,14 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
           <Text style={styles.catalogTitle}>{GROCERY_CATALOG_LABEL}</Text>
           <Text style={styles.catalogSubtitle}>Start typing to search groceries</Text>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <HorizontalScrollRow contentContainerStyle={styles.chipRow}>
             {chips.map((chip) => (
               <Pressable key={chip.canonicalName} style={styles.chip} onPress={() => handleSelectOption(chip)}>
                 <ItemEmojiAvatar emoji={chip.emoji} size="sm" />
                 <Text style={styles.chipText}>{chip.canonicalName}</Text>
               </Pressable>
             ))}
-          </ScrollView>
+          </HorizontalScrollRow>
 
           <TextInput
             style={styles.input}
@@ -134,7 +169,7 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
         </View>
       )}
 
-      {selection && matchExamples.length > 0 && (
+      {selection && !selection.isUserDefined && matchExamples.length > 0 && (
         <Text style={styles.matchHint}>
           We&apos;ll match similar names like &apos;{matchExamples.join("', '")}&apos;
         </Text>
@@ -145,7 +180,16 @@ export function ItemPicker({ selection, onSelect, onClear }: Props) {
           {loading ? (
             <Text style={styles.emptyResults}>Loading items…</Text>
           ) : filtered.length === 0 ? (
-            <Text style={styles.emptyResults}>No matches — try Milk, Eggs, or Bread</Text>
+            query.trim().length > 0 ? (
+              <Pressable style={styles.customAddRow} onPress={handleUseCustomName}>
+                <Text style={styles.customAddTitle}>Add &quot;{query.trim()}&quot; as new item</Text>
+                <Text style={styles.customAddHint}>
+                  Saves to your catalog for future searches
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.emptyResults}>No matches — try Milk, Eggs, or Bread</Text>
+            )
           ) : (
             filtered.map((option) => (
               <Pressable
@@ -296,6 +340,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyResults: { padding: 12, fontSize: 13, color: SmartCartColors.textMuted },
+  customAddRow: {
+    padding: 14,
+    backgroundColor: SmartCartColors.badge,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SmartCartColors.border,
+  },
+  customAddTitle: { fontSize: 14, fontWeight: '700', color: SmartCartColors.primaryDark },
+  customAddHint: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 4 },
   resultRow: {
     flexDirection: 'row',
     alignItems: 'center',

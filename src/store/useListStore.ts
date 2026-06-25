@@ -7,9 +7,12 @@ import {
   getActiveList,
   getAllLists,
   getListItems,
+  markListCompleted,
   setActiveList,
   updateList,
+  patchList,
 } from '@/src/services/storageService';
+import type { UpdateListPatch } from '@/src/services/storageService';
 
 type ListStore = {
   lists: GroceryList[];
@@ -18,10 +21,12 @@ type ListStore = {
   loading: boolean;
   loadLists: () => Promise<void>;
   loadListItems: (listId: string) => Promise<ListItem[]>;
-  addList: (name: string) => Promise<GroceryList>;
+  addList: (name: string, options?: import('@/src/services/storageService').CreateListOptions) => Promise<GroceryList>;
   removeList: (id: string) => Promise<void>;
   renameList: (id: string, name: string) => Promise<void>;
+  patchListMeta: (id: string, patch: UpdateListPatch) => Promise<void>;
   activateList: (id: string) => Promise<void>;
+  completeList: (id: string) => Promise<boolean>;
   refreshItems: (listId: string) => Promise<void>;
 };
 
@@ -33,7 +38,8 @@ function listsEqual(a: GroceryList[], b: GroceryList[]): boolean {
         list.id === b[index]?.id &&
         list.name === b[index]?.name &&
         list.updatedAt === b[index]?.updatedAt &&
-        list.isActive === b[index]?.isActive
+        list.isActive === b[index]?.isActive &&
+        list.completedAt === b[index]?.completedAt
     )
   );
 }
@@ -48,7 +54,8 @@ function itemsEqual(a: ListItem[], b: ListItem[]): boolean {
       item.expectedPrice === other?.expectedPrice &&
       item.quantity === other?.quantity &&
       item.category === other?.category &&
-      item.sortOrder === other?.sortOrder
+      item.sortOrder === other?.sortOrder &&
+      item.storePreference === other?.storePreference
     );
   });
 }
@@ -98,8 +105,8 @@ export const useListStore = create<ListStore>((set, get) => ({
     return items;
   },
 
-  addList: async (name) => {
-    const list = await createList(name);
+  addList: async (name, options) => {
+    const list = await createList(name, options);
     await get().loadLists();
     return list;
   },
@@ -122,10 +129,29 @@ export const useListStore = create<ListStore>((set, get) => ({
     await get().loadLists();
   },
 
+  patchListMeta: async (id, patch) => {
+    await patchList(id, patch);
+    await get().loadLists();
+  },
+
   activateList: async (id) => {
     await setActiveList(id);
     set({ activeListId: id });
     await get().loadLists();
+  },
+
+  completeList: async (id) => {
+    const wasActive = get().activeListId === id;
+    const completedAt = new Date().toISOString();
+    await markListCompleted(id);
+    set((s) => ({
+      activeListId: s.activeListId === id ? null : s.activeListId,
+      lists: s.lists.map((list) =>
+        list.id === id ? { ...list, isActive: false, completedAt } : list
+      ),
+    }));
+    await get().loadLists();
+    return wasActive;
   },
 
   refreshItems: async (listId) => {

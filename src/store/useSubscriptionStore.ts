@@ -1,7 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 
-export type SubscriptionTier = 'free' | 'pro';
+import {
+  isSubscriptionExpired,
+  loadSubscriptionFromProvider,
+  purchaseSubscription,
+} from '@/src/services/subscriptionService';
+
+export type SubscriptionTier = 'free' | 'pro' | 'household';
 export type SubscriptionPlan = 'monthly' | 'yearly';
 
 export type SubscriptionState = {
@@ -24,12 +30,20 @@ type SubscriptionStore = SubscriptionState & {
   loaded: boolean;
   loadSubscription: () => Promise<void>;
   upgradeToPro: (plan: SubscriptionPlan) => Promise<void>;
+  upgradeToHousehold: (plan: SubscriptionPlan) => Promise<void>;
   downgradeToFree: () => Promise<void>;
+  /** Pro or Household — unlocks Pro-tier features. */
   isPro: () => boolean;
+  isHousehold: () => boolean;
 };
 
 async function persist(state: SubscriptionState): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function normalizeTier(tier: string | undefined): SubscriptionTier {
+  if (tier === 'pro' || tier === 'household') return tier;
+  return 'free';
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -38,15 +52,29 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
   loadSubscription: async () => {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as SubscriptionState;
-        if (parsed.expiresAt && new Date(parsed.expiresAt) < new Date()) {
+      const providerState = await loadSubscriptionFromProvider();
+      if (providerState) {
+        if (isSubscriptionExpired(providerState)) {
           await persist(DEFAULT_STATE);
           set({ ...DEFAULT_STATE, loaded: true });
           return;
         }
-        set({ ...parsed, loaded: true });
+        await persist(providerState);
+        set({ ...providerState, loaded: true });
+        return;
+      }
+
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as SubscriptionState;
+        const tier = normalizeTier(parsed.tier);
+        const state = { ...parsed, tier };
+        if (isSubscriptionExpired(state)) {
+          await persist(DEFAULT_STATE);
+          set({ ...DEFAULT_STATE, loaded: true });
+          return;
+        }
+        set({ ...state, loaded: true });
         return;
       }
     } catch {
@@ -56,16 +84,21 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   },
 
   upgradeToPro: async (plan) => {
-    const expires = new Date();
-    expires.setMonth(expires.getMonth() + (plan === 'yearly' ? 12 : 1));
-    const next: SubscriptionState = {
-      tier: 'pro',
-      plan,
-      expiresAt: expires.toISOString(),
-      mockPurchaseToken: `mock_${Date.now()}`,
-    };
-    await persist(next);
-    set({ ...next, loaded: true });
+    const result = await purchaseSubscription(plan, 'pro');
+    if (!result.success) {
+      throw new Error(result.error ?? 'Purchase failed');
+    }
+    await persist(result.state);
+    set({ ...result.state, loaded: true });
+  },
+
+  upgradeToHousehold: async (plan) => {
+    const result = await purchaseSubscription(plan, 'household');
+    if (!result.success) {
+      throw new Error(result.error ?? 'Purchase failed');
+    }
+    await persist(result.state);
+    set({ ...result.state, loaded: true });
   },
 
   downgradeToFree: async () => {
@@ -73,5 +106,10 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ ...DEFAULT_STATE, loaded: true });
   },
 
-  isPro: () => get().tier === 'pro',
+  isPro: () => {
+    const tier = get().tier;
+    return tier === 'pro' || tier === 'household';
+  },
+
+  isHousehold: () => get().tier === 'household',
 }));

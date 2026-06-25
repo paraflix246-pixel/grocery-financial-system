@@ -2,12 +2,19 @@ import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { SmartCartColors, SmartCartShadow } from '@/src/theme/smartCart';
+import {
+  getTabBarBottomPadding,
+  getTabBarHeight,
+  TAB_BAR_TOP_PADDING,
+} from '@/src/utils/safeAreaLayout';
 
-const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 88 : 72;
+const WEB_TAB_BAR_HEIGHT = 72;
+const WEB_TAB_CONTENT_INSET = WEB_TAB_BAR_HEIGHT + 16;
 
 function ScanTabIcon({ focused }: { focused: boolean }) {
   return (
@@ -39,6 +46,9 @@ function WebTabScreenLayout({ children, navigation }: WebTabScreenLayoutProps) {
 
 export default function TabLayout() {
   const headerShown = useClientOnlyValue(false, true);
+  const insets = useSafeAreaInsets();
+  const tabBarBottomPadding = getTabBarBottomPadding(insets.bottom);
+  const tabBarHeight = getTabBarHeight(insets.bottom);
 
   return (
     <Tabs
@@ -47,7 +57,10 @@ export default function TabLayout() {
         headerShown,
         tabBarActiveTintColor: SmartCartColors.primary,
         tabBarInactiveTintColor: SmartCartColors.textMuted,
-        tabBarStyle: styles.tabBar,
+        tabBarStyle:
+          Platform.OS === 'web'
+            ? styles.tabBar
+            : [styles.tabBar, { height: tabBarHeight, paddingBottom: tabBarBottomPadding }],
         tabBarLabelStyle: styles.tabLabel,
         ...(Platform.OS === 'web' ? { animation: 'fade' as const, lazy: false } : null),
       }}>
@@ -98,6 +111,7 @@ export default function TabLayout() {
       />
       <Tabs.Screen
         name="shopping-lists"
+        initialParams={{ browse: '1' }}
         options={{
           title: 'Lists',
           headerShown: false,
@@ -132,7 +146,6 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="scan.web" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -140,7 +153,8 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   webScene: {
     flex: 1,
-    paddingBottom: TAB_BAR_HEIGHT,
+    paddingBottom: WEB_TAB_CONTENT_INSET,
+    ...(Platform.OS === 'web' ? { overflow: 'hidden' as const } : null),
   },
   webSceneHidden: {
     display: 'none',
@@ -149,9 +163,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopColor: SmartCartColors.border,
     borderTopWidth: 1,
-    height: TAB_BAR_HEIGHT,
-    paddingTop: 8,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+    height: WEB_TAB_BAR_HEIGHT,
+    paddingTop: TAB_BAR_TOP_PADDING,
+    paddingBottom: 12,
     ...(Platform.OS === 'web'
       ? {
           position: 'fixed' as const,
@@ -166,7 +180,7 @@ const styles = StyleSheet.create({
   tabLabel: { fontSize: 11, fontWeight: '600' },
   scanFabSlot: {
     width: 56,
-    height: 32,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'flex-end',
     overflow: 'visible',
@@ -178,11 +192,11 @@ const styles = StyleSheet.create({
     backgroundColor: SmartCartColors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -28,
+    marginTop: Platform.OS === 'web' ? -20 : -28,
     ...SmartCartShadow.fab,
   },
   scanFabFocused: {
     backgroundColor: SmartCartColors.primaryDark,
   },
-  scanLabel: { fontSize: 11, fontWeight: '600', marginTop: -4 },
+  scanLabel: { fontSize: 11, fontWeight: '600', marginTop: 2 },
 });

@@ -1,6 +1,7 @@
-import { Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet } from 'react-native';
 
 import { Text } from '@/components/Themed';
+import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
 export type CategoryPill = { label: string; count?: number };
@@ -13,7 +14,7 @@ type Props = {
 
 export function CategoryPills({ categories, selected, onSelect }: Props) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <HorizontalScrollRow contentContainerStyle={styles.row}>
       {categories.map((cat) => {
         const active = selected === cat.label;
         const label = cat.count != null ? `${cat.label} (${cat.count})` : cat.label;
@@ -26,7 +27,7 @@ export function CategoryPills({ categories, selected, onSelect }: Props) {
           </Pressable>
         );
       })}
-    </ScrollView>
+    </HorizontalScrollRow>
   );
 }
 

@@ -1,74 +1,77 @@
 import type { OcrSource } from '@/src/services/ocrTypes';
-import type { ReceiptParseMethod } from '@/src/services/receiptAiCleanup';
+
+import type { ReceiptParseMethod } from '@/src/services/receiptParsePipeline';
+
+/** User-facing copy for the scan flow — no engine or API names. */
+export const SCAN_REVIEW_HINT = 'Review items before saving';
+
+/** Gentle pre-save reminder on the review screen — not a warning. */
+export const RECEIPT_SAVE_REVIEW_HINT = 'Review receipt details before saving';
+
+export const SCAN_PROCESSING_LABEL = 'Reading your receipt...';
+
+export const SCAN_REFINING_LABEL = 'Checking your items...';
+
+export const ENHANCED_SCAN_SETTING_TITLE = 'Better scan for hard receipts';
+
+export const ENHANCED_SCAN_SETTING_DESCRIPTION =
+  'Use this when photos are blurry or receipts are long.';
+
+export const ENHANCED_SCAN_SETTING_NOTE =
+  'Always manually double-check the final results before saving.';
 
 export function ocrSourceLabel(source: OcrSource | null | undefined): string {
   switch (source) {
+    case 'paddleocr':
+    case 'deepread':
     case 'mlkit':
-      return 'On-device (ML Kit)';
     case 'tesseract':
-      return 'On-device (Tesseract)';
     case 'ocr_space':
-      return 'Enhanced OCR (OCR.space)';
     case 'cloud_vision':
-      return 'Enhanced OCR (Google Vision)';
+      return 'Scanned';
     case 'fallback':
       return 'Manual entry';
     case 'empty':
       return 'No text detected';
     default:
-      return 'Scan';
+      return 'Scanned';
   }
 }
 
-function parseMethodLabel(parseMethod: ReceiptParseMethod, verified?: boolean): string {
-  switch (parseMethod) {
-    case 'openai':
-      return verified ? 'AI scan (ChatGPT · double-checked)' : 'AI scan (ChatGPT)';
-    case 'deepseek':
-      return 'AI cleanup (DeepSeek)';
-    default:
-      return 'Rules';
-  }
+function parseMethodLabel(
+  _parseMethod: ReceiptParseMethod,
+  _ocrSource?: OcrSource | null
+): string {
+  return 'Receipt scanned';
 }
 
 export function extractionLabel(
   source: OcrSource | null | undefined,
   parseMethod?: ReceiptParseMethod | null,
-  verified?: boolean
+  verified?: boolean,
+  _deepseekAudited?: boolean
 ): string {
-  if (parseMethod === 'openai') {
-    return parseMethodLabel(parseMethod, verified);
+  if (
+    parseMethod === 'openai' ||
+    parseMethod === 'deepseek' ||
+    parseMethod === 'paddleocr' ||
+    parseMethod === 'deepread' ||
+    (parseMethod === 'rules' && source === 'mlkit')
+  ) {
+    const label = parseMethodLabel(parseMethod ?? 'rules', source);
+    return verified ? `${label} · confirmed` : label;
   }
 
-  const ocr = ocrSourceLabel(source);
-  if (parseMethod === 'deepseek') {
-    return `${ocr} → ${parseMethodLabel(parseMethod)}`;
-  }
-  return ocr;
+  return ocrSourceLabel(source);
 }
 
 export function ocrProcessingHint(
   source: OcrSource | null | undefined,
-  parseMethod?: ReceiptParseMethod | null
+  _parseMethod?: ReceiptParseMethod | null
 ): string {
-  if (parseMethod === 'openai') {
-    return 'Reading receipt with ChatGPT and cross-checking OCR — review before saving';
-  }
-  if (parseMethod === 'deepseek') {
-    return 'Cleaning receipt with AI — review and edit before saving';
+  if (source === 'empty') {
+    return 'Could not read receipt text — enter details manually';
   }
 
-  switch (source) {
-    case 'mlkit':
-      return 'Reading text with ML Kit — review and edit before saving';
-    case 'tesseract':
-      return 'Reading text with on-device OCR — review and edit before saving';
-    case 'ocr_space':
-    case 'cloud_vision':
-      return 'Reading text with enhanced cloud OCR — review and edit before saving';
-    case 'empty':
-      return 'Could not read receipt text — enter details manually';
-    default:
-      return 'Processing receipt...';
-  }
+  return SCAN_REVIEW_HINT;
 }

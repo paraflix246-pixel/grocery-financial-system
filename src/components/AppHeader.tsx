@@ -9,15 +9,16 @@ import { SmartCartColors } from '@/src/theme/smartCart';
 type Props = {
   notificationCount?: number;
   onNotificationPress?: () => void;
+  showBack?: boolean;
 };
 
-export function AppHeader({ notificationCount = 0, onNotificationPress }: Props) {
+export function AppHeader({ notificationCount = 0, onNotificationPress, showBack = true }: Props) {
   const router = useRouter();
 
   return (
     <View style={styles.row}>
       <View style={styles.leftSlot}>
-        <BackButton />
+        {showBack ? <BackButton /> : null}
       </View>
 
       <View style={styles.logoRow}>
@@ -26,14 +27,14 @@ export function AppHeader({ notificationCount = 0, onNotificationPress }: Props)
           tintColor={SmartCartColors.primaryMid}
           size={20}
         />
-        <Text style={styles.logo}>SmartCart</Text>
+        <Text style={styles.logo}>Penny Pantry</Text>
       </View>
 
       <View style={styles.rightSlot}>
         <Pressable
           style={styles.iconBtn}
           accessibilityLabel="Notifications"
-          onPress={onNotificationPress ?? (() => router.push('/price-alerts'))}>
+          onPress={onNotificationPress ?? (() => router.push('/price-tracker?tab=alerts' as never))}>
           <SymbolView
             name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
             tintColor={SmartCartColors.text}

@@ -1,32 +1,75 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 
 import { Text } from '@/components/Themed';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
+import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
-import { getPersonalInflation, type PersonalInflation } from '@/src/services/analyticsService';
+import { getFeatureLabel } from '@/src/services/featureGateService';
+import {
+  getDistinctRegions,
+  getPersonalInflation,
+  type PersonalInflation,
+} from '@/src/services/analyticsService';
+import { getReceipts } from '@/src/services/storageService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { getPreferredRegion, setPreferredRegion } from '@/src/utils/regionPreference';
 
 export default function InflationTrackerScreen() {
-  const router = useRouter();
   const { unlocked } = useFeatureGate('inflation_tracker');
   const [data, setData] = useState<PersonalInflation | null>(null);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
+  const [receiptCount, setReceiptCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const chartWidth = Dimensions.get('window').width - 64;
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setData(await getPersonalInflation(6));
+      const [distinctRegions, preferred, receipts] = await Promise.all([
+        getDistinctRegions(),
+        getPreferredRegion(),
+        getReceipts(),
+      ]);
+      setRegions(distinctRegions);
+      const activeRegion = preferred ?? null;
+      setSelectedRegion(activeRegion);
+      setData(await getPersonalInflation(6, activeRegion));
+      if (activeRegion) {
+        setReceiptCount(
+          receipts.filter(
+            (receipt) => (receipt.storeRegion ?? '').toUpperCase() === activeRegion.toUpperCase()
+          ).length
+        );
+      } else {
+        setReceiptCount(receipts.length);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  const selectRegion = useCallback(async (region: string | null) => {
+    setSelectedRegion(region);
+    await setPreferredRegion(region);
+    setData(await getPersonalInflation(6, region));
+    const receipts = await getReceipts();
+    if (region) {
+      setReceiptCount(
+        receipts.filter(
+          (receipt) => (receipt.storeRegion ?? '').toUpperCase() === region.toUpperCase()
+        ).length
+      );
+    } else {
+      setReceiptCount(receipts.length);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   const chartData =
     data?.points.map((p) => ({
@@ -34,6 +77,13 @@ export default function InflationTrackerScreen() {
       label: p.label,
       dataPointText: String(p.index),
     })) ?? [];
+
+  const regionSubtitle = useMemo(() => {
+    if (!selectedRegion) {
+      return `All regions · ${receiptCount} receipt${receiptCount === 1 ? '' : 's'}`;
+    }
+    return `Inflation in ${selectedRegion} · ${receiptCount} receipt${receiptCount === 1 ? '' : 's'}`;
+  }, [receiptCount, selectedRegion]);
 
   return (
     <View style={styles.container}>
@@ -45,11 +95,37 @@ export default function InflationTrackerScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          {!unlocked && <ProUpgradeBanner featureName="Personal Inflation Tracker" />}
+          {!unlocked && <ProUpgradeBanner featureName={getFeatureLabel('inflation_tracker')} />}
 
           <Text style={styles.lead}>
             Your personal grocery price index — computed from repeat items across receipt history. Base month = 100.
           </Text>
+          <Text style={styles.regionSubtitle}>{regionSubtitle}</Text>
+
+          {regions.length > 0 ? (
+            <HorizontalScrollRow style={styles.regionPicker}>
+              <Pressable
+                style={[styles.regionChip, !selectedRegion && styles.regionChipActive]}
+                onPress={() => void selectRegion(null)}>
+                <Text style={[styles.regionChipText, !selectedRegion && styles.regionChipTextActive]}>
+                  All
+                </Text>
+              </Pressable>
+              {regions.map((region) => {
+                const active = selectedRegion === region;
+                return (
+                  <Pressable
+                    key={region}
+                    style={[styles.regionChip, active && styles.regionChipActive]}
+                    onPress={() => void selectRegion(region)}>
+                    <Text style={[styles.regionChipText, active && styles.regionChipTextActive]}>
+                      {region}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </HorizontalScrollRow>
+          ) : null}
 
           {!data?.hasEnoughData ? (
             <View style={styles.emptyCard}>
@@ -115,7 +191,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16, paddingBottom: 40 },
-  lead: { fontSize: 14, color: SmartCartColors.textSecondary, lineHeight: 20, marginBottom: 20 },
+  lead: { fontSize: 14, color: SmartCartColors.textSecondary, lineHeight: 20, marginBottom: 6 },
+  regionSubtitle: { fontSize: 13, color: SmartCartColors.textMuted, marginBottom: 12 },
+  regionPicker: { marginBottom: 16, flexGrow: 0 },
+  regionChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: SmartCartRadius.pill,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    backgroundColor: SmartCartColors.card,
+    marginRight: 8,
+  },
+  regionChipActive: {
+    backgroundColor: SmartCartColors.primary,
+    borderColor: SmartCartColors.primary,
+  },
+  regionChipText: { fontSize: 13, fontWeight: '600', color: SmartCartColors.textSecondary },
+  regionChipTextActive: { color: '#fff' },
   emptyCard: {
     alignItems: 'center',
     backgroundColor: SmartCartColors.card,

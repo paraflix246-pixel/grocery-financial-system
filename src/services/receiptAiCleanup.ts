@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 
 import type { ParsedReceiptDraft } from '@/src/models/types';
 import type { AiReceiptProvider } from '@/src/services/receiptAiPrompt';
+import { parseReceiptText } from '@/src/services/receiptParser';
+import { finalizeReceiptDraft } from '@/src/utils/receiptDraftNormalizer';
 
 export type ReceiptParseMethod = 'rules' | 'openai' | 'deepseek';
 
@@ -117,15 +119,18 @@ export async function cleanupReceiptWithAi(options: {
   ocrText: string;
   initialDraft: ParsedReceiptDraft;
   imageUri?: string | null;
+  /** When true, parse from OCR text only — no vision / image upload (native ML Kit path). */
+  textOnly?: boolean;
   doubleCheck?: boolean;
-}): Promise<{ draft: ParsedReceiptDraft; provider: AiReceiptProvider; verified?: boolean } | null> {
+}): Promise<{ draft: ParsedReceiptDraft; provider: AiReceiptProvider; verified?: boolean; deepseekAudited?: boolean } | null> {
   const apiUrl = resolveReceiptParseApiUrl();
   if (!apiUrl) return null;
 
-  const imageBase64 = options.imageUri ? await imageUriToBase64(options.imageUri) : null;
-  const imageBase64Segments = options.imageUri
-    ? await createReceiptImageSlices(options.imageUri)
-    : [];
+  const textOnly = options.textOnly === true;
+  const imageBase64 =
+    !textOnly && options.imageUri ? await imageUriToBase64(options.imageUri) : null;
+  const imageBase64Segments =
+    !textOnly && options.imageUri ? await createReceiptImageSlices(options.imageUri) : [];
 
   try {
     const response = await fetch(apiUrl, {
@@ -136,8 +141,10 @@ export async function cleanupReceiptWithAi(options: {
         initialDraft: options.initialDraft,
         imageBase64,
         imageBase64Segments,
+        textOnly,
         doubleCheck: options.doubleCheck !== false,
       }),
+      signal: AbortSignal.timeout(300_000),
     });
 
     if (!response.ok) {
@@ -149,6 +156,7 @@ export async function cleanupReceiptWithAi(options: {
       draft?: ParsedReceiptDraft;
       provider?: AiReceiptProvider;
       verified?: boolean;
+      deepseekAudited?: boolean;
       error?: string;
     };
 
@@ -156,10 +164,16 @@ export async function cleanupReceiptWithAi(options: {
       return null;
     }
 
+    const ocrDraft = options.ocrText.trim()
+      ? parseReceiptText(options.ocrText)
+      : options.initialDraft;
+    const draft = finalizeReceiptDraft(payload.draft, options.ocrText, ocrDraft);
+
     return {
-      draft: payload.draft,
+      draft,
       provider: payload.provider ?? 'openai',
       verified: payload.verified,
+      deepseekAudited: payload.deepseekAudited,
     };
   } catch (error) {
     console.warn('AI receipt cleanup unavailable:', error);

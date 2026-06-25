@@ -1,0 +1,12 @@
+# Python OCR server (not used in the mobile app build)
+services/paddleocr-server/
+
+# Local diagnostics / scripts
+scripts/
+
+# Docs
+docs/
+
+# Generated native projects (EAS runs prebuild)
+android/
+ios/

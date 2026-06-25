@@ -1,7 +1,7 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   View,
@@ -13,32 +13,48 @@ import { Text } from '@/components/Themed';
 import { AppHeader } from '@/src/components/AppHeader';
 import { CheapestCartComparison } from '@/src/components/CheapestCartComparison';
 import { DonutChart } from '@/src/components/DonutChart';
+import { ForgottenItemsCard } from '@/src/components/ForgottenItemsCard';
 import { HeroScanCard } from '@/src/components/HeroScanCard';
+import { HomeScreenSkeleton } from '@/src/components/HomeScreenSkeleton';
 import { InsightCard } from '@/src/components/InsightCard';
+import { PlanComparisonModal } from '@/src/components/PlanComparisonModal';
+import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
 import { PriceAlertCard } from '@/src/components/PriceAlertCard';
 import { QuickActionGrid } from '@/src/components/QuickActionGrid';
 import { RecentReceiptsCard } from '@/src/components/RecentReceiptsCard';
 import { SpendingAnalyticsCard } from '@/src/components/SpendingAnalyticsCard';
+import { SpendingPeriodSelector } from '@/src/components/SpendingPeriodSelector';
 import { StatusBanner } from '@/src/components/StatusBanner';
-import type { Receipt } from '@/src/models/types';
-import type { HomeInsight, MonthlySpendAnalytics, PriceAlert } from '@/src/services/analyticsService';
+import type { ListItem, Receipt } from '@/src/models/types';
+import type { HomeInsight, PriceAlert } from '@/src/services/analyticsService';
 import {
   buildHomeInsight,
-  getDashboardCategoryBreakdown,
-  getMonthlySpendAnalytics,
+  getWeekReceipts,
 } from '@/src/services/analyticsService';
+import {
+  buildSpendingOverviewBreakdown,
+  getSpendingOverviewReceipts,
+} from '@/src/utils/spendingOverview';
+import type { SpendingPeriod } from '@/src/utils/spendingPeriodAnalytics';
 import {
   getAllPriceAlerts,
   getAllRulesWithCurrentPrice,
   type RuleWithCurrentPrice,
 } from '@/src/services/priceAlertService';
-import type { StoreCartTotal } from '@/src/services/priceComparisonService';
-import { getMaxCartSavings, getCartComparisonSources, getStoreCartTotals } from '@/src/services/priceComparisonService';
-import { getActiveList, getListItems, getReceipts } from '@/src/services/storageService';
+import { resolveComparisonList } from '@/src/services/listComparisonService';
+import type { ResolvedComparisonList } from '@/src/services/listComparisonService';
+import { getActiveList, getReceipts, createListItem } from '@/src/services/storageService';
+import { useFocusReload } from '@/src/hooks/useFocusReload';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
+import { useListStore } from '@/src/store/useListStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
-import { getTimeGreeting, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
+import { PRO_MONTHLY_PRICE } from '@/src/constants/proPricing';
+import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { formatHomeGreeting, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 import { formatCurrency } from '@/src/utils/priceParser';
+import type { RepurchaseCadence } from '@/src/utils/repurchaseCadence';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -49,102 +65,110 @@ export default function HomeScreen() {
   const alertThresholdSetting = useBudgetStore((s) => s.settings?.alertThreshold ?? 0.9);
   const displayName = useSettingsStore((s) => s.settings?.displayName ?? '');
   const notifyBudgetAlerts = useSettingsStore((s) => s.settings?.notifyBudgetAlerts ?? true);
-  const [loading, setLoading] = useState(true);
+  const subscriptionTier = useSubscriptionStore((s) => s.tier);
   const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
+  const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
   const [homeInsight, setHomeInsight] = useState<HomeInsight | null>(null);
-  const [categoryData, setCategoryData] = useState<{ label: string; value: number; color: string }[]>([]);
+  const [spendingPeriod, setSpendingPeriod] = useState<SpendingPeriod>('month');
   const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
   const [priceAlertRules, setPriceAlertRules] = useState<RuleWithCurrentPrice[]>([]);
-  const [storeTotals, setStoreTotals] = useState<StoreCartTotal[]>([]);
-  const [maxSavings, setMaxSavings] = useState(0);
-  const [cartHasHistory, setCartHasHistory] = useState(false);
-  const [cartHasCommunity, setCartHasCommunity] = useState(false);
-  const [monthlyAnalytics, setMonthlyAnalytics] = useState<MonthlySpendAnalytics | null>(null);
-  const [hasActiveList, setHasActiveList] = useState(false);
+  const [listItems, setListItems] = useState<ListItem[]>([]);
+  const [comparisonResolved, setComparisonResolved] = useState(false);
+  const [comparisonSource, setComparisonSource] = useState<ResolvedComparisonList['source'] | null>(null);
+  const [forgottenItems, setForgottenItems] = useState<RepurchaseCadence[]>([]);
+  const [planComparisonVisible, setPlanComparisonVisible] = useState(false);
+  const comparisonLoadedRef = useRef(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
       const budget = weeklyBudgetSetting;
       const threshold = alertThresholdSetting;
 
-      const activeList = await getActiveList();
-      const listItems = activeList ? await getListItems(activeList.id) : [];
+      const receipts = await getReceipts();
+      const weekReceipts = getWeekReceipts(receipts);
 
-      const [insight, receipts, categories, alerts, alertRules, cartTotals, cartSources, analytics] = await Promise.all([
-        buildHomeInsight(budget, threshold),
-        getReceipts(),
-        getDashboardCategoryBreakdown(),
-        getAllPriceAlerts(),
-        getAllRulesWithCurrentPrice(),
-        getStoreCartTotals(listItems),
-        getCartComparisonSources(listItems),
-        getMonthlySpendAnalytics(),
+      const [insight, comparison] = await Promise.all([
+        buildHomeInsight(budget, threshold, weekReceipts),
+        resolveComparisonList({ forceRefresh: !comparisonLoadedRef.current }),
       ]);
 
-      await useSettingsStore.getState().loadSettings();
-
-      setRecentReceipts(receipts.slice(0, 4));
+      setRecentReceipts(receipts.slice(0, 12));
+      setAllReceipts(receipts);
       setHomeInsight(insight);
-      setCategoryData(categories.map((c) => ({ label: c.category, value: c.amount, color: c.color })));
+
+      const comparisonItems = comparison?.items ?? [];
+      setListItems(comparisonItems);
+      setComparisonSource(comparison?.source ?? null);
+      comparisonLoadedRef.current = true;
+      if (comparison?.source === 'list') {
+        void useListStore.getState().loadLists();
+        void useListStore.getState().loadListItems(comparison.list.id);
+      }
+
+      const [alerts, alertRules, forgotten] = await Promise.all([
+        getAllPriceAlerts(),
+        getAllRulesWithCurrentPrice(),
+        getForgottenItemNudges(3),
+      ]);
       setPriceAlerts(alerts);
       setPriceAlertRules(alertRules);
-      setStoreTotals(cartTotals);
-      setMaxSavings(getMaxCartSavings(cartTotals));
-      setCartHasHistory(cartSources.hasHistory);
-      setCartHasCommunity(cartSources.hasCommunity);
-      setMonthlyAnalytics(analytics);
-      setHasActiveList(listItems.length > 0);
+      setForgottenItems(forgotten);
+      void useSettingsStore.getState().loadSettings();
     } catch (error) {
       console.error('Home screen load failed:', error);
     } finally {
-      setLoading(false);
+      setComparisonResolved(true);
     }
   }, [weeklyBudgetSetting, alertThresholdSetting]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  const categoryData = useMemo(() => {
+    const { receipts } = getSpendingOverviewReceipts(allReceipts, spendingPeriod);
+    return buildSpendingOverviewBreakdown(receipts).map((entry) => ({
+      label: entry.category,
+      value: entry.amount,
+      color: entry.color,
+    }));
+  }, [allReceipts, spendingPeriod]);
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={SmartCartColors.primary} />
-      </View>
-    );
+  const { blocking } = useFocusReload(load);
+
+  if (blocking) {
+    return <HomeScreenSkeleton />;
   }
-
-  const analytics = monthlyAnalytics ?? {
-    monthlyTotal: 0,
-    percentChange: 0,
-    chartPoints: [],
-    dailyPoints: [],
-    spendingTrend: [],
-    categoryBreakdown: [],
-  };
 
   const weeklyBudget = homeInsight?.weeklyBudget ?? weeklyBudgetSetting;
   const weeklySpend = homeInsight?.weeklySpend ?? 0;
   const underBudget = Math.max(weeklyBudget - weeklySpend, 0);
   const budgetPercentLabel = `${Math.round((homeInsight?.budgetPercent ?? 0) * 100)}% of weekly budget`;
-  const greetingName = displayName.trim();
-  const greetingText = greetingName ? `${getTimeGreeting()}, ${greetingName}` : getTimeGreeting();
+  const greetingText = formatHomeGreeting(displayName);
 
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
+      contentContainerStyle={[
+        styles.content,
+        {
+          paddingTop: insets.top + 12,
+          paddingBottom: Platform.OS === 'web' ? 0 : getTabScreenScrollBottomPadding(insets.bottom),
+        },
+      ]}>
       <AppHeader
+        showBack={false}
         notificationCount={priceAlerts.length}
-        onNotificationPress={() => router.push('/price-alerts')}
+        onNotificationPress={() => router.push('/price-tracker?tab=alerts' as never)}
       />
 
       <View style={styles.greetingBlock}>
         <Text style={styles.greeting}>{greetingText} 👋</Text>
         <Text style={styles.greetingSub}>Here's your smart shopping overview</Text>
       </View>
+
+      {subscriptionTier === 'free' ? (
+        <ProUpgradeBanner
+          variant="compact"
+          message={`Unlock price alerts & family lists — Pro from ${PRO_MONTHLY_PRICE}/mo`}
+        />
+      ) : null}
 
       {homeInsight && notifyBudgetAlerts && homeInsight.isOverBudget && (
         <StatusBanner
@@ -177,13 +201,24 @@ export default function HomeScreen() {
             variant={
               homeInsight.isOverBudget ? 'warning' : homeInsight.isOverThreshold ? 'warning' : 'default'
             }
+            actionHint="Edit budget"
+            onPress={() => router.push('/settings/budget?edit=1')}
+            expand={isWide}
           />
           {homeInsight.comparisonSummary ? (
             <InsightCard
               title="Plan vs Actual"
               value={homeInsight.comparisonSummary}
-              subtitle={homeInsight.topInsight ?? undefined}
+              subtitle={
+                homeInsight.topInsight &&
+                homeInsight.topInsight !== homeInsight.comparisonSummary
+                  ? homeInsight.topInsight
+                  : undefined
+              }
               variant={homeInsight.comparisonSummary.startsWith('Over') ? 'warning' : 'success'}
+              actionHint="Details"
+              onPress={() => setPlanComparisonVisible(true)}
+              expand={isWide}
             />
           ) : homeInsight.mostExpensiveStore ? (
             <InsightCard
@@ -194,10 +229,31 @@ export default function HomeScreen() {
                   ? `Avg receipt ${formatCurrency(homeInsight.avgReceiptValue)}`
                   : undefined
               }
+              expand={isWide}
             />
           ) : null}
         </View>
       )}
+
+      {forgottenItems.length > 0 ? (
+        <ForgottenItemsCard
+          items={forgottenItems}
+          onAdd={async (item) => {
+            const active = await getActiveList();
+            if (!active) {
+              router.push('/(tabs)/shopping-lists?browse=1' as never);
+              return;
+            }
+            await createListItem(active.id, {
+              name: item.displayName,
+              expectedPrice: 0,
+              quantity: 1,
+              category: 'Produce',
+            });
+            setForgottenItems((prev) => prev.filter((entry) => entry.displayName !== item.displayName));
+          }}
+        />
+      ) : null}
 
       <HeroScanCard />
 
@@ -205,7 +261,11 @@ export default function HomeScreen() {
 
       <View style={[styles.analyticsRow, isWide && styles.analyticsRowWide]}>
         <View style={[styles.sectionCard, isWide && styles.analyticsHalf]}>
-          <Text style={styles.sectionTitle}>Spending Overview</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Spending Overview</Text>
+            <SpendingPeriodSelector period={spendingPeriod} onPeriodChange={setSpendingPeriod} />
+          </View>
+          <Text style={styles.sectionSubtitle}>Category breakdown from saved receipts</Text>
           <DonutChart data={categoryData} />
         </View>
         {underBudget > 0 && weeklySpend > 0 && (
@@ -218,49 +278,43 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {hasActiveList ? (
+      {comparisonResolved ? (
         <CheapestCartComparison
-          stores={storeTotals}
-          maxSavings={maxSavings}
-          hasHistory={cartHasHistory}
-          hasCommunity={cartHasCommunity}
+          listItems={listItems}
+          isStarterSample={comparisonSource === 'starter'}
         />
-      ) : (
-        <View style={styles.listHintCard}>
-          <Text style={styles.listHintTitle}>Cart comparison</Text>
-          <Text style={styles.listHintBody}>
-            Create or open a shopping list to compare store totals for your planned items.
-          </Text>
-        </View>
-      )}
+      ) : null}
 
-      <View style={[styles.twoCol, isWide && styles.twoColRow]}>
-        <PriceAlertCard rules={priceAlertRules} />
-        <RecentReceiptsCard receipts={recentReceipts} />
+      <View style={[styles.dashboardRow, isWide && styles.dashboardRowWide]}>
+        <View style={[styles.dashboardCol, isWide && styles.dashboardColWide]}>
+          <PriceAlertCard rules={priceAlertRules} />
+        </View>
+        <View style={[styles.dashboardCol, isWide && styles.dashboardColWide]}>
+          <RecentReceiptsCard receipts={recentReceipts} />
+        </View>
       </View>
 
-      <SpendingAnalyticsCard analytics={analytics} />
+      <SpendingAnalyticsCard receipts={allReceipts} fullBleed style={styles.dashboardChart} />
 
-      <View style={{ height: 24 }} />
+      {homeInsight?.planComparison ? (
+        <PlanComparisonModal
+          visible={planComparisonVisible}
+          onClose={() => setPlanComparisonVisible(false)}
+          comparison={homeInsight.planComparison}
+        />
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
-  content: { paddingHorizontal: 16, paddingBottom: 32 },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: SmartCartColors.background,
-    maxHeight: '100%',
-  },
+  content: { paddingHorizontal: 16 },
   greetingBlock: { marginBottom: 16 },
   greeting: { fontSize: 24, fontWeight: '800', color: SmartCartColors.text, letterSpacing: -0.5 },
   greetingSub: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4 },
-  insightRow: { gap: 10, marginBottom: 20 },
-  insightRowWide: { flexDirection: 'row', alignItems: 'stretch' },
+  insightRow: { gap: 10, marginBottom: 20, width: '100%' },
+  insightRowWide: { flexDirection: 'row', alignItems: 'flex-start', flexWrap: 'wrap' },
   analyticsRow: { gap: 16, marginBottom: 16 },
   analyticsRowWide: { flexDirection: 'row', alignItems: 'stretch' },
   analyticsHalf: { flex: 1 },
@@ -271,18 +325,18 @@ const styles = StyleSheet.create({
     padding: 16,
     ...SmartCartShadow.card,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12 },
-  listHintCard: {
-    backgroundColor: SmartCartColors.card,
-    borderRadius: SmartCartRadius.md,
-    padding: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    ...SmartCartShadow.cardSoft,
+  sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
   },
-  listHintTitle: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text, marginBottom: 4 },
-  listHintBody: { fontSize: 13, color: SmartCartColors.textSecondary, lineHeight: 18 },
-  twoCol: { gap: 12, marginBottom: 16 },
-  twoColRow: { flexDirection: 'row', alignItems: 'stretch' },
+  sectionSubtitle: { fontSize: 12, color: SmartCartColors.textSecondary, marginBottom: 12 },
+  dashboardRow: { gap: 12, marginBottom: 16, width: '100%' },
+  dashboardRowWide: { flexDirection: 'row', alignItems: 'flex-start' },
+  dashboardCol: { width: '100%', minWidth: 0, alignSelf: 'stretch', flexShrink: 0 },
+  dashboardColWide: { flex: 1 },
+  dashboardChart: { marginBottom: 8 },
 });

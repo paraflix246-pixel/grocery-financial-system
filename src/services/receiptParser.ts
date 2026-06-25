@@ -1,13 +1,28 @@
-import type { ParsedReceiptDraft } from '@/src/models/types';
+import type { ParsedReceiptDraft, ReceiptLineKind } from '@/src/models/types';
+import { HIDDEN_ITEM_NAME } from '@/src/utils/receiptDraftNormalizer';
 import { cleanReceiptItemNames } from '@/src/utils/receiptDraftNormalizer';
+import {
+  classifyReceiptLineKind,
+  isPaymentLineName,
+  looksLikePromoFooterJunk,
+} from '@/src/utils/receiptMerchandiseFilter';
+import { applyStoreLocationToDraft, parseStoreLocationFromOcrText } from '@/src/utils/storeLocationParser';
+import { normalizeUnitLabel, parseUnitPriceFromLine } from '@/src/utils/unitPriceParser';
 import { computeItemsSubtotal, computeReceiptTotals } from '@/src/utils/receiptTotals';
 import { guessDateFromText, todayISO } from '@/src/utils/dateParser';
-import { parseLineEndPrice, parsePrice, roundMoney } from '@/src/utils/priceParser';
+import { parseLineEndPrice, parsePrice, parseTaxLineAmount, roundMoney } from '@/src/utils/priceParser';
 import { cleanOcrLine } from '@/src/utils/textCleaner';
+import {
+  isPlausibleItemPrice,
+  looksLikeReceiptHeaderJunk,
+} from '@/src/utils/receiptHeaderFilter';
 
 const SUBTOTAL_KEYWORDS = ['subtotal', 'sub total', 'sub-total', 'merchandise'];
 const TAX_KEYWORDS = ['tax', 'sales tax', 'hst', 'gst', 'vat'];
 const TOTAL_KEYWORDS = ['total', 'amount due', 'balance due', 'grand total', 'total due'];
+
+const CATEGORY_HEADER_RE =
+  /^(APPAREL|HOME|GROCERY|FOOD|HEALTH|BEAUTY|TOYS|SPORTS|ELECTRONICS|AUTOMOTIVE|OFFICE|PET|SCHOOL|KITCHEN|FURNITURE|OUTDOOR|PATIO|SEASONAL)$/i;
 
 const KNOWN_STORES: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /walmart|wal\s*mart/i, name: 'Walmart' },
@@ -42,7 +57,6 @@ const SKIP_LINE_PATTERNS = [
   /^points/i,
   /^balance/i,
   /^tender/i,
-  /^payment/i,
   /^paid/i,
   /^return policy/i,
   /^survey/i,
@@ -65,10 +79,14 @@ const SKIP_LINE_PATTERNS = [
   /^approved\b/i,
   /^change due\b/i,
   /^only\s+\$/i,
+  /\bdebit total payment\b/i,
 ];
 
 function isSummaryKeyword(lower: string, keywords: string[]): boolean {
-  return keywords.some((keyword) => lower.includes(keyword));
+  return keywords.some((keyword) => {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(lower);
+  });
 }
 
 function isSubtotalLine(lower: string): boolean {
@@ -80,12 +98,28 @@ function isTaxLine(lower: string): boolean {
   return isSummaryKeyword(lower, TAX_KEYWORDS);
 }
 
+function isPaymentTotalLine(lower: string): boolean {
+  return (
+    /\b(debit|credit|cash|visa|mastercard|payment)\b/i.test(lower) && /\btotal\b/i.test(lower)
+  );
+}
+
 function isTotalLine(lower: string): boolean {
   if (isSubtotalLine(lower)) return false;
   if (isTaxLine(lower)) return false;
+  if (isPaymentTotalLine(lower)) return false;
   if (/^otal\b/.test(lower)) return true;
   if (/\btotal\b/.test(lower)) return true;
   return TOTAL_KEYWORDS.filter((k) => k !== 'total').some((k) => lower.includes(k));
+}
+
+function isCategoryHeader(line: string): boolean {
+  return CATEGORY_HEADER_RE.test(line.trim());
+}
+
+/** Target receipts mark taxable items with a standalone "T" between name and price. */
+function isTaxIndicatorLine(line: string): boolean {
+  return /^T\s*$/i.test(line.trim());
 }
 
 function cleanItemName(name: string): string {
@@ -110,11 +144,17 @@ function isAddressOrPhoneLine(line: string): boolean {
     return true;
   }
   if (/\(\d{3}\)|\d{3}-\d{3}-\d{4}/.test(line)) return true;
-  if (/^\d+\s+\w/.test(line) && parsePrice(line) == null) return true;
+  if (/^\d+\s+\w/.test(line) && parsePrice(line) == null) {
+    const leadingDigits = line.match(/^(\d+)/)?.[1] ?? '';
+    // Target/Walmart item lines start with long SKU codes, not street numbers.
+    if (leadingDigits.length >= 9) return false;
+    return true;
+  }
   return false;
 }
 
 function scoreStoreCandidate(line: string): number {
+  if (isCategoryHeader(line)) return -1;
   if (parsePrice(line) != null) return -1;
   if (guessDateFromText(line)) return -1;
   if (isAddressOrPhoneLine(line)) return -1;
@@ -135,14 +175,17 @@ function scoreStoreCandidate(line: string): number {
 }
 
 function detectStoreName(lines: string[]): string {
-  const headerLines = lines.slice(0, 8);
+  for (const line of lines) {
+    for (const store of KNOWN_STORES) {
+      if (store.pattern.test(line)) return store.name;
+    }
+  }
+
+  const headerLines = lines.slice(0, 12);
   let bestName = 'Unknown Store';
   let bestScore = 0;
 
   for (const line of headerLines) {
-    for (const store of KNOWN_STORES) {
-      if (store.pattern.test(line)) return store.name;
-    }
     const score = scoreStoreCandidate(line);
     if (score > bestScore) {
       bestScore = score;
@@ -157,10 +200,22 @@ function stripLineEndPrice(line: string): string {
   return line
     .replace(/\$?\s*\d+\.\d{2}\s*(?:H|_)?\s*$/i, '')
     .replace(/\$?\s*\d+\.\d{1,2}\s*(?:H|_)?\s*$/i, '')
+    .replace(/\$?\s*\d{1,4}\s+\d{2}\s*(?:H|_)?\s*$/i, '')
     .trim();
 }
 
-function parseItemLine(line: string): { name: string; price: number; quantity: number } | null {
+function attachUnitFromLine(
+  line: string,
+  item: ParsedReceiptDraft['items'][0]
+): ParsedReceiptDraft['items'][0] {
+  const parsed = parseUnitPriceFromLine(line);
+  if (parsed.unitPrice && parsed.unit) {
+    return { ...item, unitPrice: parsed.unitPrice, unit: parsed.unit };
+  }
+  return item;
+}
+
+function parseItemLine(line: string): ParsedReceiptDraft['items'][0] | null {
   const qtyAtPrice = line.match(
     /^(.+?)\s+(\d+)\s*[@xX]\s*\$?\s*(\d+\.\d{1,2})\s*(?:H|_)?\s*$/i
   );
@@ -169,7 +224,13 @@ function parseItemLine(line: string): { name: string; price: number; quantity: n
     const unitPrice = parseLineEndPrice(qtyAtPrice[3]) ?? 0;
     const name = qtyAtPrice[1].trim();
     if (name.length > 0 && quantity > 0 && unitPrice > 0) {
-      return { name, price: roundMoney(unitPrice * quantity), quantity: 1 };
+      return attachUnitFromLine(line, {
+        name,
+        price: roundMoney(unitPrice * quantity),
+        quantity: 1,
+        unitPrice,
+        unit: 'ea',
+      });
     }
   }
 
@@ -179,7 +240,7 @@ function parseItemLine(line: string): { name: string; price: number; quantity: n
     const linePrice = parseLineEndPrice(qtySuffix[3]) ?? 0;
     const name = qtySuffix[1].trim();
     if (name.length > 0 && quantity > 0 && linePrice > 0) {
-      return { name, price: linePrice, quantity };
+      return attachUnitFromLine(line, { name, price: linePrice, quantity });
     }
   }
 
@@ -187,14 +248,16 @@ function parseItemLine(line: string): { name: string; price: number; quantity: n
   if (price == null) return null;
 
   const namePart = cleanItemName(stripLineEndPrice(line));
-  if (namePart.length < 2) return null;
+  if (namePart.length < 2) {
+    return attachUnitFromLine(line, { name: HIDDEN_ITEM_NAME, price, quantity: 1 });
+  }
   if (/^\d+$/.test(namePart.replace(/\s/g, ''))) return null;
   if (/^otal$/i.test(namePart)) return null;
   if (isSummaryKeyword(namePart.toLowerCase(), [...SUBTOTAL_KEYWORDS, ...TAX_KEYWORDS, ...TOTAL_KEYWORDS])) {
     return null;
   }
 
-  return { name: namePart, price, quantity: 1 };
+  return attachUnitFromLine(line, { name: namePart, price, quantity: 1 });
 }
 
 function hasLinePrice(line: string): boolean {
@@ -204,7 +267,23 @@ function hasLinePrice(line: string): boolean {
 function isPriceOnlyLine(line: string): boolean {
   if (!hasLinePrice(line)) return false;
   const namePart = cleanItemName(stripLineEndPrice(line));
-  return namePart.length < 2;
+  if (namePart.length < 2) return true;
+  if (/^\.+$/.test(namePart.replace(/\s/g, ''))) return true;
+  return false;
+}
+
+function isKnownStoreLabel(line: string): boolean {
+  const trimmed = line.trim();
+  return KNOWN_STORES.some((store) => store.pattern.test(trimmed));
+}
+
+function looksLikeBarcodeOrHeader(line: string): boolean {
+  return looksLikeReceiptHeaderJunk(line);
+}
+
+function isItemNameContinuation(line: string): boolean {
+  const trimmed = line.trim();
+  return /^QTY\s+\d+/i.test(trimmed) || /^@\s*\d/i.test(trimmed);
 }
 
 function looksLikePendingItemName(line: string): boolean {
@@ -227,6 +306,12 @@ function parseWithPendingName(
   line: string
 ): { item: { name: string; price: number; quantity: number } | null; usedPending: boolean } {
   if (!pendingName) {
+    if (isPriceOnlyLine(line)) {
+      const price = parseLineEndPrice(line);
+      if (price != null) {
+        return { item: { name: HIDDEN_ITEM_NAME, price, quantity: 1 }, usedPending: false };
+      }
+    }
     return { item: parseItemLine(line), usedPending: false };
   }
 
@@ -258,12 +343,98 @@ export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
   let total = 0;
   const items: ParsedReceiptDraft['items'] = [];
   let pendingItemName: string | null = null;
+  let pendingPriceOnly: number | null = null;
+  let paymentBlock = false;
+  let pendingClassifiedLine: { name: string; lineKind: ReceiptLineKind } | null = null;
+  let footerPhase: 'none' | 'after_subtotal' | 'after_tax' | 'after_total' = 'none';
 
   for (const line of lines) {
     const lower = line.toLowerCase();
 
+    if (looksLikeReceiptHeaderJunk(line)) {
+      pendingItemName = null;
+      pendingPriceOnly = null;
+      continue;
+    }
+
     if (shouldSkipLine(line)) {
       pendingItemName = null;
+      continue;
+    }
+
+    if (paymentBlock && pendingClassifiedLine) {
+      if (/^QTY\s+\d+/i.test(line.trim())) {
+        pendingClassifiedLine = {
+          name: `${pendingClassifiedLine.name} ${line.trim()}`,
+          lineKind: pendingClassifiedLine.lineKind,
+        };
+        continue;
+      }
+      if (isPriceOnlyLine(line)) {
+        const classifiedPrice = parseLineEndPrice(line);
+        if (classifiedPrice != null && isPlausibleItemPrice(classifiedPrice, { subtotal })) {
+          items.push({
+            name: pendingClassifiedLine.name,
+            price: classifiedPrice,
+            quantity: 1,
+            lineKind: pendingClassifiedLine.lineKind,
+          });
+        }
+        pendingClassifiedLine = null;
+        paymentBlock = false;
+        continue;
+      }
+    }
+
+    if (isPaymentLineName(line) || looksLikePromoFooterJunk(line)) {
+      const classifiedKind = classifyReceiptLineKind(line);
+      // DeepRead often emits promo footer junk on one line (e.g. "BREAD ONLY $2.99 H").
+      if (looksLikePromoFooterJunk(line) && hasLinePrice(line)) {
+        const inlineItem = parseItemLine(line);
+        if (inlineItem && isPlausibleItemPrice(inlineItem.price, { subtotal })) {
+          items.push({
+            name: cleanItemName(inlineItem.name),
+            price: inlineItem.price,
+            quantity: inlineItem.quantity,
+            lineKind: classifiedKind,
+          });
+          pendingClassifiedLine = null;
+          paymentBlock = false;
+          pendingItemName = null;
+          pendingPriceOnly = null;
+          continue;
+        }
+      }
+      pendingClassifiedLine = {
+        name: cleanItemName(line),
+        lineKind: classifiedKind,
+      };
+      paymentBlock = true;
+      pendingItemName = null;
+      pendingPriceOnly = null;
+      continue;
+    }
+
+    if (paymentBlock) {
+      if (/^QTY\s+\d+/i.test(line.trim())) continue;
+      if (isPriceOnlyLine(line)) {
+        paymentBlock = false;
+        pendingClassifiedLine = null;
+        continue;
+      }
+      paymentBlock = false;
+      pendingClassifiedLine = null;
+    }
+
+    if (isCategoryHeader(line)) {
+      pendingItemName = null;
+      continue;
+    }
+
+    if (isTaxIndicatorLine(line)) {
+      if (pendingItemName) {
+        pendingItemName = `${pendingItemName} T`;
+      }
       continue;
     }
 
@@ -277,21 +448,125 @@ export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
     if (isSubtotalLine(lower)) {
       subtotal = parseLineEndPrice(line) ?? parsePrice(line) ?? subtotal;
       pendingItemName = null;
+      pendingPriceOnly = null;
+      footerPhase = 'after_subtotal';
       continue;
     }
     if (isTaxLine(lower)) {
-      tax = parseLineEndPrice(line) ?? parsePrice(line) ?? tax;
+      const inlineTax = parseTaxLineAmount(line);
+      // Rate lines like "T = TX TAX 8.25000 on $555.00" — amount is on the next line.
+      if (inlineTax != null && (!/\bon\s+\$/i.test(line) || inlineTax >= 20)) {
+        tax = inlineTax;
+      }
       pendingItemName = null;
+      pendingPriceOnly = null;
+      footerPhase = 'after_tax';
       continue;
     }
     if (isTotalLine(lower)) {
-      total = parseLineEndPrice(line) ?? parsePrice(line) ?? total;
+      const candidateTotal = parseLineEndPrice(line) ?? parsePrice(line);
+      if (
+        footerPhase === 'after_total' &&
+        total > 0 &&
+        candidateTotal != null &&
+        candidateTotal < total * 0.5
+      ) {
+        pendingItemName = null;
+        continue;
+      }
+      total = candidateTotal ?? total;
       pendingItemName = null;
+      pendingPriceOnly = null;
+      footerPhase = 'after_total';
       continue;
+    }
+
+    if (footerPhase !== 'none' && isPriceOnlyLine(line)) {
+      const footerPrice = parseLineEndPrice(line);
+      if (footerPrice != null) {
+        if (footerPhase === 'after_subtotal' && (subtotal == null || subtotal === 0)) {
+          subtotal = footerPrice;
+          continue;
+        }
+        if (footerPhase === 'after_tax' && (tax == null || tax === 0 || tax < 20)) {
+          tax = footerPrice;
+          continue;
+        }
+        if (footerPhase === 'after_total' && (total == null || total === 0)) {
+          total = footerPrice;
+          continue;
+        }
+      }
+      continue;
+    }
+
+    // Some OCR streams emit "price line" then "name line" for each item.
+    // Pair those lines before falling back to hidden-name handling.
+    if (pendingPriceOnly != null && !hasLinePrice(line) && looksLikePendingItemName(line)) {
+      if (isKnownStoreLabel(line)) {
+        if (footerPhase === 'after_total' && (total == null || total === 0)) {
+          total = pendingPriceOnly;
+        }
+        pendingPriceOnly = null;
+        pendingItemName = null;
+        continue;
+      }
+
+      const named = cleanItemName(line);
+      if (named.length >= 2) {
+        items.push({ name: named, price: pendingPriceOnly, quantity: 1 });
+        pendingPriceOnly = null;
+        pendingItemName = null;
+        continue;
+      }
+    }
+
+    // Canadian / Walmart OCR often emits "name line" then "price line" for each item.
+    if (pendingItemName && isPriceOnlyLine(line)) {
+      if (looksLikeBarcodeOrHeader(pendingItemName)) {
+        const priceOnly = parseLineEndPrice(line);
+        if (priceOnly != null) {
+          if (pendingPriceOnly != null) {
+            items.push({ name: HIDDEN_ITEM_NAME, price: pendingPriceOnly, quantity: 1 });
+          }
+          pendingPriceOnly = priceOnly;
+          pendingItemName = null;
+          continue;
+        }
+      }
+
+      const combined = parseItemLine(`${pendingItemName} ${line}`);
+      if (combined) {
+        items.push(combined);
+        pendingItemName = null;
+        pendingPriceOnly = null;
+        continue;
+      }
+    }
+
+    if (isPriceOnlyLine(line)) {
+      const priceOnly = parseLineEndPrice(line);
+      if (priceOnly != null) {
+        if (pendingPriceOnly != null) {
+          items.push({ name: HIDDEN_ITEM_NAME, price: pendingPriceOnly, quantity: 1 });
+        }
+        pendingPriceOnly = priceOnly;
+        pendingItemName = null;
+        continue;
+      }
+    } else if (pendingPriceOnly != null && hasLinePrice(line)) {
+      // Previous price-only line never got a name; keep it as hidden.
+      items.push({ name: HIDDEN_ITEM_NAME, price: pendingPriceOnly, quantity: 1 });
+      pendingPriceOnly = null;
     }
 
     const { item, usedPending } = parseWithPendingName(pendingItemName, line);
     if (item) {
+      if (!isPlausibleItemPrice(item.price, { subtotal })) {
+        pendingItemName = usedPending ? null : pendingItemName;
+        if (!usedPending) pendingItemName = null;
+        continue;
+      }
       items.push(item);
       pendingItemName = usedPending ? null : pendingItemName;
       if (!usedPending) pendingItemName = null;
@@ -299,9 +574,22 @@ export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
     }
 
     if (looksLikePendingItemName(line)) {
-      pendingItemName = pendingItemName ? `${pendingItemName} ${line}` : line;
+      if (pendingItemName && !isItemNameContinuation(line)) {
+        // Orphan name (OCR missed its price) — start the next product line fresh.
+        pendingItemName = line;
+      } else {
+        pendingItemName = pendingItemName ? `${pendingItemName} ${line}` : line;
+      }
     } else {
       pendingItemName = null;
+    }
+  }
+
+  if (pendingPriceOnly != null) {
+    if (footerPhase === 'after_total' && (total == null || total === 0)) {
+      total = pendingPriceOnly;
+    } else if (footerPhase === 'none') {
+      items.push({ name: HIDDEN_ITEM_NAME, price: pendingPriceOnly, quantity: 1 });
     }
   }
 
@@ -330,5 +618,7 @@ export function parseReceiptLines(lines: string[]): ParsedReceiptDraft {
 
 export function parseReceiptText(rawText: string): ParsedReceiptDraft {
   const lines = rawText.split('\n').map(cleanOcrLine).filter(Boolean);
-  return parseReceiptLines(lines);
+  const draft = parseReceiptLines(lines);
+  const location = parseStoreLocationFromOcrText(rawText);
+  return applyStoreLocationToDraft(draft, location);
 }

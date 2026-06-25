@@ -3,7 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
+  Alert,
   Platform,
   Pressable,
   StyleSheet,
@@ -11,61 +11,60 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  Camera,
-  useCameraDevice,
-  useCameraPermission,
-  usePhotoOutput,
-} from 'react-native-vision-camera';
 
 import { BackButton } from '@/src/components/BackButton';
 import { CameraOverlay } from '@/src/components/CameraOverlay';
+import { ReceiptScanProcessing } from '@/src/components/ReceiptScanProcessing';
 import { scanReceiptFromImage, shouldOpenPreview } from '@/src/services/receiptParsePipeline';
+import { getScanLimitStatus } from '@/src/services/scanLimitService';
 import { useScanStore } from '@/src/store/useScanStore';
+import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
+import { promptScanLimitReached } from '@/src/utils/promptScanLimit';
+import type { ReceiptScanStage } from '@/src/utils/scanWaitTime';
 
-export default function ScanScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { hasPermission, requestPermission } = useCameraPermission();
-  const device = useCameraDevice('back');
-  const photoOutput = usePhotoOutput();
-  const [processing, setProcessing] = useState(false);
+// Lazy-load vision-camera so the route does not crash when NitroModules is
+// absent (e.g. an Expo Go / bare build that has not yet been rebuilt with the
+// native camera module). If the require throws we degrade to a gallery-only UI.
+let visionCamera: typeof import('react-native-vision-camera') | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  visionCamera = require('react-native-vision-camera') as typeof import('react-native-vision-camera');
+} catch {
+  console.warn(
+    '[scan] react-native-vision-camera unavailable (NitroModules not found). ' +
+      'Camera features disabled — use gallery or manual entry.'
+  );
+}
+
+function showScanError(message: string) {
+  Alert.alert('Scan failed', message);
+}
+
+// ---------------------------------------------------------------------------
+// CameraCapture — rendered ONLY when visionCamera module loaded successfully.
+// Isolating the vision-camera hooks here prevents them from being called on
+// every render of ScanScreen, which would crash when the native module is
+// missing.
+// ---------------------------------------------------------------------------
+
+type CameraCaptureProps = {
+  insets: ReturnType<typeof useSafeAreaInsets>;
+  onCapture: (uri: string) => Promise<void>;
+  onGallery: () => Promise<void>;
+  onManualEntry: () => void;
+};
+
+function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCaptureProps) {
+  const vc = visionCamera!;
+  const { hasPermission, requestPermission } = vc.useCameraPermission();
+  const device = vc.useCameraDevice('back');
+  const photoOutput = vc.usePhotoOutput();
   const [flashOn, setFlashOn] = useState(false);
-  const { setImageUri, setRawOcrText, setDraft, setOcrMeta, setParseWarnings, startManualEntry } = useScanStore();
 
   useEffect(() => {
     requestPermission();
   }, [requestPermission]);
-
-  const processImage = useCallback(
-    async (uri: string) => {
-      setProcessing(true);
-      try {
-        setImageUri(uri);
-        const result = await scanReceiptFromImage(uri);
-        const { draft, parseMethod, ocrResult } = result;
-        setOcrMeta({
-          source: ocrResult.source,
-          confidence: ocrResult.confidence,
-          parseMethod,
-          parseVerified: result.parseVerified,
-        });
-        setRawOcrText(ocrResult.text);
-        setDraft(draft);
-        setParseWarnings(
-          validateParsedReceipt(draft, {
-            ocrSource: ocrResult.source,
-            ocrConfidence: ocrResult.confidence,
-          })
-        );
-        router.push(shouldOpenPreview(result) ? '/receipt/preview' : '/receipt/edit');
-      } finally {
-        setProcessing(false);
-      }
-    },
-    [router, setDraft, setImageUri, setOcrMeta, setParseWarnings, setRawOcrText]
-  );
 
   const capturePhoto = async () => {
     try {
@@ -74,68 +73,34 @@ export default function ScanScreen() {
         Platform.OS === 'android'
           ? `file://${photoFile.filePath}`
           : photoFile.filePath;
-      await processImage(uri);
+      await onCapture(uri);
     } catch (err) {
       console.warn('Capture failed, falling back to gallery:', err);
-      await pickImage();
+      await onGallery();
     }
   };
-
-  const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-    });
-    if (!result.canceled && result.assets[0]) {
-      await processImage(result.assets[0].uri);
-    }
-  };
-
-  if (processing) {
-    return (
-      <View style={styles.container}>
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <BackButton showLabel={false} tintColor="#fff" />
-        </View>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#fff" />
-          <Text style={styles.processingText}>Processing receipt...</Text>
-        </View>
-      </View>
-    );
-  }
 
   if (!device || !hasPermission) {
     return (
-      <View style={styles.container}>
-        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
-          <BackButton showLabel={false} tintColor="#fff" />
-        </View>
-        <View style={styles.center}>
-          <Text style={styles.title}>Scan Receipt</Text>
-          <Text style={styles.subtitle}>Camera permission required</Text>
-          <Pressable style={styles.button} onPress={requestPermission}>
-            <Text style={styles.buttonText}>Grant Permission</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={pickImage}>
-            <Text style={styles.secondaryText}>Or pick from gallery</Text>
-          </Pressable>
-          <Pressable
-            style={styles.secondaryButton}
-            onPress={() => {
-              startManualEntry();
-              router.push('/receipt/edit');
-            }}>
-            <Text style={styles.secondaryText}>Add receipt manually</Text>
-          </Pressable>
-        </View>
+      <View style={styles.center}>
+        <Text style={styles.title}>Scan Receipt</Text>
+        <Text style={styles.subtitle}>Camera permission required</Text>
+        <Pressable style={styles.button} onPress={requestPermission}>
+          <Text style={styles.buttonText}>Grant Permission</Text>
+        </Pressable>
+        <Pressable style={styles.secondaryButton} onPress={onGallery}>
+          <Text style={styles.secondaryText}>Or pick from gallery</Text>
+        </Pressable>
+        <Pressable style={styles.secondaryButton} onPress={onManualEntry}>
+          <Text style={styles.secondaryText}>Add receipt manually</Text>
+        </Pressable>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <Camera
+    <>
+      <vc.Camera
         style={StyleSheet.absoluteFill}
         device={device}
         outputs={[photoOutput]}
@@ -154,12 +119,8 @@ export default function ScanScreen() {
         </Pressable>
       </View>
 
-      <View style={[styles.controls, { paddingBottom: insets.bottom + 24 }]}>
-        <Pressable
-          onPress={() => {
-            startManualEntry();
-            router.push('/receipt/edit');
-          }}>
+      <View style={[styles.controls, { paddingBottom: 24 }]}>
+        <Pressable onPress={onManualEntry}>
           <Text style={styles.retakeText}>Manual</Text>
         </Pressable>
         <Pressable style={styles.captureBtn} onPress={capturePhoto}>
@@ -169,6 +130,143 @@ export default function ScanScreen() {
           <Text style={styles.flashText}>{flashOn ? 'Flash On' : 'Flash'}</Text>
         </Pressable>
       </View>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// ScanScreen — route default export. No vision-camera hooks called here.
+// ---------------------------------------------------------------------------
+
+export default function ScanScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const tier = useSubscriptionStore((s) => s.tier);
+  const [processing, setProcessing] = useState(false);
+  const [scanStage, setScanStage] = useState<ReceiptScanStage>('preparing');
+  const [scanRemaining, setScanRemaining] = useState<number | null>(null);
+  const { setImageUri, setRawOcrText, setDraft, setOcrMeta, setParseWarnings, startManualEntry } =
+    useScanStore();
+
+  const ensureCanScan = useCallback(async (): Promise<boolean> => {
+    if (tier !== 'free') return true;
+    const status = await getScanLimitStatus();
+    setScanRemaining(status.remaining);
+    if (status.allowed) return true;
+    promptScanLimitReached(() => router.push('/paywall' as never));
+    return false;
+  }, [router, tier]);
+
+  useEffect(() => {
+    if (tier !== 'free') {
+      setScanRemaining(null);
+      return;
+    }
+    void getScanLimitStatus().then((status) => setScanRemaining(status.remaining));
+  }, [tier]);
+
+  const processImage = useCallback(
+    async (uri: string) => {
+      if (!(await ensureCanScan())) return;
+      setProcessing(true);
+      setScanStage('preparing');
+      try {
+        setImageUri(uri);
+        const result = await scanReceiptFromImage(uri, { onStage: setScanStage });
+        const { draft, parseMethod, ocrResult } = result;
+        setOcrMeta({
+          source: ocrResult.source,
+          confidence: ocrResult.confidence,
+          parseMethod,
+          parseVerified: result.parseVerified,
+        });
+        setRawOcrText(ocrResult.text);
+        setDraft(draft);
+        setParseWarnings(
+          validateParsedReceipt(draft, {
+            ocrSource: ocrResult.source,
+            ocrConfidence: ocrResult.confidence,
+          })
+        );
+        router.push(shouldOpenPreview(result) ? '/receipt/preview' : '/receipt/edit');
+      } catch (error) {
+        const message =
+          error instanceof Error && error.name === 'TimeoutError'
+            ? 'Scan timed out. Check your connection and try again.'
+            : error instanceof Error && error.message
+              ? error.message
+              : 'Something went wrong while scanning. Please try again.';
+        showScanError(message);
+        console.warn('Receipt scan failed:', error);
+      } finally {
+        setProcessing(false);
+      }
+    },
+    [router, setDraft, setImageUri, setOcrMeta, setParseWarnings, setRawOcrText, ensureCanScan]
+  );
+
+  const pickImage = useCallback(async () => {
+    if (!(await ensureCanScan())) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+    });
+    if (!result.canceled && result.assets[0]) {
+      await processImage(result.assets[0].uri);
+    }
+  }, [processImage, ensureCanScan]);
+
+  const handleManualEntry = useCallback(async () => {
+    if (!(await ensureCanScan())) return;
+    startManualEntry();
+    router.push('/receipt/edit');
+  }, [ensureCanScan, startManualEntry, router]);
+
+  if (processing) {
+    return (
+      <ReceiptScanProcessing
+        variant="dark"
+        stage={scanStage}
+        header={
+          <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+            <BackButton showLabel={false} tintColor="#fff" />
+          </View>
+        }
+      />
+    );
+  }
+
+  // NitroModules / vision-camera unavailable — show gallery + manual fallback
+  if (!visionCamera) {
+    return (
+      <View style={styles.container}>
+        <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+          <BackButton showLabel={false} tintColor="#fff" />
+        </View>
+        <View style={styles.center}>
+          <Text style={styles.title}>Scan Receipt</Text>
+          <Text style={styles.subtitle}>
+            Camera not available — use gallery or manual entry
+          </Text>
+          <Pressable style={styles.button} onPress={pickImage}>
+            <Text style={styles.buttonText}>Pick from gallery</Text>
+          </Pressable>
+          <Pressable style={styles.secondaryButton} onPress={handleManualEntry}>
+            <Text style={styles.secondaryText}>Add receipt manually</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <CameraCapture
+        insets={insets}
+        onCapture={processImage}
+        onGallery={pickImage}
+        onManualEntry={handleManualEntry}
+      />
     </View>
   );
 }
@@ -178,7 +276,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: '#111' },
   title: { fontSize: 24, fontWeight: '700', marginBottom: 8, color: '#fff' },
   subtitle: { opacity: 0.6, textAlign: 'center', marginBottom: 24, color: '#fff' },
-  processingText: { marginTop: 16, opacity: 0.7, color: '#fff' },
   button: {
     backgroundColor: '#22C55E',
     paddingHorizontal: 32,

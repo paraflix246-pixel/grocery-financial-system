@@ -1,0 +1,15 @@
+﻿services/
+android/
+ios/
+scripts/
+docs/
+node_modules/
+.expo/
+.git/
+*.apk
+*.aab
+**/*.map
+
+# Include prebuilt Expo web export (dist/ is gitignored)
+!dist
+!dist/**

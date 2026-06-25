@@ -1,16 +1,69 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 
 import { Text } from '@/components/Themed';
 import { InsightCard } from '@/src/components/InsightCard';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
+import { MockupCard, MockupPrimaryButton } from '@/src/components/mockup/MockupUI';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { getProInsights, type ProInsights } from '@/src/services/analyticsService';
+import { getFeatureLabel } from '@/src/services/featureGateService';
+import { resolveStore } from '@/src/services/storeService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
+
+const INSIGHT_ICONS = ['🛒', '📊', '💰', '🏪', '📈'];
+
+function VerticalInsightCard({
+  icon,
+  title,
+  body,
+  accent,
+  onPress,
+}: {
+  icon: string;
+  title: string;
+  body: string;
+  accent: string;
+  onPress?: () => void;
+}) {
+  const content = (
+    <MockupCard style={styles.insightCard}>
+      <View style={[styles.insightIconWrap, { backgroundColor: accent }]}>
+        <Text style={styles.insightIcon}>{icon}</Text>
+      </View>
+      <View style={styles.insightBody}>
+        <Text style={styles.insightTitle}>{title}</Text>
+        <Text style={styles.insightText}>{body}</Text>
+      </View>
+      {onPress ? (
+        <SymbolView
+          name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+          tintColor={SmartCartColors.textSecondary}
+          size={16}
+        />
+      ) : null}
+    </MockupCard>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={({ pressed }) => [pressed && styles.cardPressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`${title}. ${body}`}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return content;
+}
 
 export default function InsightsProScreen() {
   const router = useRouter();
@@ -33,9 +86,86 @@ export default function InsightsProScreen() {
 
   const showGated = !unlocked;
 
+  const navigateOrGate = useCallback(
+    (route: Href) => {
+      if (showGated) {
+        requestAccess();
+        return;
+      }
+      router.push(route as never);
+    },
+    [showGated, requestAccess, router],
+  );
+
+  const navigateToStore = useCallback(
+    async (storeName: string) => {
+      if (showGated) {
+        requestAccess();
+        return;
+      }
+      const storeDef = await resolveStore(storeName);
+      router.push(`/stores/${storeDef.id}` as never);
+    },
+    [showGated, requestAccess, router],
+  );
+
+  const verticalInsights = useMemo(
+    () => [
+      {
+        icon: '🛒',
+        title: 'Shopping Frequency',
+        body: `${insights?.frequency.tripsThisMonth ?? 0} trips this month · avg ${insights?.frequency.avgDaysBetweenTrips ? Math.round(insights.frequency.avgDaysBetweenTrips) : '—'} days between trips`,
+        accent: SmartCartColors.badge,
+        onPress: () => navigateOrGate('/usage_tracking?section=frequency' as Href),
+      },
+      {
+        icon: '💰',
+        title: 'Budget Summary',
+        body: insights?.summaryLine ?? 'Scan receipts to unlock personalized spending patterns.',
+        accent: '#FFF7ED',
+        onPress: () => navigateOrGate('/settings/budget'),
+      },
+      ...(showGated
+        ? [
+            {
+              icon: '🔒',
+              title: 'Overspend Categories',
+              body: 'Upgrade to Pro to see which categories exceed your budget.',
+              accent: '#F3E8FF',
+              onPress: () => requestAccess(),
+            },
+          ]
+        : (insights?.overspendCategories ?? []).slice(0, 2).map((cat) => ({
+            icon: '📊',
+            title: `${cat.category} over budget`,
+            body: `${formatCurrency(cat.spent)} of ${formatCurrency(cat.limit)} (+${formatCurrency(cat.overAmount)})`,
+            accent: '#FEE2E2',
+            onPress: () => router.push('/settings/budget?edit=1' as never),
+          }))),
+      ...(showGated
+        ? [
+            {
+              icon: '🔒',
+              title: 'Store Trends',
+              body: 'Tap to unlock store comparison trends.',
+              accent: '#EFF6FF',
+              onPress: () => requestAccess(),
+            },
+          ]
+        : (insights?.storeTrends ?? []).slice(0, 2).map((store) => ({
+            icon: '🏪',
+            title: store.store,
+            body: `${formatCurrency(store.thisMonth)} this month · ${store.changePercent > 0 ? '↑' : store.changePercent < 0 ? '↓' : '—'}${Math.abs(Math.round(store.changePercent))}% vs last month`,
+            accent: SmartCartColors.badgeGreen,
+            onPress: () => void navigateToStore(store.store),
+          }))),
+    ],
+    [insights, navigateOrGate, navigateToStore, requestAccess, router, showGated],
+  );
+
   return (
     <View style={styles.container}>
-      <ScreenHeader title="AI Insights Pro" />
+      <ScreenHeader title="Your Spending Patterns" />
 
       {loading ? (
         <View style={styles.center}>
@@ -43,19 +173,27 @@ export default function InsightsProScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          {showGated && <ProUpgradeBanner featureName="AI Insights Pro" />}
+          {showGated && <ProUpgradeBanner featureName={getFeatureLabel('insights_pro')} />}
 
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryEmoji}>🧠</Text>
-            <Text style={styles.summaryText}>{insights?.summaryLine}</Text>
-          </View>
+          {verticalInsights.map((item, index) => (
+            <VerticalInsightCard
+              key={`${item.title}-${index}`}
+              icon={item.icon ?? INSIGHT_ICONS[index % INSIGHT_ICONS.length]}
+              title={item.title}
+              body={item.body}
+              accent={item.accent}
+              onPress={item.onPress}
+            />
+          ))}
 
-          <Text style={styles.sectionTitle}>Shopping frequency</Text>
           <View style={styles.grid}>
             <InsightCard
               title="This month"
               value={`${insights?.frequency.tripsThisMonth ?? 0} trips`}
               subtitle={`Last month: ${insights?.frequency.tripsLastMonth ?? 0}`}
+              actionHint="Details"
+              onPress={() => navigateOrGate('/usage_tracking?section=monthly' as Href)}
+              expand
             />
             <InsightCard
               title="Avg gap"
@@ -65,56 +203,17 @@ export default function InsightsProScreen() {
                   : '—'
               }
               subtitle={insights?.frequency.busiestDay ? `Busiest: ${insights.frequency.busiestDay}` : undefined}
+              actionHint="Details"
+              onPress={() => navigateOrGate('/usage_tracking?section=gap' as Href)}
+              expand
             />
           </View>
 
-          <Text style={styles.sectionTitle}>Top overspend categories</Text>
-          {showGated ? (
-            <Pressable style={styles.lockedBlock} onPress={() => requestAccess()}>
-              <Text style={styles.lockedText}>🔒 Pro insight — tap to unlock</Text>
-            </Pressable>
-          ) : insights?.overspendCategories.length === 0 ? (
-            <Text style={styles.empty}>No categories over budget this month. Nice work!</Text>
-          ) : (
-            insights?.overspendCategories.map((cat) => (
-              <View key={cat.category} style={styles.overspendRow}>
-                <View style={[styles.catDot, { backgroundColor: cat.color }]} />
-                <View style={styles.overspendInfo}>
-                  <Text style={styles.catName}>{cat.category}</Text>
-                  <Text style={styles.catDetail}>
-                    {formatCurrency(cat.spent)} of {formatCurrency(cat.limit)} ({Math.round(cat.percentOfLimit)}%)
-                  </Text>
-                </View>
-                <Text style={styles.overAmount}>+{formatCurrency(cat.overAmount)}</Text>
-              </View>
-            ))
-          )}
-
-          <Text style={styles.sectionTitle}>Store comparison trends</Text>
-          {showGated ? (
-            <Pressable style={styles.lockedBlock} onPress={() => requestAccess()}>
-              <Text style={styles.lockedText}>🔒 Pro insight — tap to unlock</Text>
-            </Pressable>
-          ) : insights?.storeTrends.length === 0 ? (
-            <Text style={styles.empty}>Scan receipts to see store spending trends.</Text>
-          ) : (
-            insights?.storeTrends.slice(0, 5).map((store) => (
-              <View key={store.store} style={styles.storeRow}>
-                <Text style={styles.storeName}>{store.store}</Text>
-                <View style={styles.storeRight}>
-                  <Text style={styles.storeAmount}>{formatCurrency(store.thisMonth)}</Text>
-                  <Text
-                    style={[
-                      styles.storeChange,
-                      { color: store.changePercent > 0 ? SmartCartColors.danger : SmartCartColors.primary },
-                    ]}>
-                    {store.changePercent > 0 ? '↑' : store.changePercent < 0 ? '↓' : '—'}
-                    {Math.abs(Math.round(store.changePercent))}%
-                  </Text>
-                </View>
-              </View>
-            ))
-          )}
+          <MockupPrimaryButton
+            label="View All Insights"
+            icon="chevron"
+            onPress={() => navigateOrGate('/spending-analytics')}
+          />
         </ScrollView>
       )}
     </View>
@@ -124,60 +223,24 @@ export default function InsightsProScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 16, paddingBottom: 40 },
-  summaryCard: {
+  content: { padding: 16, paddingBottom: 40, gap: 0 },
+  insightCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: SmartCartColors.bannerGreen,
-    borderRadius: SmartCartRadius.md,
-    padding: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+    gap: 14,
+    paddingVertical: 14,
   },
-  summaryEmoji: { fontSize: 28 },
-  summaryText: { flex: 1, fontSize: 14, fontWeight: '600', color: SmartCartColors.primaryDark, lineHeight: 20 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12, marginTop: 8 },
-  grid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  lockedBlock: {
-    backgroundColor: SmartCartColors.card,
-    borderRadius: SmartCartRadius.md,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    borderStyle: 'dashed',
-  },
-  lockedText: { fontSize: 14, color: SmartCartColors.textSecondary },
-  empty: { fontSize: 14, color: SmartCartColors.textMuted, marginBottom: 16 },
-  overspendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: SmartCartColors.card,
+  cardPressed: { opacity: 0.92 },
+  insightIconWrap: {
+    width: 48,
+    height: 48,
     borderRadius: SmartCartRadius.sm,
-    padding: 12,
-    marginBottom: 8,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-  },
-  catDot: { width: 10, height: 10, borderRadius: 5 },
-  overspendInfo: { flex: 1 },
-  catName: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
-  catDetail: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },
-  overAmount: { fontSize: 14, fontWeight: '800', color: SmartCartColors.danger },
-  storeRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: SmartCartColors.border,
+    justifyContent: 'center',
   },
-  storeName: { fontSize: 15, fontWeight: '600', color: SmartCartColors.text },
-  storeRight: { alignItems: 'flex-end' },
-  storeAmount: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
-  storeChange: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  insightIcon: { fontSize: 24 },
+  insightBody: { flex: 1 },
+  insightTitle: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  insightText: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 4, lineHeight: 18 },
+  grid: { flexDirection: 'row', gap: 10, marginVertical: 16 },
 });

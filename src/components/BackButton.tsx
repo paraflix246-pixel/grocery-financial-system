@@ -1,9 +1,10 @@
 import { Platform, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useNavigation, useRouter, type Href } from 'expo-router';
+import { useNavigation, usePathname, useRouter, type Href } from 'expo-router';
 
 import { Text } from '@/components/Themed';
 import { SmartCartColors } from '@/src/theme/smartCart';
+import { skipOpenLastListOnNextFocus } from '@/src/utils/listNavigationPrefs';
 
 type Props = {
   /** Used only when there is no navigation history (e.g. deep link). */
@@ -45,10 +46,21 @@ export function BackButton({
 }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
+  const pathname = usePathname();
+  const isListDetail = pathname.startsWith('/list/') && pathname !== '/list/share';
 
   const handlePress = () => {
     if (onPress) {
       onPress();
+      return;
+    }
+    if (isListDetail) {
+      skipOpenLastListOnNextFocus();
+      if (canNavigateBack(navigation as { canGoBack: () => boolean })) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/shopping-lists?browse=1' as never);
+      }
       return;
     }
     navigateBack(navigation as { canGoBack: () => boolean }, router, fallbackHref);

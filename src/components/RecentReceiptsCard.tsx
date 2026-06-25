@@ -1,5 +1,6 @@
+import { memo } from 'react';
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
@@ -13,78 +14,107 @@ type Props = {
   receipts: Receipt[];
 };
 
-export function RecentReceiptsCard({ receipts }: Props) {
+const MAX_VISIBLE_ROWS = 4;
+const ROW_HEIGHT = 68;
+const LIST_MAX_HEIGHT = MAX_VISIBLE_ROWS * ROW_HEIGHT;
+
+function ReceiptRow({ receipt, onPress }: { receipt: Receipt; onPress: () => void }) {
+  return (
+    <Pressable style={styles.row} onPress={onPress}>
+      <StoreBrandAvatar store={receipt.storeName} variant="card" size={42} />
+      <View style={styles.rowBody}>
+        <Text style={styles.storeName} numberOfLines={1}>
+          {receipt.storeName}
+        </Text>
+        <Text style={styles.date} numberOfLines={1}>
+          {formatDisplayDate(receipt.date)}
+        </Text>
+      </View>
+      <Text style={styles.total} numberOfLines={1}>
+        {formatCurrency(getReceiptDisplayTotal(receipt))}
+      </Text>
+    </Pressable>
+  );
+}
+
+export const RecentReceiptsCard = memo(function RecentReceiptsCard({ receipts }: Props) {
   const router = useRouter();
+  const openReceipt = (id: string) => router.push(`/receipt/${id}`);
+  const openAll = () => router.push('/(tabs)/receipts');
+
+  const rows = receipts.map((receipt, index) => (
+    <View key={receipt.id}>
+      {index > 0 ? <View style={styles.divider} /> : null}
+      <ReceiptRow receipt={receipt} onPress={() => openReceipt(receipt.id)} />
+    </View>
+  ));
 
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Recent Receipts</Text>
-        <Pressable onPress={() => router.push('/(tabs)/receipts')}>
-          <Text style={styles.seeAll}>See All</Text>
+        <Pressable onPress={openAll}>
+          <Text style={styles.seeAll}>View All</Text>
         </Pressable>
       </View>
 
       {receipts.length === 0 ? (
         <Text style={styles.empty}>No receipts yet</Text>
+      ) : receipts.length <= MAX_VISIBLE_ROWS ? (
+        <View style={styles.list}>{rows}</View>
       ) : (
-        receipts.slice(0, 4).map((receipt, i, arr) => (
-          <Pressable
-            key={receipt.id}
-            style={[styles.row, i === arr.length - 1 && styles.rowLast]}
-            onPress={() => router.push(`/receipt/${receipt.id}`)}>
-            <StoreBrandAvatar store={receipt.storeName} variant="card" size={40} />
-            <View style={styles.rowBody}>
-              <Text style={styles.storeName} numberOfLines={1}>
-                {receipt.storeName}
-              </Text>
-              <Text style={styles.date}>{formatDisplayDate(receipt.date)}</Text>
-            </View>
-            <Text style={styles.total}>{formatCurrency(getReceiptDisplayTotal(receipt))}</Text>
-          </Pressable>
-        ))
+        <ScrollView
+          style={styles.scrollList}
+          contentContainerStyle={styles.list}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator>
+          {rows}
+        </ScrollView>
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {
-    flex: 1,
     backgroundColor: SmartCartColors.card,
-    borderRadius: SmartCartRadius.md,
+    borderRadius: SmartCartRadius.lg,
     padding: 14,
     borderWidth: 1,
     borderColor: SmartCartColors.border,
+    overflow: 'hidden',
+    flexShrink: 0,
     ...SmartCartShadow.card,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  title: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text },
-  seeAll: { fontSize: 12, fontWeight: '600', color: SmartCartColors.primaryMid },
+  title: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  seeAll: { fontSize: 13, fontWeight: '600', color: SmartCartColors.primaryMid },
   empty: { fontSize: 12, color: SmartCartColors.textSecondary, textAlign: 'center', paddingVertical: 20 },
+  list: { gap: 0 },
+  scrollList: { maxHeight: LIST_MAX_HEIGHT, flexGrow: 0, flexShrink: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 62,
-    paddingVertical: 11,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: SmartCartColors.border,
-    gap: 12,
+    paddingVertical: 10,
+    gap: 8,
   },
-  rowLast: { borderBottomWidth: 0 },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: SmartCartColors.border,
+  },
   rowBody: { flex: 1, minWidth: 0 },
-  storeName: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text, letterSpacing: -0.1 },
+  storeName: { fontSize: 13, fontWeight: '700', color: SmartCartColors.text, letterSpacing: -0.1 },
   date: { fontSize: 11, color: SmartCartColors.textSecondary, marginTop: 2 },
   total: {
-    minWidth: 68,
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '700',
+    flexShrink: 0,
+    maxWidth: 72,
+    fontSize: 13,
+    fontWeight: '800',
     color: SmartCartColors.text,
     letterSpacing: -0.3,
     textAlign: 'right',

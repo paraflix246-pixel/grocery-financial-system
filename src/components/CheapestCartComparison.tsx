@@ -1,295 +1,257 @@
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { memo, useMemo } from 'react';
 import {
-  LayoutChangeEvent,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
+  ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
 import { Text } from '@/components/Themed';
-import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
-import type { StoreCartTotal } from '@/src/services/priceComparisonService';
-import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
-import { formatCurrency } from '@/src/utils/priceParser';
-
-const cartSavingsHero = require('../../assets/images/cart-savings-hero.png');
+import { ComparisonUpgradeSlotCard } from '@/src/components/ComparisonUpgradeSlotCard';
+import {
+  HOME_COMPARISON_COMPARISON_FLEX,
+  HOME_COMPARISON_SLOT_GAP,
+  HOME_COMPARISON_SLOT_GAP_COMPACT,
+  HOME_COMPARISON_UPGRADE_FLEX,
+  HomeItemComparisonCard,
+} from '@/src/components/HomeItemComparisonCard';
+import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
+import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { useRotatingItemComparison } from '@/src/hooks/useRotatingItemComparison';
+import type { ListItem } from '@/src/models/types';
+import { STARTER_SAMPLE_HINT } from '@/src/data/starterCommonGoods';
+import { getSavingsSubtitleForStoreRows } from '@/src/services/priceComparisonLogic';
+import {
+  COMPARISON_FALLBACK_LIST_ID,
+  COMPARISON_STARTER_LIST_ID,
+  ensureHomeComparisonItems,
+  HOME_CART_COMPARISON_PREVIEW_COUNT,
+} from '@/src/services/comparisonFallbackLogic';
+import { getFeatureLabel } from '@/src/services/featureGateService';
+import { useListStore } from '@/src/store/useListStore';
+import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { SmartCartColors, SmartCartTypography } from '@/src/theme/smartCart';
 
 type Props = {
-  stores: StoreCartTotal[];
-  maxSavings: number;
-  hasHistory?: boolean;
-  hasCommunity?: boolean;
+  listItems: ListItem[];
+  isStarterSample?: boolean;
 };
 
-export function CheapestCartComparison({ stores, maxSavings, hasHistory, hasCommunity }: Props) {
-  const router = useRouter();
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [layoutWidth, setLayoutWidth] = useState(1);
-  const cardWidth = 124;
-  const cardGap = 10;
+const SECTION_HORIZONTAL_PADDING = 32;
+/** Below this width, side-by-side cards are too narrow — fall back to horizontal scroll. */
+const COMPACT_ROW_MIN_WIDTH = 300;
 
-  const onScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const x = e.nativeEvent.contentOffset.x;
-      const index = Math.round(x / (cardWidth + cardGap));
-      setActiveIndex(Math.min(Math.max(index, 0), stores.length - 1));
-    },
-    [stores.length]
+function getCarouselSlotWidth(screenWidth: number): number {
+  const peek = 28;
+  return Math.min(280, Math.max(220, screenWidth - SECTION_HORIZONTAL_PADDING - peek));
+}
+
+export const CheapestCartComparison = memo(function CheapestCartComparison({
+  listItems,
+  isStarterSample: isStarterSampleProp,
+}: Props) {
+  const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
+
+  const comparisonListId = listItems[0]?.listId ?? null;
+  const isSyntheticList =
+    comparisonListId === COMPARISON_FALLBACK_LIST_ID || comparisonListId === COMPARISON_STARTER_LIST_ID;
+  const isStarterSample =
+    isStarterSampleProp ?? comparisonListId === COMPARISON_STARTER_LIST_ID;
+  const storeItems = useListStore((s) =>
+    !isSyntheticList && comparisonListId ? s.itemsByList[comparisonListId] : undefined
+  );
+  const effectiveListItems = useMemo(() => {
+    if (!isSyntheticList && comparisonListId && storeItems !== undefined && storeItems.length > 0) {
+      return storeItems;
+    }
+    return listItems;
+  }, [comparisonListId, isSyntheticList, listItems, storeItems]);
+
+  const subscriptionTier = useSubscriptionStore((s) => s.tier);
+  const { unlocked: fullBasketUnlocked } = useFeatureGate('cheapest_basket');
+
+  const previewListItems = useMemo(() => {
+    if (fullBasketUnlocked) return effectiveListItems;
+    return ensureHomeComparisonItems(effectiveListItems, HOME_CART_COMPARISON_PREVIEW_COUNT).slice(
+      0,
+      HOME_CART_COMPARISON_PREVIEW_COUNT
+    );
+  }, [effectiveListItems, fullBasketUnlocked]);
+
+  const { comparisons, current, currentIndex, loading, rotationKey } =
+    useRotatingItemComparison(previewListItems);
+
+  const showStarterHint =
+    isStarterSample || (effectiveListItems.length === 0 && previewListItems.length > 0);
+
+  const subtitle = useMemo(() => {
+    if (showStarterHint) return STARTER_SAMPLE_HINT;
+    if (!current) return null;
+    return getSavingsSubtitleForStoreRows(current.storeRows);
+  }, [showStarterHint, current]);
+
+  if (loading) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="small" color={SmartCartColors.primary} />
+        </View>
+      </View>
+    );
+  }
+
+  const previewItemCount = fullBasketUnlocked
+    ? effectiveListItems.length
+    : HOME_CART_COMPARISON_PREVIEW_COUNT;
+
+  if (!current || comparisons.length === 0) {
+    return (
+      <View style={styles.section}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerTitleCol}>
+            <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
+            <Text style={styles.itemCountLabel}>
+              {previewItemCount} {previewItemCount === 1 ? 'item' : 'items'}
+            </Text>
+            {showStarterHint ? <Text style={styles.sourceHint}>{STARTER_SAMPLE_HINT}</Text> : null}
+          </View>
+        </View>
+        <View style={styles.loadingCard}>
+          <ActivityIndicator size="small" color={SmartCartColors.primary} />
+          <Text style={styles.loadingHint}>Loading store prices…</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const showUpgradeSlot = !fullBasketUnlocked;
+  const upgradeFeatureName =
+    subscriptionTier === 'free'
+      ? getFeatureLabel('community_pricing')
+      : getFeatureLabel('cheapest_basket');
+  const upgradeHook =
+    subscriptionTier === 'free'
+      ? 'Go Pro for more & cheaper cart comparisons across every store'
+      : undefined;
+  const upgradeTier = subscriptionTier === 'free' ? 'pro' : 'household';
+
+  const useSideBySide = showUpgradeSlot && screenWidth >= COMPACT_ROW_MIN_WIDTH;
+  const rowGap = useSideBySide ? HOME_COMPARISON_SLOT_GAP_COMPACT : HOME_COMPARISON_SLOT_GAP;
+  const carouselSlotWidth = getCarouselSlotWidth(screenWidth);
+  const snapInterval = carouselSlotWidth + HOME_COMPARISON_SLOT_GAP;
+
+  const comparisonCardProps = {
+    comparison: current,
+    rotationKey,
+    itemIndex: currentIndex,
+    itemCount: comparisons.length,
+    ...(fullBasketUnlocked ? { maxStoreRows: 3 } : {}),
+  };
+
+  const comparisonCard = fullBasketUnlocked ? (
+    <HomeItemComparisonCard {...comparisonCardProps} />
+  ) : useSideBySide ? (
+    <HomeItemComparisonCard {...comparisonCardProps} compact flexWeight={HOME_COMPARISON_COMPARISON_FLEX} />
+  ) : (
+    <HomeItemComparisonCard {...comparisonCardProps} compact width={carouselSlotWidth} />
   );
 
-  const onLayout = useCallback((e: LayoutChangeEvent) => {
-    setLayoutWidth(e.nativeEvent.layout.width);
-  }, []);
-
-  if (stores.length === 0) return null;
-
-  const segmentCount = stores.length;
-  const segmentWidth = layoutWidth / segmentCount;
+  const upgradeCard = showUpgradeSlot ? (
+    useSideBySide ? (
+      <ComparisonUpgradeSlotCard
+        featureName={upgradeFeatureName}
+        hook={upgradeHook}
+        requiredTier={upgradeTier}
+        compact
+        flexWeight={HOME_COMPARISON_UPGRADE_FLEX}
+      />
+    ) : (
+      <ComparisonUpgradeSlotCard
+        featureName={upgradeFeatureName}
+        hook={upgradeHook}
+        requiredTier={upgradeTier}
+        compact
+        width={carouselSlotWidth}
+      />
+    )
+  ) : null;
 
   return (
     <View style={styles.section}>
       <View style={styles.headerRow}>
-        <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
-        <Pressable onPress={() => router.push('/(tabs)/shopping-lists')}>
-          <Text style={styles.seeAll}>See All</Text>
+        <View style={styles.headerTitleCol}>
+          <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
+          <Text style={styles.itemCountLabel}>
+            {previewItemCount} {previewItemCount === 1 ? 'item' : 'items'}
+            {fullBasketUnlocked
+              ? ` · ${comparisons.length} comparisons`
+              : ` · preview · item ${currentIndex + 1} of ${comparisons.length}`}
+          </Text>
+          {subtitle ? <Text style={styles.sourceHint}>{subtitle}</Text> : null}
+        </View>
+        <Pressable onPress={() => router.push('/cart-comparison' as never)}>
+          <Text style={styles.seeAll}>View All</Text>
         </Pressable>
       </View>
 
-      <View style={styles.card}>
-        <View style={styles.savingsRow}>
-          <View style={styles.savingsTextCol}>
-            <Text style={styles.savingsLabel}>You can save up to</Text>
-            <Text style={styles.savingsAmount}>{formatCurrency(maxSavings)}</Text>
-            <View style={styles.savingsSubRow}>
-              <Text style={styles.savingsSub}>
-                {hasHistory && hasCommunity
-                  ? 'your history + community data'
-                  : hasCommunity
-                    ? 'community price data'
-                    : hasHistory
-                      ? 'from your receipt history'
-                      : 'for similar items'}
-              </Text>
-              <View style={styles.infoCircle}>
-                <Text style={styles.infoIcon}>i</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.savingsImageWrap}>
-            <Image
-              source={cartSavingsHero}
-              style={styles.savingsImage}
-              contentFit="contain"
-              accessibilityLabel="Grocery basket"
-              accessibilityIgnoresInvertColors
-            />
-          </View>
+      {useSideBySide ? (
+        <View style={[styles.compactRow, { gap: rowGap }]}>
+          {comparisonCard}
+          {upgradeCard}
         </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          onLayout={onLayout}
-          contentContainerStyle={styles.storeScroll}>
-          {stores.map((entry) => (
-            <View
-              key={entry.store}
-              style={[styles.storeCard, entry.isCheapest && styles.storeCardCheapest]}>
-              <View style={styles.storeCardTop}>
-                <StoreBrandAvatar store={entry.store} variant="card" size={56} />
-                <View style={styles.storeTextBlock}>
-                  <Text style={styles.storeName} numberOfLines={1}>
-                    {entry.store}
-                  </Text>
-                  {entry.isCheapest && (
-                    <View style={styles.cheapestPill}>
-                      <Text style={styles.cheapestPillText}>Cheapest</Text>
-                    </View>
-                  )}
-                  {entry.primarySource === 'community' && (
-                    <View style={styles.communityPill}>
-                      <Text style={styles.communityPillText}>Community</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-              <View style={styles.storePriceRow}>
-                {entry.isCheapest && (
-                  <View style={styles.cheapestDot} />
-                )}
-                <Text style={[styles.storePrice, entry.isCheapest && styles.storePriceCheapest]}>
-                  {formatCurrency(entry.total)}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-
-        <View style={styles.segmentTrack}>
-          {stores.map((entry, i) => (
-            <View
-              key={entry.store}
-              style={[
-                styles.segment,
-                { width: segmentWidth - 4 },
-                i === activeIndex && styles.segmentActive,
-              ]}
-            />
-          ))}
-        </View>
-      </View>
+      ) : fullBasketUnlocked ? (
+        comparisonCard
+      ) : (
+        <HorizontalScrollRow
+          contentContainerStyle={[styles.carouselRow, { gap: rowGap }]}
+          snapToInterval={snapInterval}
+          showsHorizontalScrollIndicator={false}>
+          {comparisonCard}
+          {upgradeCard}
+        </HorizontalScrollRow>
+      )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
-  section: { marginBottom: 24 },
+  section: { marginBottom: 20 },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 12,
+    gap: 12,
   },
+  headerTitleCol: { flex: 1, gap: 2 },
   sectionTitle: {
     fontSize: 17,
     color: SmartCartColors.text,
     ...SmartCartTypography.title,
   },
+  itemCountLabel: { fontSize: 12, color: SmartCartColors.textSecondary },
+  sourceHint: { fontSize: 11, color: SmartCartColors.textMuted, marginTop: 2 },
   seeAll: { fontSize: 14, fontWeight: '600', color: SmartCartColors.primaryMid },
-  card: {
+  loadingCard: {
     backgroundColor: SmartCartColors.card,
-    borderRadius: SmartCartRadius.lg,
-    padding: 16,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: SmartCartColors.border,
-    ...SmartCartShadow.card,
-  },
-  savingsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-    paddingVertical: 6,
-  },
-  savingsTextCol: { flex: 1, alignItems: 'flex-start' },
-  savingsLabel: { fontSize: 13, color: SmartCartColors.textSecondary, letterSpacing: 0.1 },
-  savingsAmount: {
-    fontSize: 30,
-    color: SmartCartColors.primaryMid,
-    marginVertical: 2,
-    ...SmartCartTypography.display,
-  },
-  savingsSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  savingsSub: { fontSize: 12, color: SmartCartColors.textSecondary },
-  infoCircle: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: SmartCartColors.textMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoIcon: { fontSize: 10, fontWeight: '700', color: SmartCartColors.textMuted },
-  savingsImageWrap: {
-    width: 136,
-    height: 120,
-    flexShrink: 0,
-    borderRadius: SmartCartRadius.md,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  savingsImage: {
-    width: '100%',
-    height: '100%',
-  },
-  storeScroll: { gap: 10, paddingTop: 1, paddingBottom: 4 },
-  storeCard: {
-    width: 124,
-    minHeight: 136,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 10,
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    ...SmartCartShadow.cardSoft,
-  },
-  storeCardCheapest: {
-    borderColor: SmartCartColors.primaryMid,
-    backgroundColor: '#F7FEFA',
-    shadowColor: SmartCartColors.primaryMid,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-  },
-  storeCardTop: {
     gap: 8,
   },
-  storeTextBlock: {
-    alignItems: 'flex-start',
-    gap: 5,
+  loadingHint: { fontSize: 12, color: SmartCartColors.textMuted },
+  compactRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
   },
-  storeName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: SmartCartColors.text,
-    letterSpacing: -0.2,
-  },
-  cheapestPill: {
-    backgroundColor: SmartCartColors.primaryMid,
-    borderRadius: SmartCartRadius.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    ...SmartCartShadow.pill,
-  },
-  cheapestPillText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.1 },
-  communityPill: {
-    backgroundColor: SmartCartColors.accentBlue,
-    borderRadius: SmartCartRadius.pill,
-    paddingHorizontal: 6,
+  carouselRow: {
     paddingVertical: 2,
-  },
-  communityPillText: { color: '#fff', fontSize: 9, fontWeight: '700' },
-  storePriceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 10,
-  },
-  cheapestDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: SmartCartColors.primaryMid,
-  },
-  storePrice: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: SmartCartColors.text,
-    letterSpacing: -0.7,
-  },
-  storePriceCheapest: { color: SmartCartColors.primaryMid },
-  segmentTrack: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 12,
-    paddingHorizontal: 2,
-  },
-  segment: {
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: SmartCartColors.border,
-  },
-  segmentActive: {
-    backgroundColor: SmartCartColors.primaryMid,
+    paddingRight: 4,
   },
 });

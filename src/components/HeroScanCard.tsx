@@ -1,6 +1,8 @@
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
@@ -9,6 +11,7 @@ const scanReceiptBanner = require('../../assets/images/scan-receipt-banner.png')
 
 export function HeroScanCard() {
   const router = useRouter();
+  const [bannerFailed, setBannerFailed] = useState(false);
   const goToScan = () => router.push('/(tabs)/scan');
 
   return (
@@ -17,14 +20,22 @@ export function HeroScanCard() {
       onPress={goToScan}
       accessibilityRole="button"
       accessibilityLabel="Scan Receipt. Upload or scan a receipt to extract items, track prices, and compare stores.">
-      <View style={styles.bannerImageWrap}>
+      <LinearGradient
+        colors={['#15803D', '#22C55E', '#86EFAC']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
+      {!bannerFailed ? (
         <Image
           source={scanReceiptBanner}
           style={styles.bannerImage}
-          contentFit="contain"
+          contentFit="cover"
           accessibilityIgnoresInvertColors
+          onError={() => setBannerFailed(true)}
         />
-      </View>
+      ) : null}
       <View style={[styles.copyBlock, { pointerEvents: 'none' }]}>
         <Text style={styles.title}>Scan Receipt ✨</Text>
         <Text style={styles.subtitle}>
@@ -46,12 +57,13 @@ export function HeroScanCard() {
 
 const styles = StyleSheet.create({
   wrapper: {
-    width: '91%',
-    alignSelf: 'center',
+    width: '100%',
+    alignSelf: 'stretch',
     marginTop: 8,
-    marginBottom: 16,
+    marginBottom: 20,
+    aspectRatio: 1024 / 617,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: SmartCartColors.primaryDark,
     overflow: 'hidden',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 8 },
@@ -59,20 +71,17 @@ const styles = StyleSheet.create({
     shadowRadius: 18,
     elevation: 3,
   },
-  bannerImageWrap: {
-    width: '100%',
-    pointerEvents: 'none',
-  },
   bannerImage: {
-    width: '100%',
-    aspectRatio: 1024 / 617,
-    borderRadius: 24,
+    ...StyleSheet.absoluteFill,
   },
   copyBlock: {
-    left: 17,
     position: 'absolute',
-    top: 54,
-    width: '44%',
+    left: 16,
+    right: '48%',
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingVertical: 12,
   },
   title: {
     color: '#FFFFFF',

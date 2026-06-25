@@ -156,3 +156,30 @@ export async function scheduleBudgetAlertNotification(
 export async function refreshScheduledNotifications(): Promise<void> {
   await schedulePriceAlertNotifications();
 }
+
+export async function notifyFamilyListUpdated(
+  updatedByName: string,
+  listName: string
+): Promise<void> {
+  const title = 'Family list updated';
+  const body = `${updatedByName} updated ${listName}`;
+
+  pushInApp(title, body);
+
+  if (Platform.OS === 'web') return;
+
+  const granted = await requestNotificationPermissions();
+  if (!granted) return;
+
+  const Notifications = await getNotificationsModule();
+  if (!Notifications) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: { title, body },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 1,
+      repeats: false,
+    },
+  });
+}

@@ -8,20 +8,31 @@ import {
 import type { ListItem } from '@/src/models/types';
 import { FUZZY_MATCH_THRESHOLD } from '@/src/services/matchingService';
 import { getAllStores } from '@/src/services/storeService';
+import {
+  buildAlignedStoreRows,
+  getItemPriceSpreadSavings,
+  type ItemStorePriceRow,
+} from '@/src/services/priceComparisonLogic';
 import { getCommunityPricesForItem } from '@/src/services/crowdsourcedPricingService';
-import { getReceiptItemsWithStore } from '@/src/services/storageService';
+import { fetchExternalPriceQuotes } from '@/src/services/externalPriceService';
+import type { PriceQuote } from '@/src/services/priceRecommendationLogic';
+import { getReceiptItemsWithStore, type ReceiptItemWithStore } from '@/src/services/storageService';
+import { getEffectiveComparisonRegion, getEffectivePostalPrefix } from '@/src/utils/regionPreference';
+import { resolveApiStoreName } from '@/src/utils/apiStoreAlias';
+import { createTimedCache } from '@/src/utils/timedCache';
 
 export type StorePrice = {
   store: string;
   price: number;
-  source: 'history' | 'estimate' | 'community';
+  source: 'history' | 'estimate' | 'community' | 'api';
   sampleCount?: number;
+  productLabel?: string;
 };
 
 export type CheapestOption = {
   store: string;
   price: number;
-  source: 'history' | 'estimate' | 'community';
+  source: 'history' | 'estimate' | 'community' | 'api';
 };
 
 export type ListSavingsBreakdownItem = {
@@ -41,17 +52,53 @@ export type ListSavingsOpportunity = {
   breakdown: ListSavingsBreakdownItem[];
 };
 
+export type StoreCartLineItem = {
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  source: StorePrice['source'];
+  productLabel?: string;
+};
+
 export type StoreCartTotal = {
   store: string;
   total: number;
   isCheapest: boolean;
+  /** Line items that make up this store's cart total */
+  items: StoreCartLineItem[];
   /** Primary data source used for this store's cart total */
-  primarySource?: 'history' | 'community' | 'estimate';
+  primarySource?: 'history' | 'community' | 'estimate' | 'api';
+  /** API-matched product labels used in this store's cart total */
+  apiProductLabels?: string[];
+};
+
+export function formatCartPriceSourceLabel(source: StorePrice['source']): string {
+  switch (source) {
+    case 'history':
+      return 'Receipt';
+    case 'api':
+      return 'Live';
+    case 'community':
+      return 'Community';
+    case 'estimate':
+      return 'Est.';
+  }
+}
+
+export type CartItemBreakdown = {
+  itemName: string;
+  quantity: number;
+  cheapestStore: string;
+  cheapestPrice: number;
+  source: StorePrice['source'];
+  productLabel?: string;
 };
 
 export type CartComparisonSources = {
   hasHistory: boolean;
   hasCommunity: boolean;
+  hasApi: boolean;
 };
 
 type StoreHistoryBucket = {
@@ -66,9 +113,31 @@ function averageRecentPrices(prices: number[], dates: string[], maxRecent = 5): 
   return recent.reduce((sum, price) => sum + price, 0) / recent.length;
 }
 
-async function getHistoryBuckets(itemName: string): Promise<Map<string, StoreHistoryBucket>> {
-  const allItems = await getReceiptItemsWithStore();
+async function getHistoryBuckets(
+  itemName: string,
+  regionCode?: string | null,
+  postalPrefix?: string | null
+): Promise<Map<string, StoreHistoryBucket>> {
+  let allItems = await getReceiptItemsWithStore();
   if (allItems.length === 0) return new Map();
+
+  const normalizedRegion = regionCode?.trim().toUpperCase();
+  if (normalizedRegion) {
+    const regional = filterItemsByRegion(allItems, normalizedRegion);
+    if (regional.length >= 2) {
+      allItems = regional;
+    }
+  }
+
+  const normalizedPrefix = postalPrefix?.trim().toUpperCase();
+  if (normalizedPrefix && normalizedPrefix.length >= 3) {
+    const local = allItems.filter((item) =>
+      (item.storePostalCode ?? '').replace(/\s+/g, '').toUpperCase().startsWith(normalizedPrefix)
+    );
+    if (local.length >= 2) {
+      allItems = local;
+    }
+  }
 
   const fuse = new Fuse(
     allItems.map((item) => ({ ...item, searchName: item.name.toLowerCase() })),
@@ -94,11 +163,18 @@ async function getHistoryBuckets(itemName: string): Promise<Map<string, StoreHis
   return buckets;
 }
 
+function filterItemsByRegion(
+  items: ReceiptItemWithStore[],
+  regionCode: string
+): ReceiptItemWithStore[] {
+  return items.filter((item) => (item.storeRegion ?? '').toUpperCase() === regionCode);
+}
+
 async function mergeEstimatePrices(
   historyStores: Set<string>,
   itemName: string
 ): Promise<Array<{ store: string; price: number }>> {
-  const allStores = await getAllStores();
+  const allStores = await getAllStores({ includeHidden: true });
   const storeNames = allStores.map((store) => store.name);
   const specific = findEstimatePrices(itemName);
   const estimates =
@@ -117,11 +193,24 @@ async function mergeEstimatePrices(
   return extras;
 }
 
-export async function getStorePricesForItem(itemName: string): Promise<StorePrice[]> {
+function externalQuoteSource(quote: { source: PriceQuote['source'] }): StorePrice['source'] {
+  return quote.source === 'community' ? 'community' : 'api';
+}
+
+export async function getStorePricesForItem(
+  itemName: string,
+  regionCode?: string | null
+): Promise<StorePrice[]> {
   const trimmed = itemName.trim();
   if (!trimmed) return [];
 
-  const historyBuckets = await getHistoryBuckets(trimmed);
+  const effectiveRegion = regionCode ?? (await getEffectiveComparisonRegion());
+  const cacheKey = `${trimmed.toLowerCase()}|${effectiveRegion ?? ''}`;
+  const cached = storePricesCache.get(cacheKey);
+  if (cached) return cached;
+
+  const effectivePostal = await getEffectivePostalPrefix();
+  const historyBuckets = await getHistoryBuckets(trimmed, effectiveRegion, effectivePostal);
   const results: StorePrice[] = [];
 
   for (const [store, bucket] of historyBuckets) {
@@ -134,7 +223,7 @@ export async function getStorePricesForItem(itemName: string): Promise<StorePric
   }
 
   const historyStores = new Set(results.map((entry) => entry.store));
-  for (const community of await getCommunityPricesForItem(trimmed)) {
+  for (const community of await getCommunityPricesForItem(trimmed, effectiveRegion)) {
     if (historyStores.has(community.store)) continue;
     results.push({
       store: community.store,
@@ -153,7 +242,32 @@ export async function getStorePricesForItem(itemName: string): Promise<StorePric
     });
   }
 
-  return results.sort((a, b) => a.price - b.price);
+  const apiQuotes = await fetchExternalPriceQuotes(trimmed, effectiveRegion);
+  const catalogStores = (await getAllStores({ includeHidden: true })).map((store) => store.name);
+  for (const quote of apiQuotes) {
+    const resolvedStore = resolveApiStoreName(quote.storeName, catalogStores);
+    const existing = results.find(
+      (entry) => entry.store.toLowerCase() === resolvedStore.toLowerCase()
+    );
+    if (existing) {
+      if (quote.price < existing.price) {
+        existing.price = quote.price;
+        existing.source = externalQuoteSource(quote);
+        existing.productLabel = quote.productLabel;
+      }
+      continue;
+    }
+    results.push({
+      store: resolvedStore,
+      price: quote.price,
+      source: externalQuoteSource(quote),
+      productLabel: quote.productLabel,
+    });
+  }
+
+  const sorted = results.sort((a, b) => a.price - b.price);
+  storePricesCache.set(cacheKey, sorted);
+  return sorted;
 }
 
 export async function getCheapestStore(itemName: string): Promise<CheapestOption | null> {
@@ -189,7 +303,7 @@ export async function getListSavingsOpportunity(
     if (storePrices.length === 0) continue;
 
     const cheapest = storePrices[0];
-    if (cheapest.source === 'history') hasEstimateOnly = false;
+    if (cheapest.source !== 'estimate') hasEstimateOnly = false;
 
     const plannedUnit = resolvePlannedUnitPrice(item, storePrices);
     const savings = (plannedUnit - cheapest.price) * item.quantity;
@@ -228,10 +342,15 @@ export async function getActiveListCheapestInsight(
   if (listItems.length === 0) return null;
 
   const opportunity = await getListSavingsOpportunity(listItems);
+  const postalPrefix = await getEffectivePostalPrefix();
+  const areaHint = postalPrefix ? ` near ${postalPrefix}` : '';
+
   if (opportunity.totalSavings <= 0) {
     return {
       headline: 'You are already on the cheapest options',
-      subtext: 'Keep scanning receipts to refine store prices.',
+      subtext: postalPrefix
+        ? `Prices compared in your ${postalPrefix} area from receipt history.`
+        : 'Keep scanning receipts to refine store prices.',
     };
   }
 
@@ -245,23 +364,36 @@ export async function getActiveListCheapestInsight(
   return {
     headline: `Save ~${savingsText} on your list`,
     subtext: opportunity.hasEstimateOnly
-      ? `Cheapest options for ${itemText} — scan more receipts for better accuracy.`
-      : `Shop at ${storeLabel} for the best deals on ${itemText}.`,
+      ? `Cheapest options for ${itemText}${areaHint} — scan more receipts for better accuracy.`
+      : `Shop at ${storeLabel} for the best deals on ${itemText}${areaHint}.`,
   };
 }
 
-export async function getStoreCartTotals(listItems: ListItem[]): Promise<StoreCartTotal[]> {
+export async function getStoreCartTotals(
+  listItems: ListItem[],
+  options?: { forceRefresh?: boolean }
+): Promise<StoreCartTotal[]> {
   if (listItems.length === 0) return [];
 
-  const allStores = await getAllStores();
+  const cacheKey = buildListItemsSignature(listItems);
+  if (!options?.forceRefresh) {
+    const cached = cartTotalsCache.get(cacheKey);
+    if (cached) return cached;
+  }
+
+  const allStores = await getAllStores({ includeHidden: true });
 
   const storeNames = allStores.map((s) => s.name);
 
   const storeTotals = new Map<string, number>();
+  const storeItems = new Map<string, StoreCartLineItem[]>();
   const storeSources = new Map<string, Set<StorePrice['source']>>();
+  const storeApiLabels = new Map<string, string[]>();
   for (const store of storeNames) {
     storeTotals.set(store, 0);
+    storeItems.set(store, []);
     storeSources.set(store, new Set());
+    storeApiLabels.set(store, []);
   }
 
   for (const item of listItems) {
@@ -269,8 +401,22 @@ export async function getStoreCartTotals(listItems: ListItem[]): Promise<StoreCa
     for (const store of storeNames) {
       const entry = prices.find((p) => p.store.toLowerCase() === store.toLowerCase());
       if (entry) {
-        storeTotals.set(store, (storeTotals.get(store) ?? 0) + entry.price * item.quantity);
+        const lineTotal = entry.price * item.quantity;
+        storeTotals.set(store, (storeTotals.get(store) ?? 0) + lineTotal);
+        storeItems.get(store)?.push({
+          itemName: item.name,
+          quantity: item.quantity,
+          unitPrice: entry.price,
+          lineTotal,
+          source: entry.source,
+          productLabel: entry.productLabel,
+        });
         storeSources.get(store)?.add(entry.source);
+        if (entry.source === 'api' && entry.productLabel) {
+          const labels = storeApiLabels.get(store) ?? [];
+          labels.push(entry.productLabel);
+          storeApiLabels.set(store, labels);
+        }
       }
     }
   }
@@ -282,32 +428,64 @@ export async function getStoreCartTotals(listItems: ListItem[]): Promise<StoreCa
   if (ranked.length === 0) return [];
 
   const cheapestTotal = ranked[0][1];
-  return ranked.map(([store, total]) => {
+  const result = ranked.map(([store, total]) => {
     const sources = storeSources.get(store) ?? new Set();
     const primarySource: StoreCartTotal['primarySource'] = sources.has('history')
       ? 'history'
-      : sources.has('community')
-        ? 'community'
-        : 'estimate';
+      : sources.has('api')
+        ? 'api'
+        : sources.has('community')
+          ? 'community'
+          : 'estimate';
     return {
       store,
       total,
       isCheapest: total === cheapestTotal,
+      items: storeItems.get(store) ?? [],
       primarySource,
+      apiProductLabels:
+        (storeApiLabels.get(store)?.length ?? 0) > 0
+          ? [...new Set(storeApiLabels.get(store))]
+          : undefined,
     };
   });
+  cartTotalsCache.set(cacheKey, result);
+  return result;
+}
+
+export async function getCartItemBreakdown(listItems: ListItem[]): Promise<CartItemBreakdown[]> {
+  const breakdown: CartItemBreakdown[] = [];
+
+  for (const item of listItems) {
+    const prices = await getStorePricesForItem(item.name);
+    if (prices.length === 0) continue;
+
+    const cheapest = prices[0];
+    breakdown.push({
+      itemName: item.name,
+      quantity: item.quantity,
+      cheapestStore: cheapest.store,
+      cheapestPrice: cheapest.price,
+      source: cheapest.source,
+      productLabel: cheapest.source === 'api' ? cheapest.productLabel : undefined,
+    });
+  }
+
+  return breakdown;
 }
 
 export async function getCartComparisonSources(listItems: ListItem[]): Promise<CartComparisonSources> {
   let hasHistory = false;
   let hasCommunity = false;
+  let hasApi = false;
   for (const item of listItems) {
     const prices = await getStorePricesForItem(item.name);
     if (prices.some((p) => p.source === 'history')) hasHistory = true;
     if (prices.some((p) => p.source === 'community')) hasCommunity = true;
-    if (hasHistory && hasCommunity) break;
+    if (prices.some((p) => p.source === 'api')) hasApi = true;
+    if (hasHistory && hasCommunity && hasApi) break;
   }
-  return { hasHistory, hasCommunity };
+  return { hasHistory, hasCommunity, hasApi };
 }
 
 export function getMaxCartSavings(storeTotals: StoreCartTotal[]): number {
@@ -315,4 +493,91 @@ export function getMaxCartSavings(storeTotals: StoreCartTotal[]): number {
   const cheapest = storeTotals[0].total;
   const priciest = storeTotals[storeTotals.length - 1].total;
   return Math.max(priciest - cheapest, 0);
+}
+
+/** Auto-rotate interval for single-item cart comparison (~90s). */
+export const CART_ITEM_ROTATION_MS = 90_000;
+
+const COMPARISON_CACHE_TTL_MS = 60_000;
+const rotatingComparisonCache = createTimedCache<RotatingItemComparison[]>(COMPARISON_CACHE_TTL_MS);
+const cartTotalsCache = createTimedCache<StoreCartTotal[]>(COMPARISON_CACHE_TTL_MS);
+const storePricesCache = createTimedCache<StorePrice[]>(COMPARISON_CACHE_TTL_MS);
+
+export function buildListItemsSignature(listItems: ListItem[]): string {
+  return listItems
+    .map((item) => `${item.id}:${item.name}:${item.quantity}:${item.storePreference ?? ''}`)
+    .join('|');
+}
+
+export function invalidatePriceComparisonCache(): void {
+  rotatingComparisonCache.clear();
+  cartTotalsCache.clear();
+  storePricesCache.clear();
+}
+
+export type { ItemStorePriceRow } from '@/src/services/priceComparisonLogic';
+export { buildAlignedStoreRows, getItemPriceSpreadSavings } from '@/src/services/priceComparisonLogic';
+
+export type RotatingItemComparison = {
+  itemId: string;
+  listId: string;
+  itemName: string;
+  quantity: number;
+  storePreference?: string;
+  storeRows: ItemStorePriceRow[];
+  itemSavings: number;
+  cheapestPrice: number;
+  priciestPrice: number;
+  hasHistory: boolean;
+  hasCommunity: boolean;
+  hasApi: boolean;
+};
+
+export async function getRotatingItemComparisons(
+  listItems: ListItem[],
+  options?: { forceRefresh?: boolean }
+): Promise<RotatingItemComparison[]> {
+  if (listItems.length === 0) return [];
+
+  const cacheKey = buildListItemsSignature(listItems);
+  if (!options?.forceRefresh) {
+    const cached = rotatingComparisonCache.get(cacheKey);
+    if (cached) return cached;
+  } else {
+    storePricesCache.clear();
+    cartTotalsCache.clear();
+  }
+
+  const allStores = await getAllStores({ includeHidden: true });
+  const storeNames = allStores.map((store) => store.name);
+
+  const comparisonResults = await Promise.all(
+    listItems.map(async (item) => {
+      const prices = await getStorePricesForItem(item.name);
+      const storeRows = buildAlignedStoreRows(storeNames, prices);
+      if (storeRows.length === 0) return null;
+
+      return {
+        itemId: item.id,
+        listId: item.listId,
+        itemName: item.name,
+        quantity: item.quantity,
+        storePreference: item.storePreference,
+        storeRows,
+        itemSavings: getItemPriceSpreadSavings(storeRows, item.quantity),
+        cheapestPrice: storeRows[0].price,
+        priciestPrice: storeRows[storeRows.length - 1].price,
+        hasHistory: prices.some((entry) => entry.source === 'history'),
+        hasCommunity: prices.some((entry) => entry.source === 'community'),
+        hasApi: prices.some((entry) => entry.source === 'api'),
+      } satisfies RotatingItemComparison;
+    })
+  );
+
+  const comparisons = (comparisonResults as Array<RotatingItemComparison | null>).filter(
+    (entry): entry is RotatingItemComparison => entry != null
+  );
+
+  rotatingComparisonCache.set(cacheKey, comparisons);
+  return comparisons;
 }

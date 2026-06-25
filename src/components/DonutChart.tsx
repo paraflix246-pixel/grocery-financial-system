@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react';
 import { PieChart } from 'react-native-gifted-charts';
 import { StyleSheet, View } from 'react-native';
 
@@ -14,13 +15,16 @@ type Props = {
   innerRadius?: number;
 };
 
-export function DonutChart({ data, radius = 64, innerRadius = 42 }: Props) {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
+export const DonutChart = memo(function DonutChart({ data, radius = 64, innerRadius = 42 }: Props) {
+  const total = useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data]);
   const size = radius * 2;
-  const pieData =
-    total > 0
-      ? data.map((d) => ({ value: d.value, color: d.color }))
-      : [{ value: 1, color: SmartCartColors.border }];
+  const pieData = useMemo(
+    () =>
+      total > 0
+        ? data.map((d) => ({ value: d.value, color: d.color }))
+        : [{ value: 1, color: SmartCartColors.border }],
+    [data, total]
+  );
 
   return (
     <View style={[styles.row, { pointerEvents: 'box-none' }]}>
@@ -44,7 +48,7 @@ export function DonutChart({ data, radius = 64, innerRadius = 42 }: Props) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 14 },

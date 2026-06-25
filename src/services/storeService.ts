@@ -6,9 +6,13 @@ import {
   type StoreDefinition,
 } from '@/src/data/stores';
 import {
+  deleteCustomStore as deleteCustomStoreRecord,
   getCustomStores,
+  getStorePreferences,
   saveCustomStore,
+  upsertStorePreference,
 } from '@/src/services/storageService';
+import { applyStorePreferences, sortStoresForDisplay } from '@/src/utils/storeListUtils';
 
 const FUZZY_THRESHOLD = 0.35;
 
@@ -20,6 +24,11 @@ const STORE_ALIASES: Record<string, string[]> = {
   kroger: ['kroger marketplace', 'kroger food stores'],
   costco: ['costco wholesale', 'costco warehouse'],
   aldi: ['aldi food market', 'aldi market'],
+};
+
+export type GetAllStoresOptions = {
+  /** Include stores the user removed from their managed list. Default false. */
+  includeHidden?: boolean;
 };
 
 function getCatalogFuse(): Fuse<StoreDefinition> {
@@ -98,8 +107,13 @@ export function matchStoreByName(name: string, stores?: StoreDefinition[]): Stor
   return null;
 }
 
-export async function getAllStores(): Promise<StoreDefinition[]> {
+export async function getAllStores(options: GetAllStoresOptions = {}): Promise<StoreDefinition[]> {
+  const { includeHidden = false } = options;
   const custom = await getCustomStores();
+  const preferences = await getStorePreferences();
+  const hiddenIds = new Set(
+    preferences.filter((pref) => pref.isHidden).map((pref) => pref.storeId)
+  );
   const seen = new Set<string>();
   const merged: StoreDefinition[] = [];
 
@@ -107,14 +121,15 @@ export async function getAllStores(): Promise<StoreDefinition[]> {
     const key = normalizeStoreName(store.name);
     if (seen.has(key)) continue;
     seen.add(key);
+    if (!includeHidden && hiddenIds.has(store.id)) continue;
     merged.push(store);
   }
 
-  return merged.sort((a, b) => a.name.localeCompare(b.name));
+  return sortStoresForDisplay(applyStorePreferences(merged, preferences));
 }
 
 export async function getStoreById(id: string): Promise<StoreDefinition | null> {
-  const stores = await getAllStores();
+  const stores = await getAllStores({ includeHidden: true });
   return stores.find((store) => store.id === id) ?? null;
 }
 
@@ -122,7 +137,7 @@ export async function registerStoreFromReceipt(storeName: string): Promise<Store
   const trimmed = storeName.trim();
   if (!trimmed) return null;
 
-  const allStores = await getAllStores();
+  const allStores = await getAllStores({ includeHidden: true });
   const existing = matchStoreByName(trimmed, allStores);
   if (existing) return existing;
 
@@ -132,8 +147,56 @@ export async function registerStoreFromReceipt(storeName: string): Promise<Store
 }
 
 export async function resolveStore(name: string): Promise<StoreDefinition> {
-  const allStores = await getAllStores();
+  const allStores = await getAllStores({ includeHidden: true });
   return matchStoreByName(name, allStores) ?? buildCustomStore(name);
+}
+
+export async function addStore(name: string, region?: string): Promise<StoreDefinition> {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    throw new Error('Store name is required');
+  }
+
+  const normalizedRegion = region?.trim().toUpperCase() || undefined;
+  const allStores = await getAllStores({ includeHidden: true });
+  const existing = matchStoreByName(trimmed, allStores);
+  if (existing) {
+    await upsertStorePreference({
+      storeId: existing.id,
+      isHidden: false,
+      region: normalizedRegion ?? null,
+    });
+    return {
+      ...existing,
+      isFavorite: existing.isFavorite,
+      region: normalizedRegion ?? existing.region,
+    };
+  }
+
+  const { canTrackStore, StoreLimitError } = await import('@/src/services/tierLimits');
+  const trackStatus = await canTrackStore(trimmed);
+  if (!trackStatus.allowed) {
+    throw new StoreLimitError(trackStatus.primaryStore);
+  }
+
+  const custom = buildCustomStore(trimmed);
+  await saveCustomStore(custom);
+  if (normalizedRegion) {
+    await upsertStorePreference({ storeId: custom.id, region: normalizedRegion });
+  }
+  return { ...custom, region: normalizedRegion };
+}
+
+export async function removeStoreFromList(store: StoreDefinition): Promise<void> {
+  if (store.isCustom) {
+    await deleteCustomStoreRecord(store.id);
+    return;
+  }
+  await upsertStorePreference({ storeId: store.id, isHidden: true });
+}
+
+export async function setStoreFavorite(storeId: string, isFavorite: boolean): Promise<void> {
+  await upsertStorePreference({ storeId, isFavorite });
 }
 
 export function getCatalogStoreNames(): string[] {

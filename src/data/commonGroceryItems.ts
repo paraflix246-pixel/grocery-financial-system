@@ -40,6 +40,10 @@ export function getCatalogCanonicalNames(): string[] {
   return COMMON_GROCERY_ITEMS.map((item) => item.canonicalName);
 }
 
-export function getItemEmoji(canonicalName?: string, itemName?: string): string {
-  return getGroceryItemEmoji(canonicalName, itemName);
+export function getItemEmoji(
+  canonicalName?: string,
+  itemName?: string,
+  options?: import('@/src/utils/itemEmojiResolver').ResolveItemEmojiOptions
+): string {
+  return getGroceryItemEmoji(canonicalName, itemName, options);
 }

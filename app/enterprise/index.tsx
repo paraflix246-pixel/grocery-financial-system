@@ -10,11 +10,11 @@ export default function EnterpriseScreen() {
   const router = useRouter();
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Enterprise" />
+      <ScreenHeader title="Penny Pantry for Teams" />
 
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>SmartCart for Teams</Text>
+          <Text style={styles.heroTitle}>Penny Pantry for Teams</Text>
           <Text style={styles.heroSub}>
             Grocery spend management for households, property managers, and corporate cafeterias.
           </Text>
@@ -35,13 +35,13 @@ export default function EnterpriseScreen() {
 
         <Pressable
           style={styles.contactBtn}
-          onPress={() => Linking.openURL('mailto:enterprise@smartcart.app?subject=Enterprise%20inquiry')}>
+          onPress={() => Linking.openURL('mailto:enterprise@pennypantry.app?subject=Enterprise%20inquiry')}>
           <Text style={styles.contactBtnText}>Contact sales</Text>
         </Pressable>
 
         <Pressable
           style={styles.secondaryBtn}
-          onPress={() => WebBrowser.openBrowserAsync('https://smartcart.app/enterprise')}>
+          onPress={() => WebBrowser.openBrowserAsync('https://pennypantry.app/enterprise')}>
           <Text style={styles.secondaryBtnText}>View enterprise overview</Text>
         </Pressable>
       </ScrollView>

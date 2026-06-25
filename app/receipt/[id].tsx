@@ -1,28 +1,29 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
+import { UndoSnackbar } from '@/src/components/UndoSnackbar';
+import { useUndoDelete } from '@/src/hooks/useUndoDelete';
 import { ComparisonSummary } from '@/src/components/ComparisonSummary';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
+import { StoreLocationSection } from '@/src/components/StoreLocationSection';
+import { LocationBackfillBanner } from '@/src/components/LocationBackfillBanner';
+import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { shareSingleReceiptExport } from '@/src/services/receiptExportService';
+import { formatUnitPriceLabel } from '@/src/utils/unitPriceParser';
 import { getComparisonForReceipt } from '@/src/services/analyticsService';
-import { deleteReceipt, getReceiptById } from '@/src/services/storageService';
+import { deleteReceipt, getReceiptById, saveReceipt } from '@/src/services/storageService';
 import { useScanStore } from '@/src/store/useScanStore';
+import { generateId } from '@/src/utils/id';
 import { mapToSpendingCategory, CATEGORY_COLORS, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import type { Comparison, ComparisonItem, ComparisonResult, Receipt, ReceiptItem } from '@/src/models/types';
 import { formatCurrency } from '@/src/utils/priceParser';
 import { computeReceiptTotals } from '@/src/utils/receiptTotals';
 import { formatDisplayDate } from '@/src/utils/dateParser';
-
-function categoryEmoji(name: string): string {
-  const lower = name.toLowerCase();
-  if (/banana|apple|fruit|berry|produce|lettuce|tomato/.test(lower)) return '🍌';
-  if (/milk|dairy|cheese|egg/.test(lower)) return '🥛';
-  if (/bread|bakery/.test(lower)) return '🍞';
-  if (/chicken|meat|beef/.test(lower)) return '🍗';
-  if (/soda|juice|drink|beverage/.test(lower)) return '🥤';
-  return '🛒';
-}
+import { confirmDestructiveAction } from '@/src/utils/confirmDelete';
+import { getItemEmoji } from '@/src/data/commonGroceryItems';
 
 function ReceiptLineItem({ item }: { item: ReceiptItem }) {
   const category = mapToSpendingCategory(item.name);
@@ -32,7 +33,7 @@ function ReceiptLineItem({ item }: { item: ReceiptItem }) {
   return (
     <View style={styles.lineItem}>
       <View style={[styles.catIcon, { backgroundColor: `${color}20` }]}>
-        <Text style={styles.catEmoji}>{categoryEmoji(item.name)}</Text>
+        <Text style={styles.catEmoji}>{getItemEmoji(undefined, item.name)}</Text>
       </View>
       <View style={styles.lineInfo}>
         <Text style={styles.lineName}>{item.name}</Text>
@@ -40,6 +41,9 @@ function ReceiptLineItem({ item }: { item: ReceiptItem }) {
           {item.quantity > 1 ? `${item.quantity} × ` : ''}
           {formatCurrency(item.price)}
           {item.quantity > 1 ? '/ea' : ''}
+          {formatUnitPriceLabel(item.unitPrice, item.unit)
+            ? ` · ${formatUnitPriceLabel(item.unitPrice, item.unit)}`
+            : ''}
         </Text>
       </View>
       <Text style={styles.lineTotal}>{formatCurrency(lineTotal)}</Text>
@@ -50,10 +54,13 @@ function ReceiptLineItem({ item }: { item: ReceiptItem }) {
 export default function ReceiptDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { unlocked: exportUnlocked, requestAccess: requestExportAccess } = useFeatureGate('export_advanced');
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const { pending: undoPending, scheduleUndo, undo } = useUndoDelete();
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -93,11 +100,67 @@ export default function ReceiptDetailScreen() {
 
   if (!receipt) {
     return (
-      <View style={styles.center}>
-        <Text>Receipt not found</Text>
+      <View style={styles.container}>
+        <View style={styles.center}>
+          <Text>{undoPending ? 'Receipt deleted' : 'Receipt not found'}</Text>
+        </View>
+        <UndoSnackbar pending={undoPending} onUndo={() => void undo()} bottomInset={insets.bottom + 24} />
       </View>
     );
   }
+
+  async function restoreReceipt(snapshot: Receipt) {
+    const restored = await saveReceipt({
+      id: generateId(),
+      storeName: snapshot.storeName,
+      date: snapshot.date,
+      subtotal: snapshot.subtotal,
+      tax: snapshot.tax,
+      total: snapshot.total,
+      imageUri: snapshot.imageUri,
+      linkedListId: snapshot.linkedListId,
+      userCorrected: snapshot.userCorrected,
+      storeAddress: snapshot.storeAddress,
+      storeCity: snapshot.storeCity,
+      storeRegion: snapshot.storeRegion,
+      storePostalCode: snapshot.storePostalCode,
+      storeCountry: snapshot.storeCountry,
+      items: (snapshot.items ?? []).map((item) => ({
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        unit: item.unit,
+      })),
+    });
+    setReceipt(restored);
+    await load();
+  }
+
+  const handleDelete = () => {
+    const snapshot = { ...receipt, items: [...(receipt.items ?? [])] };
+    confirmDestructiveAction({
+      title: 'Delete receipt?',
+      message:
+        'This removes the receipt and any linked plan-vs-actual comparison. Are you sure?',
+      onConfirm: async () => {
+        if (!id) return;
+        scheduleUndo(
+          snapshot.storeName,
+          async () => router.replace('/(tabs)/receipts'),
+          async () => restoreReceipt(snapshot)
+        );
+        setDeleting(true);
+        try {
+          await deleteReceipt(id);
+          setReceipt(null);
+          setComparison(null);
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
+  };
 
   const items = receipt.items ?? [];
   const { subtotal, tax, total } = computeReceiptTotals({
@@ -106,35 +169,6 @@ export default function ReceiptDetailScreen() {
     tax: receipt.tax,
     total: receipt.total,
   });
-
-  const handleDelete = () => {
-    const confirmDelete = async () => {
-      if (!id) return;
-      setDeleting(true);
-      try {
-        await deleteReceipt(id);
-        router.replace('/(tabs)/receipts');
-      } finally {
-        setDeleting(false);
-      }
-    };
-
-    if (Platform.OS === 'web') {
-      if (window.confirm('Delete this receipt? Linked plan-vs-actual comparisons will also be removed.')) {
-        void confirmDelete();
-      }
-      return;
-    }
-
-    Alert.alert(
-      'Delete receipt?',
-      'This removes the receipt and any linked plan-vs-actual comparison.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => void confirmDelete() },
-      ]
-    );
-  };
 
   return (
     <View style={styles.container}>
@@ -162,6 +196,35 @@ export default function ReceiptDetailScreen() {
           {receipt.imageUri ? (
             <Image source={{ uri: receipt.imageUri }} style={styles.thumb} resizeMode="cover" />
           ) : null}
+        </View>
+
+        <StoreLocationSection location={receipt} editable={false} />
+
+        <LocationBackfillBanner
+          location={receipt}
+          onPress={() => {
+            useScanStore.getState().loadReceiptForEdit(receipt);
+            router.push({ pathname: '/receipt/edit', params: { id: receipt.id } });
+          }}
+        />
+
+        <View style={styles.exportRow}>
+          <Pressable
+            style={styles.exportBtn}
+            onPress={() => {
+              if (!exportUnlocked && !requestExportAccess()) return;
+              void shareSingleReceiptExport(receipt, 'json');
+            }}>
+            <Text style={styles.exportBtnText}>Export JSON</Text>
+          </Pressable>
+          <Pressable
+            style={styles.exportBtn}
+            onPress={() => {
+              if (!exportUnlocked && !requestExportAccess()) return;
+              void shareSingleReceiptExport(receipt, 'csv');
+            }}>
+            <Text style={styles.exportBtnText}>Export CSV</Text>
+          </Pressable>
         </View>
 
         <Text style={styles.bigTotal}>{formatCurrency(total)}</Text>
@@ -204,6 +267,8 @@ export default function ReceiptDetailScreen() {
           <Text style={styles.deleteBtnText}>{deleting ? 'Deleting...' : 'Delete Receipt'}</Text>
         </Pressable>
       </ScrollView>
+
+      <UndoSnackbar pending={undoPending} onUndo={() => void undo()} bottomInset={insets.bottom + 24} />
     </View>
   );
 }
@@ -226,6 +291,17 @@ const styles = StyleSheet.create({
   storeLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   storeName: { fontSize: 22, fontWeight: '800', color: SmartCartColors.text },
   date: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 2 },
+  exportRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  exportBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    backgroundColor: SmartCartColors.card,
+  },
+  exportBtnText: { fontSize: 13, fontWeight: '700', color: SmartCartColors.primary },
   thumb: { width: 64, height: 80, borderRadius: SmartCartRadius.sm, backgroundColor: SmartCartColors.border },
   bigTotal: { fontSize: 36, fontWeight: '800', color: SmartCartColors.text, marginBottom: 20, letterSpacing: -0.5 },
   comparisonWrap: { marginBottom: 16 },

@@ -5,6 +5,7 @@ import { Text } from '@/components/Themed';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { getFeatureLabel } from '@/src/services/featureGateService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
 const ENDPOINTS = [
@@ -24,10 +25,10 @@ export default function ApiAccessScreen() {
       <ScreenHeader title="API Access" />
 
       <ScrollView contentContainerStyle={styles.content}>
-        {!unlocked && <ProUpgradeBanner featureName="Developer API" />}
+        {!unlocked && <ProUpgradeBanner featureName={getFeatureLabel('api_access')} />}
 
         <Text style={styles.lead}>
-          Build integrations with SmartCart data. API keys and cloud sync are on the roadmap — this screen documents the planned surface.
+          Build integrations with Penny Pantry data. API keys and cloud sync are on the roadmap — this screen documents the planned surface.
         </Text>
 
         <View style={styles.keyCard}>
@@ -57,7 +58,7 @@ export default function ApiAccessScreen() {
 
         <View style={styles.baseUrl}>
           <Text style={styles.baseLabel}>Base URL (planned)</Text>
-          <Text style={styles.baseValue}>https://api.smartcart.app</Text>
+          <Text style={styles.baseValue}>https://api.pennypantry.app</Text>
         </View>
       </ScrollView>
     </View>

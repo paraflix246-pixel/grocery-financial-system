@@ -9,13 +9,16 @@ import {
   GROCERY_CATALOG_LABEL,
   searchGroceryCatalog,
 } from '@/src/data/groceryCatalog';
-import { resolveCanonicalName, suggestTargetPrice } from '@/src/services/itemNormalizationService';
+import { resolveCanonicalName, resolveCanonicalNameExact, suggestTargetPrice } from '@/src/services/itemNormalizationService';
+import type { CustomCatalogEntry } from '@/src/services/customCatalogLogic';
+import { CUSTOM_ITEM_EMOJI } from '@/src/utils/itemEmojiResolver';
+import { inferPantryCategory } from '@/src/utils/pantryCategory';
 import { getReceiptItemsWithStore } from '@/src/services/storageService';
 
 export type ItemPickerOption = {
   canonicalName: string;
   displayName: string;
-  source: 'history' | 'catalog' | 'both';
+  source: 'history' | 'catalog' | 'both' | 'custom';
   lastPrice?: number;
   storeName?: string;
   receiptDate?: string;
@@ -28,6 +31,9 @@ export type ItemPickerSelection = {
   itemName: string;
   canonicalName?: string;
   emoji?: string;
+  category?: string;
+  /** True when the user typed a name not in the built-in catalog. */
+  isUserDefined?: boolean;
   lastSeen?: {
     price: number;
     storeName: string;
@@ -37,6 +43,16 @@ export type ItemPickerSelection = {
 };
 
 export { GROCERY_CATALOG_LABEL };
+
+function toOptionFromCustom(entry: CustomCatalogEntry): ItemPickerOption {
+  return {
+    canonicalName: entry.canonicalName,
+    displayName: entry.displayName,
+    source: 'custom',
+    category: entry.category,
+    emoji: entry.emoji,
+  };
+}
 
 function toOptionFromCatalog(item: CommonGroceryItem, source: ItemPickerOption['source']): ItemPickerOption {
   return {
@@ -63,11 +79,19 @@ function matchesQuery(option: ItemPickerOption, query: string): boolean {
 }
 
 export async function loadItemPickerOptions(): Promise<ItemPickerOption[]> {
-  const receiptItems = await getReceiptItemsWithStore();
+  const { getSearchableCustomEntries } = await import('@/src/services/customCatalogService');
+  const [receiptItems, customEntries] = await Promise.all([
+    getReceiptItemsWithStore(),
+    getSearchableCustomEntries(),
+  ]);
   const byCanonical = new Map<string, ItemPickerOption>();
 
   for (const catalogItem of COMMON_GROCERY_ITEMS) {
     byCanonical.set(catalogItem.canonicalName.toLowerCase(), toOptionFromCatalog(catalogItem, 'catalog'));
+  }
+
+  for (const custom of customEntries) {
+    byCanonical.set(custom.itemKey, toOptionFromCustom(custom));
   }
 
   for (const item of receiptItems) {
@@ -135,6 +159,32 @@ export function searchItemPickerOptions(options: ItemPickerOption[], query: stri
   return Array.from(results.values()).slice(0, 12);
 }
 
+export function buildCustomItemOption(name: string, category?: string): ItemPickerOption {
+  const displayName = name.trim();
+  const exactCatalogMatch = resolveCanonicalNameExact(displayName);
+  const canonicalName = exactCatalogMatch ?? displayName;
+  const resolvedCategory = category?.trim() || inferPantryCategory(displayName, canonicalName);
+  return {
+    canonicalName,
+    displayName,
+    source: 'custom',
+    category: resolvedCategory,
+    emoji: CUSTOM_ITEM_EMOJI,
+  };
+}
+
+export function buildCustomItemSelection(name: string, category?: string): ItemPickerSelection {
+  const option = buildCustomItemOption(name, category);
+  const isUserDefined = !resolveCanonicalNameExact(name.trim());
+  return {
+    itemName: option.displayName,
+    canonicalName: option.canonicalName,
+    emoji: option.emoji,
+    category: option.category,
+    isUserDefined,
+  };
+}
+
 export function getChipSuggestions(options: ItemPickerOption[]): ItemPickerOption[] {
   const popular = POPULAR_ALERT_ITEMS.map((name) =>
     options.find((option) => option.canonicalName.toLowerCase() === name.toLowerCase())
@@ -173,10 +223,15 @@ export function optionToSelection(option: ItemPickerOption): ItemPickerSelection
         }
       : undefined;
 
+  const isUserDefined =
+    option.source === 'custom' ? !resolveCanonicalNameExact(option.displayName) : undefined;
+
   return {
     itemName: option.displayName,
     canonicalName: option.canonicalName,
     emoji: option.emoji,
+    category: option.category,
+    isUserDefined,
     lastSeen,
     suggestedTargetPrice: basePrice != null ? suggestTargetPrice(basePrice) : undefined,
   };
