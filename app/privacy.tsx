@@ -24,14 +24,18 @@ export default function PrivacyScreen() {
         provide it, your display name. If you sign in with Google, we receive basic profile
         information from Google (such as your name and email) as permitted by your Google account
         settings. Authentication is handled by Supabase.{'\n\n'}
-        Receipt and grocery data: When you scan a receipt, we process the image to extract store
-        names, line items, prices, and dates. Receipt images and parsed data are stored locally on
-        your device (SQLite on native apps; browser storage on web). If you are signed in and use
-        features that require a server (such as family list sharing), selected grocery data may also
-        be stored in our Supabase database.{'\n\n'}
-        Usage and app data: We collect information about how you use the app, including receipt scan
-        counts, pantry items, price alerts, shopping lists, store preferences, and in-app settings.
-        This helps us enforce plan limits, deliver features, and improve reliability.{'\n\n'}
+        Receipt and grocery data: When you scan a receipt, the image is transmitted to our servers
+        and/or receipt-scanning providers for optical character recognition (OCR) and automated
+        parsing. Parsed store names, line items, prices, and dates are stored locally on your device
+        (SQLite on native apps; browser storage on web). Receipt images may also be saved locally as
+        part of your receipt history until you delete the receipt or uninstall the app. Receipt
+        images and parsed data are not used for advertising. If you are signed in and use features
+        that require a server (such as family list sharing), selected grocery data may also be stored
+        in our Supabase database.{'\n\n'}
+        Usage and app data: We record information needed to operate the app, including receipt scan
+        counts (for plan limits), pantry items, price alerts, shopping lists, store preferences, and
+        in-app settings. Spending charts and summaries are computed from your local receipt data on
+        your device. We do not use third-party crash-reporting or behavioral analytics SDKs.{'\n\n'}
         Subscription information: If you subscribe to Penny Pantry Pro, we record your subscription
         tier, plan (monthly or annual), trial status, and renewal dates. On the web, billing is
         processed by Stripe; on iOS and Android, subscriptions are managed through RevenueCat and
@@ -39,21 +43,31 @@ export default function PrivacyScreen() {
         store billing is not active.{'\n\n'}
         Device and local storage: We use AsyncStorage and SQLite (on native) to persist your
         receipts, lists, pantry, preferences, and trial state on your device.{'\n\n'}
-        Community pricing (optional): When configured, anonymized item names, prices, store names,
-        and purchase dates may be contributed to a shared community database to power price
-        comparison and inflation trends. This data is not linked to your email or name.
+        Community pricing: When our community-pricing backend is configured, anonymized item names,
+        prices, store names, and purchase dates from receipt scans may be contributed automatically
+        to a shared database to power price comparison and inflation trends. This data is not linked
+        to your email, display name, or account identity. A random device-scoped identifier may be
+        used to deduplicate contributions.
+      </LegalSection>
+
+      <LegalSection heading="Guest mode">
+        You may use Penny Pantry as a guest without creating an account (Continue as Guest on the
+        sign-up or sign-in screen). Guest mode is device-only: your receipts, lists, and settings
+        stay on that device, are not synced to the cloud, and cannot be recovered if you lose or
+        replace the device. Creating an account later does not automatically migrate guest data
+        unless you explicitly export or re-enter it.
       </LegalSection>
 
       <LegalSection heading="How we use your information">
         We use your information to:{'\n'}
-        • Provide receipt scanning, price tracking, shopping lists, pantry management, and budget
-        insights{'\n'}
+        • Provide receipt scanning, price tracking, shopping lists, pantry management, and spending
+        summaries derived from your receipt data{'\n'}
         • Authenticate your account and keep you signed in{'\n'}
         • Sync lists and data with family members when you use household features (Pro){'\n'}
         • Process and manage subscriptions and trials{'\n'}
         • Send notifications you opt into (such as price alerts and budget reminders){'\n'}
-        • Operate community pricing and store comparison features{'\n'}
-        • Diagnose errors, prevent abuse, and improve app performance{'\n\n'}
+        • Operate community pricing and store comparison features when enabled{'\n'}
+        • Enforce plan limits, prevent abuse, and maintain server-side receipt parsing{'\n\n'}
         We do not sell your personal information.
       </LegalSection>
 
@@ -67,28 +81,30 @@ export default function PrivacyScreen() {
       <LegalSection heading="How data is stored">
         Penny Pantry is designed local-first: your receipts, lists, and pantry data live on your
         device by default. Cloud storage through Supabase is used when you sign in and use features
-        that require a server (such as family sync, web subscriptions, or account recovery).
-        Receipt images sent for scanning are transmitted to our servers or receipt scanning
-        providers for processing; we do not retain receipt images on our servers after processing
-        is complete unless you explicitly save them locally.
+        that require a server (such as family sync, web subscriptions, or account recovery).{'\n\n'}
+        Receipt images: Images you scan are transmitted to our servers and/or OCR providers for
+        processing. We do not intentionally retain receipt images on our servers after processing
+        completes; server-side logs may briefly record request metadata. Parsed receipt data and,
+        when you save a receipt, the image itself are stored locally on your device as part of your
+        receipt history until you delete them.
       </LegalSection>
 
       <LegalSection heading="Data accuracy">
         Information displayed in the app — including scanned receipt data, price comparisons, and
-        savings estimates — may be incomplete or inaccurate. OCR and third-party price feeds can
-        contain errors. We process data as received and do not guarantee its accuracy. You are
-        responsible for reviewing information before relying on it.
+        savings estimates — may be incomplete or inaccurate. Automated OCR, receipt parsing, and
+        third-party price feeds can contain errors. We process data as received and do not guarantee
+        its accuracy. You are responsible for reviewing information before relying on it.
       </LegalSection>
 
       <LegalSection heading="Third-party services">
         We use trusted providers to operate the app. They process data only as needed to provide
         their services:{'\n\n'}
-        • Supabase — authentication, database, and cloud sync for signed-in features{'\n'}
-        • Google — optional sign-in via Google OAuth; on-device OCR via ML Kit on native builds
-        when used{'\n'}
+        • Supabase — authentication, database, cloud sync for signed-in features, and community
+        price records when configured{'\n'}
+        • Google — optional sign-in via Google OAuth{'\n'}
         • DeepRead — primary receipt OCR and text extraction{'\n'}
-        • OpenAI and/or DeepSeek — optional AI-assisted receipt parsing when configured on our
-        servers{'\n'}
+        • OpenAI and/or DeepSeek — optional server-side receipt parsing and text interpretation when
+        configured (may receive receipt text and, when enabled, image data){'\n'}
         • PaddleOCR and/or OCR.space — optional OCR fallback when configured{'\n'}
         • Stripe — web subscription payments and billing portal (when configured){'\n'}
         • RevenueCat — native in-app subscription management on iOS and Android{'\n'}
@@ -106,12 +122,25 @@ export default function PrivacyScreen() {
         governed by their own terms and policies.
       </LegalSection>
 
+      <LegalSection heading="Advertising">
+        Penny Pantry does not currently show third-party advertisements or use your data for
+        ad targeting. Pro includes an ad-free experience when advertisements are shown on the Free
+        plan. If we introduce advertising on the Free plan in the future, we will update this
+        Privacy Policy before or when ads launch and describe what data, if any, is used for ad
+        delivery or measurement.
+      </LegalSection>
+
       <LegalSection heading="Subscriptions and billing">
         Penny Pantry Pro is available at $3.99 per month or $39.99 per year. A 7-day free trial may
-        be offered: on the web and when store billing is not active, this trial is managed locally
-        in the app without payment and automatically returns to the Free plan when it ends. On iOS
-        and Android, store-managed free trials may apply when available through the App Store or
-        Google Play; those trials are billed by Apple or Google if not cancelled before they end.{'\n\n'}
+        be offered:{'\n\n'}
+        App-managed trial (web and when store billing is not active): You receive full Pro access
+        for 7 days with no payment required. When the trial ends, your account automatically
+        returns to the Free plan. We do not charge your payment method for an app-managed trial
+        unless you separately subscribe through a paid checkout flow.{'\n\n'}
+        Store-managed trial (iOS App Store or Google Play, when offered): Free trials and billing
+        are controlled by Apple or Google. If you start a store subscription with a promotional
+        trial, you will be charged when the store trial ends unless you cancel before then through
+        your device subscription settings.{'\n\n'}
         Paid subscriptions auto-renew unless cancelled before the end of the current billing period.
         On the web, cancel through the Stripe Customer Portal (Manage subscription in the app). On
         iOS, cancel in Settings → Apple ID → Subscriptions. On Android, cancel in Google Play →
@@ -152,9 +181,8 @@ export default function PrivacyScreen() {
       </LegalSection>
 
       <LegalSection heading="Your rights and choices">
-        You can use Penny Pantry as a guest without creating an account; guest data stays on that
-        device only. You may sign out at any time, disable notifications in Settings, and manage
-        subscription billing through the methods above.{'\n\n'}
+        You may sign out at any time, disable notifications in Settings, and manage subscription
+        billing through the methods above. See Guest mode for how guest data is handled.{'\n\n'}
         Depending on where you live, you may have the right to access, correct, delete, or export
         your personal data, and to object to or restrict certain processing. To exercise these
         rights, contact us at the email below. We will respond within a reasonable time as required
@@ -192,10 +220,10 @@ export default function PrivacyScreen() {
       </LegalSection>
 
       <LegalSection heading="Data retention">
-        Local data remains on your device until you delete it or uninstall the app. Account and
-        subscription records are kept while your account is active and for a reasonable period
-        afterward for legal, billing, and security purposes. Community pricing contributions may be
-        retained in anonymized form to support price trends.
+        Local data, including receipt images and parsed receipt data, remains on your device until you
+        delete it or uninstall the app. Account and subscription records are kept while your account
+        is active and for a reasonable period afterward for legal, billing, and security purposes.
+        Anonymized community pricing contributions may be retained to support price trends.
       </LegalSection>
 
       <LegalSection heading="Changes to this policy">

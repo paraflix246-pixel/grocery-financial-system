@@ -97,10 +97,11 @@ export default function TermsScreen() {
       </LegalSection>
 
       <LegalSection heading="Community pricing">
-        When you scan receipts, anonymized item prices, store names, and dates may be contributed to
-        a shared database to help users compare prices. You grant us a non-exclusive, worldwide
-        license to use this anonymized data to operate and improve community pricing features. You
-        retain ownership of your local receipt data on your device.
+        When our community-pricing backend is configured, anonymized item names, prices, store names,
+        and dates from receipt scans may be contributed automatically to a shared database to help
+        users compare prices. This data is not linked to your email or account identity. You grant
+        us a non-exclusive, worldwide license to use this anonymized data to operate and improve
+        community pricing features. You retain ownership of your local receipt data on your device.
       </LegalSection>
 
       <LegalSection heading="No financial, tax, or investment advice">
