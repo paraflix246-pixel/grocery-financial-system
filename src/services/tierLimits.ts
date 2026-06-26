@@ -1,4 +1,5 @@
 import {
+  FREE_MAX_STORES,
   FREE_PANTRY_MAX_ITEMS,
 } from '@/src/constants/proPricing';
 import {
@@ -57,8 +58,8 @@ export class StoreLimitError extends Error {
   constructor(
     readonly primaryStore: string | null,
     message = primaryStore
-      ? `Free plans track one store (${primaryStore}). Upgrade for multi-store comparison.`
-      : 'Free plans track one store. Upgrade for multi-store comparison.'
+      ? `Free plans track up to ${FREE_MAX_STORES} stores (${primaryStore} is your main store). Upgrade for multi-store comparison.`
+      : `Free plans track up to ${FREE_MAX_STORES} stores. Upgrade for multi-store comparison.`
   ) {
     super(message);
     this.name = 'StoreLimitError';
@@ -94,10 +95,8 @@ export function filterReceiptDatesByTier<T extends { receiptDate: string }>(rows
 
 let primaryStoreCache: string | null | undefined;
 
-/** Most-scanned store name for free-tier single-store mode. */
-export async function getPrimaryStoreName(): Promise<string | null> {
-  if (primaryStoreCache !== undefined) return primaryStoreCache;
-
+/** Distinct store names from receipts, ordered by scan count (highest first). */
+export async function getTrackedStoreNames(): Promise<string[]> {
   const receipts = await getReceipts();
   const counts = new Map<string, number>();
   for (const receipt of receipts) {
@@ -106,12 +105,22 @@ export async function getPrimaryStoreName(): Promise<string | null> {
     counts.set(store, (counts.get(store) ?? 0) + 1);
   }
 
-  if (counts.size === 0) {
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([store]) => store);
+}
+
+/** Most-scanned store name for free-tier store tracking. */
+export async function getPrimaryStoreName(): Promise<string | null> {
+  if (primaryStoreCache !== undefined) return primaryStoreCache;
+
+  const tracked = await getTrackedStoreNames();
+  if (tracked.length === 0) {
     primaryStoreCache = null;
     return null;
   }
 
-  primaryStoreCache = [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  primaryStoreCache = tracked[0];
   return primaryStoreCache;
 }
 
@@ -145,12 +154,16 @@ export async function canTrackStore(storeName: string): Promise<{ allowed: boole
     return { allowed: true, primaryStore: null };
   }
 
-  const primaryStore = await getPrimaryStoreName();
-  if (!primaryStore) {
-    return { allowed: true, primaryStore: null };
+  const trackedStores = await getTrackedStoreNames();
+  const primaryStore = trackedStores[0] ?? null;
+
+  for (const tracked of trackedStores) {
+    if (await storesMatchForTier(trimmed, tracked)) {
+      return { allowed: true, primaryStore };
+    }
   }
 
-  if (await storesMatchForTier(trimmed, primaryStore)) {
+  if (trackedStores.length < limits.maxStores) {
     return { allowed: true, primaryStore };
   }
 

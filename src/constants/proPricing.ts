@@ -23,7 +23,7 @@ export const COMMIT_NOTE = 'Cancel anytime — no contracts.';
 export const FREE_RECEIPT_SCAN_LIMIT = 10;
 export const FREE_PRICE_HISTORY_DAYS = 14;
 export const FREE_PANTRY_MAX_ITEMS = 15;
-export const FREE_MAX_STORES = 1;
+export const FREE_MAX_STORES = 2;
 
 export const PRO_MONTHLY_PRICE = '$3.99';
 export const PRO_YEARLY_PRICE = '$39.99';
@@ -53,6 +53,7 @@ export const PRO_PLAN_FEATURES = [
   'Cheapest cart across stores',
   'Export spending data',
   'Unlimited pantry tracking',
+  'Ad-free experience',
 ] as const;
 
 export const PRO_PLAN_FEATURE_GROUPS = [
@@ -71,6 +72,10 @@ export const PRO_PLAN_FEATURE_GROUPS = [
   {
     title: 'Export & pantry',
     items: [PRO_PLAN_FEATURES[7], PRO_PLAN_FEATURES[8]],
+  },
+  {
+    title: 'Experience',
+    items: [PRO_PLAN_FEATURES[9]],
   },
 ] as const;
 

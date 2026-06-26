@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  FREE_MAX_STORES,
   FREE_PANTRY_MAX_ITEMS,
   FREE_PRICE_HISTORY_DAYS,
   FREE_RECEIPT_SCAN_LIMIT,
@@ -22,7 +23,7 @@ describe('TIER_LIMITS', () => {
     assert.equal(TIER_LIMITS.free.receiptsPerMonth, FREE_RECEIPT_SCAN_LIMIT);
     assert.equal(TIER_LIMITS.free.pantryMaxItems, FREE_PANTRY_MAX_ITEMS);
     assert.equal(TIER_LIMITS.free.priceHistoryDays, FREE_PRICE_HISTORY_DAYS);
-    assert.equal(TIER_LIMITS.free.maxStores, 1);
+    assert.equal(TIER_LIMITS.free.maxStores, FREE_MAX_STORES);
   });
 
   it('removes caps on pro', () => {
@@ -97,14 +98,16 @@ describe('price history filters', () => {
 });
 
 describe('limitStoreRowsForTier', () => {
-  it('returns one store row on free tier', () => {
+  it('returns up to the free-tier store cap when comparison is locked', () => {
     const rows = [
       { store: 'A', price: 3, isCheapest: false },
       { store: 'B', price: 2, isCheapest: true },
+      { store: 'C', price: 4, isCheapest: false },
     ];
     const limited = limitStoreRowsForTier(rows, false);
-    assert.equal(limited.length, 1);
+    assert.equal(limited.length, FREE_MAX_STORES);
     assert.equal(limited[0]?.store, 'B');
+    assert.equal(limited[1]?.store, 'A');
   });
 
   it('returns all rows when multi-store is unlocked', () => {

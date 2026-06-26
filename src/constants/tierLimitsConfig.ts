@@ -112,14 +112,19 @@ export function tierAllowsFeature(feature: TierGatedFeature, limits: TierLimitCo
 
 type StoreRow = { store: string; isCheapest?: boolean };
 
-/** Limit multi-store rows to a single store on the free plan. */
+/** Limit multi-store rows to the free-plan store cap when comparison is locked. */
 export function limitStoreRowsForTier<T extends StoreRow>(
   rows: T[],
-  multiStoreUnlocked: boolean
+  multiStoreUnlocked: boolean,
+  maxStores: number = FREE_MAX_STORES
 ): T[] {
-  if (multiStoreUnlocked || rows.length <= 1) return rows;
-  const cheapest = rows.find((row) => row.isCheapest) ?? rows[0];
-  return cheapest ? [cheapest] : rows.slice(0, 1);
+  if (multiStoreUnlocked || rows.length <= maxStores) return rows;
+
+  const cheapest = rows.find((row) => row.isCheapest);
+  if (!cheapest) return rows.slice(0, maxStores);
+
+  const others = rows.filter((row) => row !== cheapest);
+  return [cheapest, ...others.slice(0, maxStores - 1)];
 }
 
 export function filterRowsByCutoffDate<T extends { date: string }>(rows: T[], cutoff: string | null): T[] {
