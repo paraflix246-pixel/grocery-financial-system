@@ -156,14 +156,70 @@ export async function resetPassword(newPassword: string): Promise<void> {
   if (error) throw new Error(mapSupabaseError(error.message));
 }
 
-export async function forgotPassword(email: string): Promise<void> {
+export type ForgotPasswordResult = {
+  status: 'sent' | 'oauth_only' | 'generic_success';
+  provider?: string;
+};
+
+export type SignInHintResult = {
+  hint: 'oauth_only' | 'email_password' | 'unknown';
+  provider?: string;
+};
+
+export async function forgotPassword(email: string): Promise<ForgotPasswordResult> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const apiUrl = resolveAuthApiUrl('/api/auth/forgot-password');
+
+  if (apiUrl) {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: normalizedEmail }),
+    });
+
+    if (response.ok) {
+      return (await response.json()) as ForgotPasswordResult;
+    }
+
+    if (response.status !== 503) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(payload?.error ?? 'Something went wrong. Please try again.');
+    }
+  }
+
   if (!supabase) {
     throw new Error('Auth service not available. Please try again later.');
   }
-  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
     redirectTo: getAuthRedirectUrl('/onboarding/reset-password'),
   });
   if (error) throw new Error(mapSupabaseError(error.message));
+
+  // Client-only fallback cannot distinguish OAuth-only or missing accounts.
+  return { status: 'generic_success' };
+}
+
+export async function checkSignInHint(email: string): Promise<SignInHintResult> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const apiUrl = resolveAuthApiUrl('/api/auth/check-signin-hint');
+
+  if (apiUrl) {
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: normalizedEmail }),
+      });
+      if (response.ok) {
+        return (await response.json()) as SignInHintResult;
+      }
+    } catch (error) {
+      console.warn('[auth] check-signin-hint request failed:', error);
+    }
+  }
+
+  return { hint: 'unknown' };
 }
 
 function resolveAuthApiUrl(path: string): string | null {

@@ -85,7 +85,12 @@
       "createAccount": "Crear cuenta",
       "errorEmail": "Introduce tu correo electrónico.",
       "errorPassword": "Introduce tu contraseña.",
-      "errorGeneric": "No se pudo iniciar sesión. Verifica tus credenciales."
+      "errorGeneric": "No se pudo iniciar sesión. Verifica tus credenciales.",
+      "errorInvalidOrNew": "Correo o contraseña incorrectos — o quizá no tienes cuenta con correo.",
+      "oauthOnlyHint": "Esta cuenta usa {{provider}}, no contraseña.",
+      "oauthOnlyAction": "Usa el botón de abajo para entrar con Google.",
+      "noAccountYet": "¿Sin cuenta?",
+      "apple": "Apple"
     },
     "signup": {
       "heading": "Crea tu cuenta",
@@ -116,7 +121,16 @@
       "emailPlaceholder": "tu@ejemplo.com",
       "submit": "Enviar enlace",
       "successTitle": "Revisa tu correo",
-      "successBody": "Enviamos un enlace a {{email}}. Puede tardar un minuto en llegar.",
+      "successTitleGeneric": "Revisa tu correo si tienes cuenta",
+      "successBodySent": "Enviamos un enlace a {{email}}.",
+      "successBodyGeneric": "Si existe una cuenta para {{email}}, recibirás un enlace en breve.",
+      "successHints": "Revisa spam o Promociones. Espera 2–5 minutos. El restablecimiento solo funciona si te registraste con correo — usa Continuar con Google si usaste Google.",
+      "noAccountYet": "¿Sin cuenta?",
+      "createAccount": "Regístrate con correo",
+      "oauthOnlyTitle": "Usa {{provider}} para iniciar sesión",
+      "oauthOnlyBody": "Esta cuenta usa {{provider}}, no contraseña. Pulsa \"{{provider}}\" en inicio de sesión, o define una contraseña en Ajustes tras entrar con {{provider}}.",
+      "providerGoogle": "Continuar con Google",
+      "providerApple": "Continuar con Apple",
       "backToSignIn": "Volver a iniciar sesión",
       "errorEmail": "Introduce un correo válido.",
       "errorGeneric": "Algo salió mal. Inténtalo de nuevo."

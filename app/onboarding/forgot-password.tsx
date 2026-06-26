@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
-import { forgotPassword } from '@/src/services/authService';
+import { forgotPassword, signInWithGoogle } from '@/src/services/authService';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
 function isValidEmail(value: string) {
@@ -32,7 +32,16 @@ export default function ForgotPasswordScreen() {
   const [emailFocused, setEmailFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sent, setSent] = useState(false);
+  const [resultStatus, setResultStatus] = useState<'sent' | 'oauth_only' | 'generic_success' | null>(
+    null
+  );
+  const [oauthProvider, setOauthProvider] = useState<string | null>(null);
+
+  function providerLabel(provider: string): string {
+    if (provider === 'google') return t('auth.forgotPassword.providerGoogle');
+    if (provider === 'apple') return t('auth.forgotPassword.providerApple');
+    return provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
 
   async function handleSend() {
     setError(null);
@@ -42,8 +51,9 @@ export default function ForgotPasswordScreen() {
     }
     setLoading(true);
     try {
-      await forgotPassword(email);
-      setSent(true);
+      const result = await forgotPassword(email);
+      setResultStatus(result.status);
+      setOauthProvider(result.provider ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.forgotPassword.errorGeneric'));
     } finally {
@@ -53,6 +63,21 @@ export default function ForgotPasswordScreen() {
 
   function handleBackToSignIn() {
     router.back();
+  }
+
+  async function handleGoogleSignIn() {
+    setError(null);
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('auth.forgotPassword.errorGeneric'));
+      setLoading(false);
+    }
+  }
+
+  function handleCreateAccount() {
+    router.push('/onboarding/signup');
   }
 
   return (
@@ -74,13 +99,66 @@ export default function ForgotPasswordScreen() {
         <Text style={styles.heading}>{t('auth.forgotPassword.heading')}</Text>
         <Text style={styles.subheading}>{t('auth.forgotPassword.subheading')}</Text>
 
-        {sent ? (
+        {resultStatus === 'oauth_only' && oauthProvider ? (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoIcon}>🔐</Text>
+            <Text style={styles.infoTitle}>
+              {t('auth.forgotPassword.oauthOnlyTitle', {
+                provider: providerLabel(oauthProvider),
+              })}
+            </Text>
+            <Text style={styles.infoText}>
+              {t('auth.forgotPassword.oauthOnlyBody', {
+                provider: providerLabel(oauthProvider),
+              })}
+            </Text>
+            {oauthProvider === 'google' ? (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.googleBtn,
+                  loading && styles.ctaBtnDisabled,
+                  pressed && styles.googleBtnPressed,
+                ]}
+                onPress={handleGoogleSignIn}
+                disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel={t('auth.signin.google')}
+              >
+                {loading ? (
+                  <ActivityIndicator color={OnboardingColors.text} />
+                ) : (
+                  <>
+                    <Text style={styles.googleBtnG}>G</Text>
+                    <Text style={styles.googleBtnText}>{t('auth.signin.google')}</Text>
+                  </>
+                )}
+              </Pressable>
+            ) : null}
+          </View>
+        ) : resultStatus ? (
           <View style={styles.successBox}>
             <Text style={styles.successIcon}>✉️</Text>
-            <Text style={styles.successTitle}>{t('auth.forgotPassword.successTitle')}</Text>
-            <Text style={styles.successText}>
-              {t('auth.forgotPassword.successBody', { email: email.trim() })}
+            <Text style={styles.successTitle}>
+              {resultStatus === 'sent'
+                ? t('auth.forgotPassword.successTitle')
+                : t('auth.forgotPassword.successTitleGeneric')}
             </Text>
+            <Text style={styles.successText}>
+              {resultStatus === 'sent'
+                ? t('auth.forgotPassword.successBodySent', { email: email.trim() })
+                : t('auth.forgotPassword.successBodyGeneric', { email: email.trim() })}
+            </Text>
+            <Text style={styles.successHints}>{t('auth.forgotPassword.successHints')}</Text>
+            <Pressable
+              onPress={handleCreateAccount}
+              style={styles.inlineLink}
+              accessibilityRole="button"
+            >
+              <Text style={styles.inlineLinkText}>
+                {t('auth.forgotPassword.noAccountYet')}{' '}
+                <Text style={styles.inlineLinkHighlight}>{t('auth.forgotPassword.createAccount')}</Text>
+              </Text>
+            </Pressable>
           </View>
         ) : (
           <>
@@ -206,6 +284,39 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
   },
+  successHints: {
+    color: OnboardingColors.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 14,
+  },
+  infoBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 16,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.25)',
+    marginBottom: 24,
+  },
+  infoIcon: {
+    fontSize: 40,
+    marginBottom: 16,
+  },
+  infoTitle: {
+    color: OnboardingColors.text,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  infoText: {
+    color: OnboardingColors.textMuted,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   successEmail: {
     color: OnboardingColors.green,
     fontWeight: '600',
@@ -261,6 +372,45 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   backLinkHighlight: {
+    color: OnboardingColors.green,
+    fontWeight: '600',
+  },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: OnboardingColors.card,
+    borderRadius: 999,
+    paddingVertical: 15,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: OnboardingColors.border,
+    marginTop: 16,
+    alignSelf: 'stretch',
+  },
+  googleBtnPressed: {
+    backgroundColor: '#F9FAFB',
+  },
+  googleBtnG: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#4285F4',
+  },
+  googleBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: OnboardingColors.text,
+  },
+  inlineLink: {
+    marginTop: 16,
+    paddingVertical: 4,
+  },
+  inlineLinkText: {
+    color: OnboardingColors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  inlineLinkHighlight: {
     color: OnboardingColors.green,
     fontWeight: '600',
   },

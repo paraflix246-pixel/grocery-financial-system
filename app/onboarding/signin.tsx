@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
-import { signInWithEmail, continueAsGuest, signInWithGoogle } from '@/src/services/authService';
+import { signInWithEmail, continueAsGuest, signInWithGoogle, checkSignInHint } from '@/src/services/authService';
 import {
   getRememberMePreference,
   recordActivityTimestamp,
@@ -39,6 +39,14 @@ export default function SigninScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [oauthHintProvider, setOauthHintProvider] = useState<string | null>(null);
+  const [showSignUpHint, setShowSignUpHint] = useState(false);
+
+  function providerLabel(provider: string): string {
+    if (provider === 'google') return t('auth.signin.google');
+    if (provider === 'apple') return t('auth.signin.apple', { defaultValue: 'Apple' });
+    return provider.charAt(0).toUpperCase() + provider.slice(1);
+  }
 
   useEffect(() => {
     void getRememberMePreference().then(setRememberMe);
@@ -53,6 +61,8 @@ export default function SigninScreen() {
 
   async function handleSignIn() {
     setError(null);
+    setOauthHintProvider(null);
+    setShowSignUpHint(false);
     if (!email.trim()) {
       setError(t('auth.signin.errorEmail'));
       return;
@@ -73,10 +83,34 @@ export default function SigninScreen() {
         router.push('/onboarding/upgrade');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.signin.errorGeneric'));
+      const message = e instanceof Error ? e.message : t('auth.signin.errorGeneric');
+      const isCredentialError =
+        message.toLowerCase().includes('incorrect email or password') ||
+        message.toLowerCase().includes('invalid login credentials');
+
+      if (isCredentialError && isValidEmail(email)) {
+        const hint = await checkSignInHint(email);
+        if (hint.hint === 'oauth_only' && hint.provider) {
+          setOauthHintProvider(hint.provider);
+          setError(
+            t('auth.signin.oauthOnlyHint', { provider: providerLabel(hint.provider) })
+          );
+        } else if (hint.hint === 'unknown') {
+          setShowSignUpHint(true);
+          setError(t('auth.signin.errorInvalidOrNew'));
+        } else {
+          setError(message);
+        }
+      } else {
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   }
 
   async function handleGuest() {
@@ -96,6 +130,8 @@ export default function SigninScreen() {
 
   async function handleGoogleSignIn() {
     setError(null);
+    setOauthHintProvider(null);
+    setShowSignUpHint(false);
     setLoading(true);
     try {
       await signInWithGoogle();
@@ -139,6 +175,39 @@ export default function SigninScreen() {
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
+        ) : null}
+
+        {oauthHintProvider ? (
+          <View style={styles.hintBox}>
+            <Text style={styles.hintText}>{t('auth.signin.oauthOnlyAction')}</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.googleBtnSuggested,
+                loading && styles.ctaBtnDisabled,
+                pressed && styles.googleBtnPressed,
+              ]}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+              accessibilityRole="button"
+              accessibilityLabel={t('auth.signin.google')}
+            >
+              <Text style={styles.googleBtnG}>G</Text>
+              <Text style={styles.googleBtnText}>{t('auth.signin.google')}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {showSignUpHint ? (
+          <Pressable
+            onPress={handleCreateAccount}
+            style={styles.signUpHintLink}
+            accessibilityRole="button"
+          >
+            <Text style={styles.signUpHintText}>
+              {t('auth.signin.noAccountYet')}{' '}
+              <Text style={styles.createHighlight}>{t('auth.signin.createAccount')}</Text>
+            </Text>
+          </Pressable>
         ) : null}
 
         {/* Email input */}
@@ -459,5 +528,42 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: OnboardingColors.text,
+  },
+  googleBtnSuggested: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    paddingVertical: 15,
+    gap: 10,
+    borderWidth: 2,
+    borderColor: '#4285F4',
+    marginTop: 4,
+  },
+  hintBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(59,130,246,0.25)',
+    gap: 12,
+  },
+  hintText: {
+    color: OnboardingColors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  signUpHintLink: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingVertical: 4,
+  },
+  signUpHintText: {
+    color: OnboardingColors.textMuted,
+    fontSize: 14,
+    textAlign: 'center',
   },
 });

@@ -85,7 +85,12 @@
       "createAccount": "Create account",
       "errorEmail": "Please enter your email address.",
       "errorPassword": "Please enter your password.",
-      "errorGeneric": "Could not sign in. Please check your credentials."
+      "errorGeneric": "Could not sign in. Please check your credentials.",
+      "errorInvalidOrNew": "Incorrect email or password — or you may not have an email account yet.",
+      "oauthOnlyHint": "This account uses {{provider}} sign-in, not a password.",
+      "oauthOnlyAction": "Use the button below to sign in with Google.",
+      "noAccountYet": "No account yet?",
+      "apple": "Apple"
     },
     "signup": {
       "heading": "Create your account",
@@ -116,7 +121,16 @@
       "emailPlaceholder": "you@example.com",
       "submit": "Send reset link",
       "successTitle": "Check your email",
-      "successBody": "We sent a reset link to {{email}}. It may take a minute to arrive.",
+      "successTitleGeneric": "Check your email if you have an account",
+      "successBodySent": "We sent a reset link to {{email}}.",
+      "successBodyGeneric": "If an account exists for {{email}}, you'll receive a reset link shortly.",
+      "successHints": "Check spam or Promotions. Wait 2–5 minutes. Password reset only works if you signed up with email — use Continue with Google if you used Google instead.",
+      "noAccountYet": "No account yet?",
+      "createAccount": "Sign up with email",
+      "oauthOnlyTitle": "Use {{provider}} to sign in",
+      "oauthOnlyBody": "This account uses {{provider}} sign-in, not a password. Tap \"{{provider}}\" on the sign-in screen, or set a password from Settings after signing in with {{provider}}.",
+      "providerGoogle": "Continue with Google",
+      "providerApple": "Continue with Apple",
       "backToSignIn": "Back to sign in",
       "errorEmail": "Please enter a valid email address.",
       "errorGeneric": "Something went wrong. Please try again."
