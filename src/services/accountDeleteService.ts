@@ -9,6 +9,7 @@ import {
 import { getSession, getStoredUser, signOut } from '@/src/services/authService';
 import { wipeAllLocalData } from '@/src/services/storageService';
 import { clearTrial } from '@/src/services/trialService';
+import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 
@@ -45,6 +46,8 @@ export async function clearAllLocalData(): Promise<void> {
   await clearTrial();
   await useSubscriptionStore.getState().downgradeToFree();
   useSettingsStore.setState({ settings: null, loading: false });
+  useBudgetStore.setState({ settings: null, onboardingComplete: false, loading: false });
+  await AsyncStorage.clear();
 }
 
 async function deleteRemoteAccount(): Promise<void> {
@@ -73,21 +76,15 @@ async function deleteRemoteAccount(): Promise<void> {
   }
 }
 
-/** Permanently deletes a signed-in cloud account and clears local app data. */
+/** Permanently deletes the account (cloud user when signed in) and all local app data. */
 export async function deleteAccount(): Promise<void> {
   const stored = await getStoredUser();
-  if (stored?.isGuest) {
-    await clearAllLocalData();
-    return;
+  const isGuest = stored?.isGuest ?? false;
+
+  if (!isGuest) {
+    await deleteRemoteAccount();
   }
 
-  await deleteRemoteAccount();
-  await clearAllLocalData();
-  await signOut();
-}
-
-/** Guest-only: wipe local receipts, lists, and preferences without a server call. */
-export async function clearGuestLocalData(): Promise<void> {
   await clearAllLocalData();
   await signOut();
 }

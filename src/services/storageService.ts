@@ -36,6 +36,7 @@ import { migrateLegacyListNames } from '@/src/utils/shoppingListCreate';
 
 const NATIVE_ASYNC_STORAGE_KEY = '@grocery_financial_native_fallback_v1';
 const WEB_ASYNC_STORAGE_KEY = '@grocery_financial_web_v1';
+const LEGACY_ASYNC_STORAGE_KEY = '@grocery_financial_async_data_v1';
 const SQLITE_OPEN_TIMEOUT_MS = 5_000;
 
 export type StorageMode = 'sqlite' | 'async' | 'pending';
@@ -1897,7 +1898,11 @@ export async function initStorage(): Promise<void> {
 
 /** Wipes SQLite / async-backed grocery data and resets the storage init state. */
 export async function wipeAllLocalData(): Promise<void> {
-  await AsyncStorage.multiRemove([NATIVE_ASYNC_STORAGE_KEY, WEB_ASYNC_STORAGE_KEY]);
+  await AsyncStorage.multiRemove([
+    NATIVE_ASYNC_STORAGE_KEY,
+    WEB_ASYNC_STORAGE_KEY,
+    LEGACY_ASYNC_STORAGE_KEY,
+  ]);
 
   const state = getDbInitState();
   if (state.instance) {

@@ -11,31 +11,26 @@ import {
 import { Text } from '@/components/Themed';
 import { AppBottomSheetModal } from '@/src/components/AppBottomSheetModal';
 import {
-  clearAllLocalData,
-  clearGuestLocalData,
   deleteAccount,
   isDeleteConfirmationValid,
   isGuestOrUnsigned,
 } from '@/src/services/accountDeleteService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
-export type AccountActionMode = 'delete-account' | 'clear-local-data';
-
 type Props = {
   visible: boolean;
-  mode: AccountActionMode;
   onClose: () => void;
 };
 
-export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
+export function DeleteAccountSheet({ visible, onClose }: Props) {
   const router = useRouter();
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [isGuest, setIsGuest] = useState<boolean | null>(null);
   const [confirmText, setConfirmText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadAccountState = useCallback(async () => {
-    setSignedIn(!(await isGuestOrUnsigned()));
+    setIsGuest(await isGuestOrUnsigned());
   }, []);
 
   useEffect(() => {
@@ -46,9 +41,6 @@ export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
     }
   }, [visible, loadAccountState]);
 
-  const isGuest = signedIn === false;
-  const isClearLocal = mode === 'clear-local-data';
-  const title = 'Delete account?';
   const canConfirm = isDeleteConfirmationValid(confirmText) && !busy;
 
   const handleConfirm = async () => {
@@ -56,15 +48,7 @@ export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
     setBusy(true);
     setError(null);
     try {
-      if (isClearLocal) {
-        if (isGuest) {
-          await clearGuestLocalData();
-        } else {
-          await clearAllLocalData();
-        }
-      } else {
-        await deleteAccount();
-      }
+      await deleteAccount();
       onClose();
       router.replace('/onboarding' as never);
     } catch (err) {
@@ -103,20 +87,18 @@ export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
 
   return (
     <AppBottomSheetModal visible={visible} onClose={onClose} footer={footer}>
-      <Text style={styles.title}>{title}</Text>
-      {signedIn === null ? (
+      <Text style={styles.title}>Delete account?</Text>
+      {isGuest === null ? (
         <ActivityIndicator color={SmartCartColors.primary} style={styles.loader} />
       ) : (
         <>
           <Text style={styles.body}>
-            {isClearLocal
-              ? isGuest
-                ? 'This permanently deletes receipts, lists, pantry items, and preferences stored on this device. Guest data is not synced to the cloud and cannot be recovered.'
-                : 'This permanently removes receipts, lists, pantry items, and preferences stored on this device. Your cloud account and subscription are not deleted.'
-              : 'This permanently deletes your cloud account and associated subscription records. Receipts, lists, and other data on this device will be cleared. Some local data may remain until you uninstall the app.'}
+            {isGuest
+              ? 'This permanently and irreversibly deletes all receipts, lists, pantry items, preferences, and trial data stored on this device. Guest data is not synced to the cloud and cannot be recovered.'
+              : 'This permanently and irreversibly deletes your cloud account, subscription records, and all data on this device — including receipts, lists, pantry items, and preferences. This cannot be undone.'}
           </Text>
           <Text style={styles.body}>
-            This action cannot be undone. Type DELETE below to confirm.
+            Type DELETE below to confirm.
           </Text>
           <TextInput
             style={styles.input}

@@ -31,7 +31,7 @@ import {
   setKrogerPricingZipCode,
 } from '@/src/utils/regionPreference';
 import { getKrogerStatus } from '@/src/services/kroger/krogerClient';
-import { DeleteAccountSheet, type AccountActionMode } from '@/src/components/settings/DeleteAccountSheet';
+import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [devResetting, setDevResetting] = useState(false);
   const [devTierSwitching, setDevTierSwitching] = useState(false);
-  const [accountSheetMode, setAccountSheetMode] = useState<AccountActionMode | null>(null);
+  const [accountSheetVisible, setAccountSheetVisible] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const tier = useSubscriptionStore((s) => s.tier);
   const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
@@ -439,7 +439,7 @@ export default function SettingsScreen() {
           </Text>
           <Pressable
             style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
-            onPress={() => setAccountSheetMode(isGuest ? 'clear-local-data' : 'delete-account')}
+            onPress={() => setAccountSheetVisible(true)}
             accessibilityRole="button"
             accessibilityLabel="Delete account"
           >
@@ -449,9 +449,8 @@ export default function SettingsScreen() {
       </ScrollView>
 
       <DeleteAccountSheet
-        visible={accountSheetMode !== null}
-        mode={accountSheetMode ?? 'clear-local-data'}
-        onClose={() => setAccountSheetMode(null)}
+        visible={accountSheetVisible}
+        onClose={() => setAccountSheetVisible(false)}
       />
     </View>
   );
