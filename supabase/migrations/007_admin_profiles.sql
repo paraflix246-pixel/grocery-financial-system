@@ -74,7 +74,7 @@ CREATE TRIGGER on_auth_user_created_profile
   EXECUTE FUNCTION public.handle_new_auth_user_profile();
 
 -- Promote a user to admin by email (run manually in Supabase SQL editor):
---   SELECT public.promote_admin_by_email('owner@email.com');
+--   SELECT public.promote_admin_by_email('pennypantry02@gmail.com');
 CREATE OR REPLACE FUNCTION public.promote_admin_by_email(admin_email text)
 RETURNS void
 LANGUAGE plpgsql
