@@ -20,7 +20,7 @@ export const CONTINUE_FREE_LABEL = 'Continue with Free';
 
 export const COMMIT_NOTE = 'Cancel anytime — no contracts.';
 
-export const FREE_RECEIPT_SCAN_LIMIT = 10;
+export const FREE_RECEIPT_SCAN_LIMIT = 5;
 export const FREE_PRICE_HISTORY_DAYS = 14;
 export const FREE_PANTRY_MAX_ITEMS = 10;
 export const FREE_MAX_STORES = 2;
