@@ -478,7 +478,18 @@
     "devTier": "Subscription tier",
     "devCurrent": "Current: {{tier}}{{trial}}",
     "devTrial": " (trial)",
-    "devReset": "Reset onboarding"
+    "devReset": "Reset onboarding",
+    "shareApp": "Share Penny Pantry",
+    "shareAppSub": "Tell friends about smart grocery savings",
+    "shareMessage": "Save money on every shop with Penny Pantry — smart budgeting, price comparison, and grocery lists. https://pennypantry.xyz",
+    "currentEmail": "Email address",
+    "changeEmail": "Change email",
+    "changeEmailHint": "We'll send a confirmation link to your new address. Your current email stays active until you confirm.",
+    "changeEmailPlaceholder": "New email address",
+    "changeEmailSubmit": "Update email",
+    "changeEmailRequired": "Enter a new email address.",
+    "changeEmailPending": "Check {{email}} for a confirmation link to finish updating your email.",
+    "changeEmailFailed": "Could not update email. Please try again."
   },
   "themes": {
     "pennyGreen": {

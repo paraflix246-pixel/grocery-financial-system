@@ -9,24 +9,24 @@ import {
   getEmailLogoUrl,
 } from '@/src/services/auth/emailBranding';
 import {
+  getTransactionalAppUrl,
+  getTransactionalFromEmail,
+  isResendConfigured,
+  sendViaResend,
+} from '@/src/services/auth/resendEmail.server';
+import { isUserEmailConfirmed } from '@/src/services/auth/transactionalEmail.server';
+import {
   getSupabaseAdmin,
   getUserFromAuthHeader,
   isSupabaseAdminConfigured,
 } from '@/src/services/stripe/stripeSupabase.server';
 
-const DEFAULT_FROM = 'Penny Pantry <hello@pennypantry.xyz>';
-const DEFAULT_APP_URL = 'https://pennypantry.xyz';
-
 export function isWelcomeEmailConfigured(): boolean {
-  return Boolean(process.env.RESEND_API_KEY?.trim());
-}
-
-function getWelcomeFromEmail(): string {
-  return process.env.WELCOME_FROM_EMAIL?.trim() || DEFAULT_FROM;
+  return isResendConfigured();
 }
 
 function getAppUrl(): string {
-  return process.env.EXPO_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || DEFAULT_APP_URL;
+  return getTransactionalAppUrl();
 }
 
 function extractDisplayName(metadata: Record<string, unknown> | undefined): string {
@@ -89,30 +89,8 @@ export function buildTestEmailHtml(appUrl: string): string {
   );
 }
 
-async function sendViaResend(to: string, html: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error('RESEND_API_KEY is not configured.');
-  }
-
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: getWelcomeFromEmail(),
-      to: [to],
-      subject: 'Welcome to Penny Pantry',
-      html,
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => '');
-    throw new Error(`Resend API error (${response.status}): ${body || response.statusText}`);
-  }
+async function sendWelcomeViaResend(to: string, html: string): Promise<void> {
+  await sendViaResend(to, 'Welcome to Penny Pantry', html);
 }
 
 function logWelcomeEvent(
@@ -146,6 +124,15 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
     return Response.json({ success: true, skipped: true, reason: 'already_sent' });
   }
 
+  if (!isUserEmailConfirmed(user)) {
+    logWelcomeEvent('skipped', {
+      reason: 'email_not_confirmed',
+      userId: user.id,
+      email: user.email,
+    });
+    return Response.json({ success: true, skipped: true, reason: 'email_not_confirmed' });
+  }
+
   if (!isWelcomeEmailConfigured()) {
     logWelcomeEvent('skipped', {
       reason: 'resend_not_configured',
@@ -159,9 +146,9 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
   const displayName = extractDisplayName(user.user_metadata);
   const html = buildWelcomeEmailHtml(displayName, getAppUrl());
 
-  const from = getWelcomeFromEmail();
+  const from = getTransactionalFromEmail();
   try {
-    await sendViaResend(user.email, html);
+    await sendWelcomeViaResend(user.email, html);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logWelcomeEvent('failed', {

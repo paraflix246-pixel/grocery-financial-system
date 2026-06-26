@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
-import { getSession, resetPassword } from '@/src/services/authService';
+import { getSession, resetPassword, notifyPasswordChanged } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
@@ -85,6 +85,7 @@ export default function OnboardingResetPasswordScreen() {
     setLoading(true);
     try {
       await resetPassword(password);
+      void notifyPasswordChanged();
       setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not reset password. Please try again.');

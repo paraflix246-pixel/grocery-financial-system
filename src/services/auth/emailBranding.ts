@@ -122,3 +122,57 @@ export function buildFallbackLink(href: string): string {
                 <a href="${href}" style="color:${greenDark};text-decoration:underline;">${href}</a>
               </p>`;
 }
+
+export function buildPasswordChangedEmailHtml(appUrl: string): string {
+  const logoUrl = getEmailLogoUrl(appUrl);
+  const { text, textSecondary, fontFamily } = EMAIL_BRAND;
+
+  const cardBody = `<tr>
+            <td class="email-body" style="padding:32px;">
+              <p class="email-title" style="margin:0 0 16px;color:${text};font-family:${fontFamily};font-size:20px;font-weight:700;line-height:1.3;">Your password was updated</p>
+              <p style="margin:0 0 20px;color:${textSecondary};font-family:${fontFamily};font-size:16px;line-height:1.6;">
+                This is a confirmation that your Penny Pantry account password was changed successfully.
+              </p>
+              <p style="margin:0 0 24px;color:${textSecondary};font-family:${fontFamily};font-size:15px;line-height:1.6;">
+                If you did not make this change, contact us immediately so we can help secure your account.
+              </p>
+              ${buildEmailCta(appUrl, 'Open Penny Pantry')}
+              ${buildEmailInnerFooter(appUrl)}
+            </td>
+          </tr>`;
+
+  return buildEmailDocument(
+    'Your Penny Pantry password was updated',
+    `${buildEmailCard(`${buildEmailHeader(logoUrl)}${cardBody}`)}${buildEmailSupportFooter()}`,
+  );
+}
+
+export function buildEmailChangedAlertHtml(
+  oldEmail: string,
+  newEmail: string,
+  appUrl: string
+): string {
+  const logoUrl = getEmailLogoUrl(appUrl);
+  const { text, textSecondary, fontFamily } = EMAIL_BRAND;
+
+  const cardBody = `<tr>
+            <td class="email-body" style="padding:32px;">
+              <p class="email-title" style="margin:0 0 16px;color:${text};font-family:${fontFamily};font-size:20px;font-weight:700;line-height:1.3;">Your email was changed</p>
+              <p style="margin:0 0 20px;color:${textSecondary};font-family:${fontFamily};font-size:16px;line-height:1.6;">
+                The email address on your Penny Pantry account was changed from
+                <strong style="color:${text};">${oldEmail}</strong> to
+                <strong style="color:${text};">${newEmail}</strong>.
+              </p>
+              <p style="margin:0 0 24px;color:${textSecondary};font-family:${fontFamily};font-size:15px;line-height:1.6;">
+                If you did not request this change, contact us immediately so we can help secure your account.
+              </p>
+              ${buildEmailCta(appUrl, 'Open Penny Pantry')}
+              ${buildEmailInnerFooter(appUrl)}
+            </td>
+          </tr>`;
+
+  return buildEmailDocument(
+    'Your Penny Pantry email was changed',
+    `${buildEmailCard(`${buildEmailHeader(logoUrl)}${cardBody}`)}${buildEmailSupportFooter()}`,
+  );
+}

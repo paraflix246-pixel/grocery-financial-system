@@ -35,6 +35,16 @@ export async function shareText(
   options?: ShareOptions
 ): Promise<void> {
   if (Platform.OS === 'web') {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: shareTitle, text });
+        return;
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          return;
+        }
+      }
+    }
     await copyText(text, {
       title: options?.successTitle ?? 'Copied',
       message: options?.successMessage ?? 'Copied to clipboard.',

@@ -247,6 +247,10 @@ export default function RootLayout() {
           void syncUserProfile();
           useBudgetStore.getState().completeOnboarding();
         }, 0);
+      } else if (event === 'USER_UPDATED' && session) {
+        setTimeout(() => {
+          void syncAuthUserFromSession();
+        }, 0);
       } else if (event === 'SIGNED_OUT') {
         // Only redirect to onboarding if onboarding wasn't completed as guest
         useBudgetStore.getState().checkOnboarding();

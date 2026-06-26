@@ -220,7 +220,19 @@ type WelcomeEmailApiResponse = {
   error?: string;
 };
 
+type TransactionalEmailApiResponse = WelcomeEmailApiResponse;
+
 let welcomeEmailInFlight = false;
+let passwordChangedNotificationInFlight = false;
+
+function isEmailConfirmed(user: {
+  email_confirmed_at?: string | null;
+  identities?: { provider?: string }[];
+}): boolean {
+  if (user.email_confirmed_at) return true;
+  const providers = (user.identities ?? []).map((identity) => identity.provider);
+  return providers.some((provider) => provider && provider !== 'email');
+}
 
 function logWelcomeSkip(reason: string): void {
   if (__DEV__) {
@@ -248,6 +260,10 @@ export async function maybeSendWelcomeEmail(): Promise<void> {
     }
     if (user.user_metadata?.welcome_email_sent === true) {
       logWelcomeSkip('already sent');
+      return;
+    }
+    if (!isEmailConfirmed(user)) {
+      logWelcomeSkip('email not confirmed');
       return;
     }
 
@@ -297,6 +313,81 @@ export async function maybeSendWelcomeEmail(): Promise<void> {
   } finally {
     welcomeEmailInFlight = false;
   }
+}
+
+async function postTransactionalAuthApi(
+  path: string,
+  body?: Record<string, string>
+): Promise<TransactionalEmailApiResponse | null> {
+  const apiUrl = resolveAuthApiUrl(path);
+  if (!apiUrl) return null;
+
+  const session = await getSession();
+  if (!session?.access_token) return null;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return (await response.json().catch(() => null)) as TransactionalEmailApiResponse | null;
+  } catch (error) {
+    console.warn(`[auth] ${path} request failed:`, error);
+    return null;
+  }
+}
+
+/** Sends a password-changed notification via POST /api/auth/password-changed-notification. */
+export async function notifyPasswordChanged(): Promise<void> {
+  if (!supabase || passwordChangedNotificationInFlight) return;
+
+  passwordChangedNotificationInFlight = true;
+  try {
+    const body = await postTransactionalAuthApi('/api/auth/password-changed-notification');
+    if (body?.sent && __DEV__) {
+      console.info('[auth] password changed notification sent');
+    }
+  } finally {
+    passwordChangedNotificationInFlight = false;
+  }
+}
+
+export type ChangeEmailResult = {
+  pendingNewEmail: string;
+};
+
+/** Requests an email change; Supabase sends confirmation to the new address. */
+export async function changeAccountEmail(newEmail: string): Promise<ChangeEmailResult> {
+  if (!supabase) throw new Error('Auth service not available. Please try again later.');
+
+  const normalizedNewEmail = newEmail.trim().toLowerCase();
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (!user?.email) {
+    throw new Error('Sign in required to change your email.');
+  }
+
+  const oldEmail = user.email.trim().toLowerCase();
+  if (oldEmail === normalizedNewEmail) {
+    throw new Error('Enter a different email address.');
+  }
+
+  const { error } = await supabase.auth.updateUser(
+    { email: normalizedNewEmail },
+    { emailRedirectTo: getAuthRedirectUrl('/settings') }
+  );
+  if (error) throw new Error(mapSupabaseError(error.message));
+
+  void postTransactionalAuthApi('/api/auth/email-changed-notification', {
+    oldEmail,
+    newEmail: normalizedNewEmail,
+  });
+
+  return { pendingNewEmail: normalizedNewEmail };
 }
 
 export async function syncAuthUserFromSession(): Promise<void> {
