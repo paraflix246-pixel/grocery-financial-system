@@ -1,0 +1,50 @@
+<!-- Subject: Confirm your Penny Pantry email -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Confirm your Penny Pantry email</title>
+</head>
+<body style="margin:0;padding:0;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F9FAFB;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#FFFFFF;border-radius:16px;border:1px solid #E5E7EB;overflow:hidden;">
+          <tr>
+            <td style="background:#22C55E;padding:28px 32px;text-align:center;">
+              <p style="margin:0;color:#FFFFFF;font-size:24px;font-weight:800;letter-spacing:-0.5px;line-height:1.2;">Penny Pantry</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h1 style="margin:0 0 16px;color:#111827;font-size:20px;font-weight:700;line-height:1.3;">Confirm your email</h1>
+              <p style="margin:0 0 20px;color:#4B5563;font-size:16px;line-height:1.6;">
+                Thanks for signing up for Penny Pantry. Confirm your email address to finish creating your account and start saving on groceries.
+              </p>
+              <p style="margin:0 0 28px;text-align:center;">
+                <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#22C55E;color:#FFFFFF;text-decoration:none;font-size:16px;font-weight:700;padding:14px 28px;border-radius:999px;line-height:1.2;">Confirm email</a>
+              </p>
+              <p style="margin:0 0 16px;color:#6B7280;font-size:14px;line-height:1.6;">
+                If you did not create a Penny Pantry account, you can safely ignore this email.
+              </p>
+              <p style="margin:0 0 24px;color:#9CA3AF;font-size:12px;line-height:1.5;word-break:break-all;">
+                Button not working? Copy and paste this link into your browser:<br>
+                <a href="{{ .ConfirmationURL }}" style="color:#16A34A;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+              </p>
+              <p style="margin:0;color:#9CA3AF;font-size:13px;line-height:1.5;text-align:center;border-top:1px solid #E5E7EB;padding-top:24px;">
+                Happy saving,<br>The Penny Pantry team<br>
+                <a href="https://pennypantry.xyz" style="color:#16A34A;text-decoration:none;">pennypantry.xyz</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;color:#9CA3AF;font-size:12px;line-height:1.5;text-align:center;max-width:520px;">
+          Need help? Reply to this email or contact us at hello@pennypantry.xyz
+        </p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
