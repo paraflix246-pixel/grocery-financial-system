@@ -1,34 +1,83 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Platform,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+import {
+  FeatureSlideData,
+  OnboardingFeatureSlide,
+} from '@/src/components/onboarding/OnboardingFeatureSlide';
+import { OnboardingSignupSlide } from '@/src/components/onboarding/OnboardingSignupSlide';
 import { signInWithApple, signInWithGoogle } from '@/src/services/authService';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
-const SHOW_APPLE = Platform.OS === 'ios' || Platform.OS === 'web';
+const SLIDE_COUNT = 4;
 
-const BENEFITS = [
-  { icon: '↘', label: 'Track spending and spot savings' },
-  { icon: '⇄', label: 'Compare prices across stores' },
-  { icon: '☑', label: 'Build smarter shopping lists' },
-] as const;
+const FEATURE_SLIDES: FeatureSlideData[] = [
+  {
+    key: 'save',
+    icon: { ios: 'banknote.fill', android: 'savings', web: 'savings' },
+    titleParts: ['Save money', 'on every shop'],
+    subtitle: 'Track spending and save more every day.',
+  },
+  {
+    key: 'compare',
+    icon: { ios: 'tag.fill', android: 'sell', web: 'sell' },
+    titleParts: ['Compare prices', 'in real time'],
+    subtitle: 'Find the best deals across stores before you buy.',
+  },
+  {
+    key: 'lists',
+    icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
+    titleParts: ['Build smarter', 'shopping lists'],
+    subtitle: 'Organize, suggest, and stay on track.',
+  },
+];
 
-export default function OnboardingLanding() {
+export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [carouselHeight, setCarouselHeight] = useState(0);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const isSignupSlide = activeIndex === SLIDE_COUNT - 1;
+  const showSkip = activeIndex < SLIDE_COUNT - 1;
+
+  function scrollToIndex(index: number) {
+    const clamped = Math.min(Math.max(0, index), SLIDE_COUNT - 1);
+    scrollRef.current?.scrollTo({ x: clamped * Math.max(screenWidth, 1), animated: true });
+    setActiveIndex(clamped);
+  }
+
+  function handleScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const raw =
+      screenWidth > 0 ? Math.round(event.nativeEvent.contentOffset.x / screenWidth) : 0;
+    const index = Math.min(Math.max(0, raw), SLIDE_COUNT - 1);
+    if (index !== activeIndex) setActiveIndex(index);
+  }
+
+  function handleSkip() {
+    scrollToIndex(SLIDE_COUNT - 1);
+  }
+
+  function handleNext() {
+    scrollToIndex(activeIndex + 1);
+  }
 
   function handleEmailSignup() {
     router.push('/onboarding/signup');
@@ -61,112 +110,91 @@ export default function OnboardingLanding() {
   }
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
       <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.background} />
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingTop: insets.top + 32,
-            paddingBottom: insets.bottom + 32,
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.hero}>
-          <PennyPantryLogo variant="hero" size={72} style={styles.logo} />
-          <Text style={styles.headline}>
-            Save money on{'\n'}
-            <Text style={styles.headlineAccent}>every shop</Text>
-          </Text>
-          <Text style={styles.subheadline}>
-            Smart grocery budgeting, price comparison, and lists — all in one place.
-          </Text>
-        </View>
 
-        <View style={styles.benefits}>
-          {BENEFITS.map((item) => (
-            <View key={item.label} style={styles.benefitRow}>
-              <View style={styles.benefitIcon}>
-                <Text style={styles.benefitIconText}>{item.icon}</Text>
+      <View style={styles.topBar}>
+        <View style={styles.topBarSpacer} />
+        {showSkip ? (
+          <Pressable
+            onPress={handleSkip}
+            style={styles.skipBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Skip onboarding"
+          >
+            <Text style={styles.skipText}>Skip</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.topBarSpacer} />
+        )}
+      </View>
+
+      <View
+        style={styles.carouselWrapper}
+        onLayout={(event) => setCarouselHeight(event.nativeEvent.layout.height)}
+      >
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onMomentumScrollEnd={handleScrollEnd}
+          style={styles.scroll}
+        >
+          {carouselHeight > 0 &&
+            FEATURE_SLIDES.map((slide) => (
+              <View
+                key={slide.key}
+                style={[styles.slide, { width: screenWidth, height: carouselHeight }]}
+              >
+                <OnboardingFeatureSlide slide={slide} />
               </View>
-              <Text style={styles.benefitLabel}>{item.label}</Text>
+            ))}
+          {carouselHeight > 0 ? (
+            <View style={[styles.slide, { width: screenWidth, height: carouselHeight }]}>
+              <OnboardingSignupSlide
+                loading={authLoading}
+                error={authError}
+                onEmailSignup={handleEmailSignup}
+                onGoogle={handleGoogle}
+                onApple={handleApple}
+                onSignIn={handleSignIn}
+              />
             </View>
+          ) : null}
+        </ScrollView>
+      </View>
+
+      <View
+        style={[
+          styles.footer,
+          { paddingBottom: getScreenBottomPadding(insets.bottom, isSignupSlide ? 12 : 20) },
+        ]}
+      >
+        {showSkip ? (
+          <Pressable
+            style={({ pressed }) => [styles.nextBtn, pressed && styles.nextBtnPressed]}
+            onPress={handleNext}
+            accessibilityRole="button"
+            accessibilityLabel="Next slide"
+          >
+            <Text style={styles.nextBtnText}>Next</Text>
+          </Pressable>
+        ) : null}
+
+        <View style={styles.dotsRow}>
+          {Array.from({ length: SLIDE_COUNT }, (_, index) => (
+            <Pressable
+              key={index}
+              onPress={() => scrollToIndex(index)}
+              style={[styles.dot, index === activeIndex ? styles.dotActive : styles.dotInactive]}
+              accessibilityRole="button"
+              accessibilityLabel={`Go to slide ${index + 1}`}
+            />
           ))}
         </View>
-
-        <View style={styles.actions}>
-          {authError ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{authError}</Text>
-            </View>
-          ) : null}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              authLoading && styles.btnDisabled,
-              pressed && styles.btnPressed,
-            ]}
-            onPress={handleEmailSignup}
-            disabled={authLoading}
-            accessibilityRole="button"
-            accessibilityLabel="Sign up with Email"
-          >
-            <Text style={styles.primaryBtnText}>Sign up with Email</Text>
-          </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.outlineBtn,
-              authLoading && styles.btnDisabled,
-              pressed && styles.outlineBtnPressed,
-            ]}
-            onPress={handleGoogle}
-            disabled={authLoading}
-            accessibilityRole="button"
-            accessibilityLabel="Continue with Google"
-          >
-            {authLoading ? (
-              <ActivityIndicator color={OnboardingColors.text} />
-            ) : (
-              <>
-                <Text style={styles.googleG}>G</Text>
-                <Text style={styles.outlineBtnText}>Continue with Google</Text>
-              </>
-            )}
-          </Pressable>
-
-          {SHOW_APPLE ? (
-            <Pressable
-              style={({ pressed }) => [
-                styles.outlineBtn,
-                authLoading && styles.btnDisabled,
-                pressed && styles.outlineBtnPressed,
-              ]}
-              onPress={handleApple}
-              disabled={authLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Continue with Apple"
-            >
-              <Text style={styles.appleGlyph}>{'\uF8FF'}</Text>
-              <Text style={styles.outlineBtnText}>Continue with Apple</Text>
-            </Pressable>
-          ) : null}
-
-          <Pressable
-            onPress={handleSignIn}
-            style={styles.loginLinkBtn}
-            accessibilityRole="button"
-            accessibilityLabel="Log in"
-          >
-            <Text style={styles.loginLinkText}>
-              Already have an account? <Text style={styles.loginLinkHighlight}>Log in</Text>
-            </Text>
-          </Pressable>
-        </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -176,147 +204,74 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: OnboardingColors.background,
   },
-  scrollContent: {
-    flexGrow: 1,
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    minHeight: 44,
+  },
+  topBarSpacer: {
+    width: 48,
+  },
+  skipBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  skipText: {
+    color: OnboardingColors.textMuted,
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  carouselWrapper: {
+    flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  slide: {
+    paddingHorizontal: 4,
+  },
+  footer: {
     paddingHorizontal: 28,
-    justifyContent: 'space-between',
+    paddingTop: 8,
     maxWidth: 480,
     width: '100%',
     alignSelf: 'center',
   },
-  hero: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  logo: {
-    marginBottom: 28,
-  },
-  headline: {
-    color: OnboardingColors.text,
-    fontSize: 34,
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: -0.8,
-    lineHeight: 42,
-    marginBottom: 16,
-  },
-  headlineAccent: {
-    color: OnboardingColors.green,
-  },
-  subheadline: {
-    color: OnboardingColors.textMuted,
-    fontSize: 17,
-    textAlign: 'center',
-    lineHeight: 26,
-    maxWidth: 320,
-  },
-  benefits: {
-    gap: 16,
-    marginBottom: 40,
-  },
-  benefitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  benefitIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#F0FDF4',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  benefitIconText: {
-    fontSize: 18,
-    color: OnboardingColors.green,
-    fontWeight: '700',
-  },
-  benefitLabel: {
-    flex: 1,
-    color: OnboardingColors.text,
-    fontSize: 16,
-    fontWeight: '500',
-    lineHeight: 22,
-  },
-  actions: {
-    width: '100%',
-  },
-  errorBox: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.25)',
-  },
-  errorText: {
-    color: '#DC2626',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  primaryBtn: {
-    width: '100%',
+  nextBtn: {
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: OnboardingColors.green,
     borderRadius: 999,
-    paddingVertical: 17,
-    marginBottom: 12,
+    paddingVertical: 16,
+    marginBottom: 16,
   },
-  primaryBtnText: {
+  nextBtnPressed: {
+    opacity: 0.88,
+  },
+  nextBtnText: {
     color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
   },
-  outlineBtn: {
-    width: '100%',
+  dotsRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    backgroundColor: OnboardingColors.card,
-    borderRadius: 999,
-    paddingVertical: 15,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: OnboardingColors.border,
-  },
-  outlineBtnPressed: {
-    backgroundColor: '#F9FAFB',
-  },
-  outlineBtnText: {
-    color: OnboardingColors.text,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  googleG: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#4285F4',
-  },
-  appleGlyph: {
-    fontSize: 20,
-    color: OnboardingColors.text,
-    marginTop: -2,
-  },
-  btnDisabled: {
-    opacity: 0.55,
-  },
-  btnPressed: {
-    opacity: 0.88,
-  },
-  loginLinkBtn: {
-    paddingVertical: 16,
-    marginTop: 4,
     alignItems: 'center',
+    gap: 8,
   },
-  loginLinkText: {
-    color: OnboardingColors.textMuted,
-    fontSize: 14,
+  dot: {
+    height: 8,
+    borderRadius: 4,
   },
-  loginLinkHighlight: {
-    color: OnboardingColors.green,
-    fontWeight: '600',
+  dotActive: {
+    width: 24,
+    backgroundColor: OnboardingColors.green,
+  },
+  dotInactive: {
+    width: 8,
+    backgroundColor: OnboardingColors.border,
   },
 });
