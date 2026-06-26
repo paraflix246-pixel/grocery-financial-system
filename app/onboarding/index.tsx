@@ -186,7 +186,7 @@ function SignupSlideContent({
           accessibilityRole="button"
           accessibilityLabel="Continue with Apple"
         >
-          <Text style={styles.appleGlyph}></Text>
+          <Text style={styles.appleGlyph}>{'\uF8FF'}</Text>
           <Text style={styles.outlineBtnText}>Continue with Apple</Text>
         </Pressable>
       ) : null}
