@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
 import { generateId } from '@/src/utils/id';
+import { syncUserProfile } from '@/src/services/admin/adminApiService';
 import { getAppSettings, updateAppSettings } from '@/src/services/storageService';
 import { supabase } from '@/src/services/supabaseClient';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
@@ -219,6 +220,7 @@ export async function syncAuthUserFromSession(): Promise<void> {
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
   await syncProfileDisplayNameFromAuth();
   void maybeSendWelcomeEmail();
+  void syncUserProfile();
 }
 
 /** True when the user has an active Supabase account session (not guest-only). */

@@ -19,6 +19,7 @@ import { TrialReminderProvider } from '@/src/components/TrialReminderProvider';
 import { SmartCartColors } from '@/src/theme/smartCart';
 import { initStorage } from '@/src/services/storageService';
 import { bootstrapExternalPriceProviders } from '@/src/services/externalPriceBootstrap';
+import { syncUserProfile } from '@/src/services/admin/adminApiService';
 import {
   getSession,
   maybeSendWelcomeEmail,
@@ -183,7 +184,8 @@ export default function RootLayout() {
   const isPublicRoute =
     segments[0] === 'privacy' ||
     segments[0] === 'terms' ||
-    segments[0] === 'reset-password';
+    segments[0] === 'reset-password' ||
+    segments[0] === 'admin';
   const isOnboardingRoute = segments[0] === 'onboarding';
 
   useEffect(() => {
@@ -231,6 +233,7 @@ export default function RootLayout() {
       if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
         void syncAuthUserFromSession();
         void maybeSendWelcomeEmail();
+        void syncUserProfile();
         useBudgetStore.getState().completeOnboarding();
       } else if (event === 'SIGNED_OUT') {
         // Only redirect to onboarding if onboarding wasn't completed as guest
@@ -295,6 +298,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="lists" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="admin" options={{ headerShown: false }} />
       </Stack>
     </ThemeProvider>
   );
