@@ -68,7 +68,9 @@ const CARD_BG = 'rgba(255,255,255,0.05)';
 
 const CARD_BORDER = 'rgba(255,255,255,0.1)';
 
-const WIDE_LAYOUT_MIN_WIDTH = 560;
+const PLANS_CONTAINER_MAX_WIDTH = 520;
+
+const COMPACT_LAYOUT_MAX_WIDTH = 400;
 
 const FOOTER_ESTIMATE = 320;
 
@@ -142,11 +144,14 @@ function PaywallThemePreview({ label }: { label: string }) {
   return (
     <View style={styles.themePreviewSection}>
       <Text style={styles.themePreviewLabel}>{label}</Text>
-      <View style={styles.themePreviewRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.previewScrollContent}>
         {proThemes.map((preset) => (
           <ThemePreviewMini key={preset.id} preset={preset} size="sm" />
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -157,7 +162,10 @@ function PaywallFontPreview({ label }: { label: string }) {
   return (
     <View style={styles.themePreviewSection}>
       <Text style={styles.themePreviewLabel}>{label}</Text>
-      <View style={styles.fontPreviewRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.previewScrollContent}>
         {proFonts.map((preset) => (
           <View key={preset.id} style={styles.fontPreviewChip}>
             <Text
@@ -170,7 +178,7 @@ function PaywallFontPreview({ label }: { label: string }) {
             </Text>
           </View>
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -181,11 +189,14 @@ function PaywallAvatarPreview({ label }: { label: string }) {
   return (
     <View style={styles.themePreviewSection}>
       <Text style={styles.themePreviewLabel}>{label}</Text>
-      <View style={styles.avatarPreviewRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.previewScrollContent}>
         {previewAvatars.map((preset) => (
           <AvatarBadge key={preset.id} preset={preset} size="sm" />
         ))}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -195,7 +206,7 @@ export default function PaywallScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const isWide = width >= WIDE_LAYOUT_MIN_WIDTH;
+  const isCompact = width < COMPACT_LAYOUT_MAX_WIDTH;
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const startProTrial = useSubscriptionStore((s) => s.startProTrial);
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
@@ -269,7 +280,10 @@ export default function PaywallScreen() {
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 16 }]}>
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: footerHeight + getScreenBottomPadding(insets.bottom, 0) },
+        ]}>
         <View style={styles.hero}>
           <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
           <Text style={styles.heroTitle}>{t('paywall.headline')}</Text>
@@ -309,68 +323,88 @@ export default function PaywallScreen() {
           </Pressable>
         </View>
 
-        <View style={[styles.plansRow, isWide && styles.plansRowWide]}>
-          <View style={[styles.planCard, styles.planCardFree, isWide && styles.planCardWide]}>
-            <Text style={styles.planName}>{t('paywall.freePlan')}</Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.planPrice}>$0</Text>
-              <Text style={styles.planPeriod}>{t('paywall.forever')}</Text>
-            </View>
-            <View style={styles.featureList}>
-              {freeFeatures.map((f) => (
-                <View key={f} style={styles.featureRow}>
-                  <View style={styles.featureIconWrap}>
-                    <SymbolView
-                      name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
-                      tintColor={TEXT_MUTED}
-                      size={18}
-                    />
+        <View style={styles.plansContainer}>
+          <View style={[styles.plansRow, isCompact && styles.plansRowCompact]}>
+            <View
+              style={[
+                styles.planCard,
+                styles.planCardFree,
+                isCompact && styles.planCardCompact,
+                isCompact && styles.planCardStacked,
+              ]}>
+              <Text style={[styles.planName, isCompact && styles.planNameCompact]}>{t('paywall.freePlan')}</Text>
+              <View style={styles.priceRow}>
+                <Text style={[styles.planPrice, isCompact && styles.planPriceCompact]}>$0</Text>
+                <Text style={[styles.planPeriod, isCompact && styles.planPeriodCompact]}>
+                  {t('paywall.forever')}
+                </Text>
+              </View>
+              <View style={styles.featureList}>
+                {freeFeatures.map((f) => (
+                  <View key={f} style={styles.featureRow}>
+                    <View style={styles.featureIconWrap}>
+                      <SymbolView
+                        name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
+                        tintColor={TEXT_MUTED}
+                        size={isCompact ? 16 : 18}
+                      />
+                    </View>
+                    <Text style={[styles.featureText, isCompact && styles.featureTextCompact]}>{f}</Text>
                   </View>
-                  <Text style={styles.featureText}>{f}</Text>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
+
+            <Pressable
+              onPress={() => setSelectedPro(true)}
+              style={[
+                styles.planCard,
+                isCompact && styles.planCardCompact,
+                isCompact && styles.planCardStacked,
+                styles.planCardHighlighted,
+                selectedPro && { borderColor: GREEN, borderWidth: 2 },
+              ]}>
+              <View style={styles.proBadgeRow}>
+                <ProShimmerBadge label={t('paywall.proBadge')} />
+              </View>
+              <Text style={[styles.planName, isCompact && styles.planNameCompact]}>{t('paywall.proPlan')}</Text>
+              <View style={styles.priceRow}>
+                <Text style={[styles.planPrice, { color: GREEN }, isCompact && styles.planPriceCompact]}>
+                  {getProPrice(billing)}
+                </Text>
+                <Text style={[styles.planPeriod, isCompact && styles.planPeriodCompact]}>
+                  {getProPeriod(billing, t)}
+                </Text>
+              </View>
+              {billing === 'yearly' ? (
+                <Text style={[styles.yearlyNote, isCompact && styles.yearlyNoteCompact]}>
+                  {t('paywall.billedAnnually', { price: PRO_YEARLY_PRICE })}
+                </Text>
+              ) : null}
+              <View style={styles.featureList}>
+                <ProPlanFeaturesList
+                  variant="grouped"
+                  leadLabel={t('paywall.proLead')}
+                  accentColor={GREEN}
+                  mutedColor={TEXT_MUTED}
+                  featureTextStyle={[styles.featureText, isCompact && styles.featureTextCompact]}
+                  leadTextStyle={[styles.featureText, isCompact && styles.featureTextCompact]}
+                />
+              </View>
+              <View style={[styles.selectIndicator, selectedPro && { backgroundColor: `${GREEN}22` }]}>
+                <View style={[styles.selectDot, selectedPro && { backgroundColor: GREEN }]} />
+                <Text style={[styles.selectText, selectedPro && { color: TEXT_PRIMARY }]}>
+                  {selectedPro ? t('common.selected') : t('common.selectPlan')}
+                </Text>
+              </View>
+            </Pressable>
           </View>
 
-          <Pressable
-            onPress={() => setSelectedPro(true)}
-            style={[
-              styles.planCard,
-              isWide && styles.planCardWide,
-              styles.planCardHighlighted,
-              selectedPro && { borderColor: GREEN, borderWidth: 2 },
-            ]}>
-            <View style={styles.proBadgeRow}>
-              <ProShimmerBadge label={t('paywall.proBadge')} />
-            </View>
-            <Text style={styles.planName}>{t('paywall.proPlan')}</Text>
-            <View style={styles.priceRow}>
-              <Text style={[styles.planPrice, { color: GREEN }]}>{getProPrice(billing)}</Text>
-              <Text style={styles.planPeriod}>{getProPeriod(billing, t)}</Text>
-            </View>
-            {billing === 'yearly' ? (
-              <Text style={styles.yearlyNote}>{t('paywall.billedAnnually', { price: PRO_YEARLY_PRICE })}</Text>
-            ) : null}
-            <View style={styles.featureList}>
-              <ProPlanFeaturesList
-                variant="grouped"
-                leadLabel={t('paywall.proLead')}
-                accentColor={GREEN}
-                mutedColor={TEXT_MUTED}
-                featureTextStyle={styles.featureText}
-                leadTextStyle={styles.featureText}
-              />
-              <PaywallThemePreview label={t('features.labels.custom_themes')} />
-              <PaywallFontPreview label={t('features.labels.custom_fonts')} />
-              <PaywallAvatarPreview label={t('features.labels.custom_avatars')} />
-            </View>
-            <View style={[styles.selectIndicator, selectedPro && { backgroundColor: `${GREEN}22` }]}>
-              <View style={[styles.selectDot, selectedPro && { backgroundColor: GREEN }]} />
-              <Text style={[styles.selectText, selectedPro && { color: TEXT_PRIMARY }]}>
-                {selectedPro ? t('common.selected') : t('common.selectPlan')}
-              </Text>
-            </View>
-          </Pressable>
+          <View style={styles.proPreviewSection}>
+            <PaywallThemePreview label={t('features.labels.custom_themes')} />
+            <PaywallFontPreview label={t('features.labels.custom_fonts')} />
+            <PaywallAvatarPreview label={t('features.labels.custom_avatars')} />
+          </View>
         </View>
 
         <View style={styles.familySection}>
@@ -530,20 +564,46 @@ const styles = StyleSheet.create({
   billingBtnActive: { backgroundColor: GREEN },
   billingText: { fontSize: 13, fontWeight: '600', color: TEXT_MUTED },
   billingTextActive: { color: '#000' },
-  plansRow: { gap: 14 },
-  plansRowWide: { flexDirection: 'row', alignItems: 'flex-start' },
+  plansContainer: {
+    width: '100%',
+    maxWidth: PLANS_CONTAINER_MAX_WIDTH,
+    alignSelf: 'center',
+  },
+  plansRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    width: '100%',
+  },
+  plansRowCompact: {
+    flexDirection: 'column',
+  },
   planCard: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     backgroundColor: CARD_BG,
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    minHeight: 0,
+    overflow: 'hidden',
   },
-  planCardWide: { flexBasis: 0, minWidth: 0 },
+  planCardStacked: {
+    flex: 0,
+    flexBasis: 'auto',
+    width: '100%',
+  },
+  planCardCompact: {
+    padding: 14,
+    borderRadius: 16,
+  },
   planCardHighlighted: { borderColor: 'rgba(34,197,94,0.35)' },
   planCardFree: { opacity: 0.92 },
+  proPreviewSection: {
+    marginTop: 16,
+    gap: 4,
+  },
   proBadgeRow: { marginBottom: 8 },
   shimmerBadge: {
     flexDirection: 'row',
@@ -562,10 +622,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   planName: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY },
+  planNameCompact: { fontSize: 16 },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4, flexWrap: 'wrap' },
   planPrice: { fontSize: 32, fontWeight: '800', color: TEXT_PRIMARY },
+  planPriceCompact: { fontSize: 24 },
   planPeriod: { fontSize: 14, color: TEXT_MUTED },
+  planPeriodCompact: { fontSize: 11 },
   yearlyNote: { fontSize: 12, color: TEXT_MUTED, marginTop: 2 },
+  yearlyNoteCompact: { fontSize: 10, lineHeight: 14 },
   featureList: { marginTop: 16, gap: 10 },
   featureRow: {
     flexDirection: 'row',
@@ -585,6 +649,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255,255,255,0.88)',
     lineHeight: 20,
+  },
+  featureTextCompact: {
+    fontSize: 11,
+    lineHeight: 16,
   },
   selectIndicator: {
     flexDirection: 'row',
@@ -652,6 +720,10 @@ const styles = StyleSheet.create({
   familyLink: { alignItems: 'center', paddingVertical: 4 },
   familyLinkText: { fontSize: 12, fontWeight: '600', color: TEXT_MUTED },
   footer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     paddingHorizontal: 16,
     paddingTop: 12,
     gap: 10,
@@ -713,16 +785,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: TEXT_MUTED,
   },
-  themePreviewRow: {
+  previewScrollContent: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-  },
-  fontPreviewRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
+    paddingRight: 4,
   },
   fontPreviewChip: {
     minWidth: 44,
@@ -733,15 +800,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: CARD_BORDER,
     alignItems: 'center',
+    flexShrink: 0,
   },
   fontPreviewText: {
     fontSize: 16,
     fontWeight: '700',
     color: TEXT_PRIMARY,
-  },
-  avatarPreviewRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
   },
 });
