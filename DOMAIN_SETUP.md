@@ -7,6 +7,38 @@ The Vercel project slug remains `grocery-financial-system`; only the public doma
 
 **Status (2026-06-26):** `pennypantry.xyz` and `www.pennypantry.xyz` are added to Vercel project `grocery-financial-system`. DNS at the registrar is still pending. Universal link files are in `public/.well-known/` (copied to `dist/client` on deploy) — replace `TEAMID` and SHA256 placeholders before native app links will verify.
 
+**Git auto-deploy:** Project is **not** connected to GitHub yet (`vercel git connect` failed — Vercel GitHub App likely not installed on `paraflix246-pixel`). Production deploys today are manual CLI. See [§0 Vercel Git auto-deploy](#0-vercel--git-auto-deploy) to enable push-to-production on `master`.
+
+---
+
+## 0. Vercel — Git auto-deploy
+
+Goal: every push to **`master`** triggers a **Production** deployment (replacing manual `vercel --prod`).
+
+### Check current state
+
+- Repo: `https://github.com/paraflix246-pixel/grocery-financial-system` (default branch: `master`)
+- Vercel project: `shawaynes-projects/grocery-financial-system` (`prj_LbKYQwfkysseFTAPkVwEXiVgS7BF`)
+- CLI `vercel git connect https://github.com/paraflix246-pixel/grocery-financial-system.git` returns *"Failed to connect"* — fix via dashboard below.
+
+### Dashboard (required once)
+
+1. **Install Vercel on GitHub** (if not already): [github.com/apps/vercel](https://github.com/apps/vercel) → Configure → grant access to **`paraflix246-pixel/grocery-financial-system`** (All repositories or select this repo).
+2. **Vercel** → [grocery-financial-system](https://vercel.com/shawaynes-projects/grocery-financial-system) → **Settings** → **Git** → **Connect Git Repository** → choose `paraflix246-pixel/grocery-financial-system`.
+3. Same page → **Production Branch** → and **`master`** (repo default; do not use `main` unless you rename the branch).
+4. Confirm **Deploy Hooks** / automatic deploys are enabled for Production.
+
+### CLI (after GitHub App is installed)
+
+```bash
+npx vercel link --yes --project grocery-financial-system
+npx vercel git connect https://github.com/paraflix246-pixel/grocery-financial-system.git
+```
+
+### Verify
+
+Push a commit to `master` and confirm Vercel shows a **Production** deployment with the commit SHA (not a CLI-only deploy with no Git metadata).
+
 ---
 
 ## 1. Vercel — add domain & DNS
@@ -86,10 +118,14 @@ Static files live in `public/.well-known/` and are copied to `dist/client/.well-
 | `apple-app-site-association` | iOS universal links |
 | `assetlinks.json` | Android App Links verification |
 
-**Before native deep links work**, replace placeholders:
+**Before native deep links work**, replace placeholders in `public/.well-known/` (bundle/package ID is already `com.groceryfinancialsystem.app` in `app.config.ts` / `app.json`):
 
-1. **`apple-app-site-association`** — set `appID` to `{APPLE_TEAM_ID}.com.groceryfinancialsystem.app` (Team ID from Apple Developer → Membership).
-2. **`assetlinks.json`** — set `sha256_cert_fingerprints` to your **release** signing cert SHA256 (Play Console → App integrity, or `keytool -list -v -keystore your-release.keystore`).
+| Placeholder | File | Where to get the real value |
+|-------------|------|-----------------------------|
+| `TEAMID` in `appID` | `apple-app-site-association` | [Apple Developer](https://developer.apple.com/account) → **Membership** → **Team ID** (10-character alphanumeric, e.g. `AB12CD34EF`). Final `appID` format: `{TEAM_ID}.com.groceryfinancialsystem.app`. |
+| `REPLACE_WITH_RELEASE_SHA256_FINGERPRINT` | `assetlinks.json` | **Play Console** → your app → **Release** → **App integrity** → **App signing key certificate** → copy **SHA-256 certificate fingerprint** (colon-separated hex). Or after an EAS production build: `eas credentials -p android` → view keystore SHA256. Use the **release/upload** cert, not debug. |
+
+Do **not** commit fake Team IDs or fingerprints — Apple/Google verification will fail.
 
 Verify after deploy:
 
@@ -168,6 +204,7 @@ https://<project-ref>.supabase.co/auth/v1/callback
 
 ## 5. Verification checklist
 
+- [ ] Vercel Git connected; push to `master` auto-deploys Production
 - [ ] DNS resolves: `pennypantry.xyz` and `www.pennypantry.xyz` → Vercel
 - [ ] HTTPS works on both; www redirects to apex
 - [ ] `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` return JSON (placeholders replaced)
@@ -177,6 +214,48 @@ https://<project-ref>.supabase.co/auth/v1/callback
 - [ ] Google sign-in works on web production and localhost:8081
 - [ ] Password reset email lands on `/reset-password`
 - [ ] Family invite links use `https://pennypantry.xyz/list/join?code=…`
+
+---
+
+## 6. RevenueCat — native billing (code ready)
+
+Code integration is complete (`react-native-purchases`, `src/services/subscriptionService.ts`, paywall/subscriptions UI, init in `app/_layout.tsx`). Store products must match across App Store Connect, Google Play, and RevenueCat.
+
+### Product IDs (create identically in both stores)
+
+| Product ID | Tier | Billing | App Store Connect type | Play Console type |
+|------------|------|---------|------------------------|-------------------|
+| `pro_monthly` | Pro | Monthly | Auto-renewable subscription | Subscription |
+| `pro_yearly` | Pro | Annual | Auto-renewable subscription | Subscription |
+| `household_monthly` | Household | Monthly | Auto-renewable subscription | Subscription |
+| `household_yearly` | Household | Annual | Auto-renewable subscription | Subscription |
+
+### RevenueCat dashboard mapping
+
+| RevenueCat entity | Identifier | Notes |
+|-------------------|------------|-------|
+| Entitlement (Pro) | `pro` | Override with `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_PRO` |
+| Entitlement (Household) | `household` | Override with `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_HOUSEHOLD` |
+| Offering | `default` | Override with `EXPO_PUBLIC_REVENUECAT_OFFERING` |
+| Packages | monthly + annual per tier | Product/package identifiers should include `pro` or `household` and `month`/`year`/`annual` so `findPackage()` can match |
+
+Package matching logic (`subscriptionService.ts`): offerings → `default` offering → packages whose identifier or product ID contains `pro`/`household` and maps to monthly vs annual via RevenueCat `PACKAGE_TYPE`.
+
+### Environment variables (never commit)
+
+Add to local `.env` and **EAS** for native builds (`eas env:create --environment production --name … --value …`):
+
+```
+EXPO_PUBLIC_REVENUECAT_IOS_API_KEY=appl_…      # RevenueCat → Project → API keys → iOS
+EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY=goog_…  # RevenueCat → Project → API keys → Android
+EXPO_PUBLIC_APP_URL=https://pennypantry.xyz     # also required on EAS for invite/OAuth links
+```
+
+Optional: `EXPO_PUBLIC_REVENUECAT_USE_MOCK=true` to test tiers without hitting the store.
+
+**Current state:** No `EXPO_PUBLIC_REVENUECAT_*` keys in local `.env`; EAS production env has no secrets yet. Add keys after creating products in App Store Connect / Play Console and linking them in RevenueCat.
+
+Rebuild after secrets: `eas build --profile production --platform all`
 
 ---
 
