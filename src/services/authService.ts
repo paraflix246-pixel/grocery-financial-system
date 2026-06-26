@@ -166,7 +166,7 @@ export async function forgotPassword(email: string): Promise<void> {
   if (error) throw new Error(mapSupabaseError(error.message));
 }
 
-async function persistAuthUserFromSession(): Promise<void> {
+export async function syncAuthUserFromSession(): Promise<void> {
   if (!supabase) return;
   const { data } = await supabase.auth.getSession();
   const authUser = data.session?.user;
@@ -178,6 +178,12 @@ async function persistAuthUserFromSession(): Promise<void> {
   };
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
   await syncProfileDisplayNameFromAuth();
+}
+
+/** True when the user has an active Supabase account session (not guest-only). */
+export async function isSignedInAccount(): Promise<boolean> {
+  const session = await getSession();
+  return Boolean(session?.user);
 }
 
 export async function signInWithGoogle(): Promise<void> {
@@ -217,7 +223,46 @@ export async function signInWithGoogle(): Promise<void> {
 
   const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(result.url);
   if (exchangeError) throw new Error(mapSupabaseError(exchangeError.message));
-  await persistAuthUserFromSession();
+  await syncAuthUserFromSession();
+}
+
+export async function signInWithApple(): Promise<void> {
+  if (!supabase) {
+    throw new Error('Auth service not available. Please try again later.');
+  }
+  const redirectTo = getAuthRedirectUrl('/onboarding/upgrade');
+  const oauthOptions = {
+    redirectTo,
+    scopes: 'name email',
+  };
+
+  if (Platform.OS === 'web') {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: oauthOptions,
+    });
+    if (error) throw new Error(mapSupabaseError(error.message));
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'apple',
+    options: {
+      ...oauthOptions,
+      skipBrowserRedirect: true,
+    },
+  });
+  if (error) throw new Error(mapSupabaseError(error.message));
+  if (!data.url) throw new Error('Could not start Apple sign-in. Please try again.');
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type !== 'success') {
+    throw new Error('Apple sign-in was cancelled.');
+  }
+
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(result.url);
+  if (exchangeError) throw new Error(mapSupabaseError(exchangeError.message));
+  await syncAuthUserFromSession();
 }
 
 export async function signOut(): Promise<void> {
