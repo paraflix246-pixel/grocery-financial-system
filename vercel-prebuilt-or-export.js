@@ -1,4 +1,4 @@
-﻿const fs = require('fs');
+const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
@@ -61,8 +61,8 @@ if (shouldBuild) {
     fs.rmSync('dist', { recursive: true, force: true });
   }
 
-  console.log('Running full vercel-build (expo export -p web)');
-  execSync('npm run vercel-build', { stdio: 'inherit' });
+  console.log('Running full build:web (expo export -p web)');
+  execSync('npm run build:web', { stdio: 'inherit' });
 } else {
   console.log('Using prebuilt dist/');
 }
