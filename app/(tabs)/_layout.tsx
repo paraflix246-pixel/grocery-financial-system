@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import { Tabs } from 'expo-router';
+import { Tabs, useIsFocused } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -33,11 +33,10 @@ function ScanTabIcon({ focused }: { focused: boolean }) {
 
 type WebTabScreenLayoutProps = {
   children: ReactNode;
-  navigation: { isFocused: () => boolean };
 };
 
-function WebTabScreenLayout({ children, navigation }: WebTabScreenLayoutProps) {
-  const focused = navigation.isFocused();
+function WebTabScreenLayout({ children }: WebTabScreenLayoutProps) {
+  const focused = useIsFocused();
   return (
     <View style={[styles.webScene, !focused && styles.webSceneHidden]} pointerEvents={focused ? 'auto' : 'none'}>
       {children}
@@ -159,7 +158,13 @@ const styles = StyleSheet.create({
     ...(Platform.OS === 'web' ? { overflow: 'hidden' as const } : null),
   },
   webSceneHidden: {
-    display: 'none',
+    opacity: 0,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: WEB_TAB_CONTENT_INSET,
+    zIndex: -1,
   },
   tabBar: {
     backgroundColor: '#fff',

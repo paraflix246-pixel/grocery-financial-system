@@ -16,6 +16,7 @@ import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
 type MenuSection = {
+  id: string;
   title: string;
   items: MenuItem[];
 };
@@ -33,6 +34,7 @@ function useMenuSections(): MenuSection[] {
   return useMemo(
     () => [
       {
+        id: 'essentials',
         title: t('more.sections.essentials'),
         items: [
           { labelKey: 'more.items.settings.label', subtitleKey: 'more.items.settings.subtitle', icon: { ios: 'gearshape.fill', android: 'settings', web: 'settings' }, route: '/settings' },
@@ -45,6 +47,7 @@ function useMenuSections(): MenuSection[] {
         ],
       },
       {
+        id: 'proInsights',
         title: t('more.sections.proInsights'),
         items: [
           { labelKey: 'more.items.pro.label', subtitleKey: 'more.items.pro.subtitle', icon: { ios: 'star.fill', android: 'star', web: 'star' }, route: '/subscriptions' },
@@ -56,6 +59,7 @@ function useMenuSections(): MenuSection[] {
         ],
       },
       {
+        id: 'collaboration',
         title: t('more.sections.collaboration'),
         items: [
           { labelKey: 'more.items.familyPlans.label', subtitleKey: 'more.items.familyPlans.subtitle', icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' }, route: '/family_plans', pro: true },
@@ -105,7 +109,7 @@ export default function MoreScreen() {
       )}
 
       {sections.map((section) => (
-        <View key={section.title} style={styles.section}>
+        <View key={section.id} style={styles.section}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
           <View style={styles.menu}>
             {section.items.map((item) => {
