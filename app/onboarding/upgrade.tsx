@@ -17,9 +17,11 @@ import {
   COMMIT_NOTE,
   CONTINUE_FREE_LABEL,
   ONBOARDING_UPGRADE_HEADLINE,
+  PAYWALL_SUBHEAD,
   PRO_BADGE_LABEL,
   PRO_CTA_LABEL,
-  PRO_UPGRADE_HOOK,
+  PRO_CTA_SUBTEXT,
+  PRO_PLAN_LEAD,
   proMonthlyLabel,
 } from '@/src/constants/proPricing';
 
@@ -63,20 +65,20 @@ export default function UpgradeScreen() {
         <View style={styles.hero}>
           <Text style={styles.heroEmoji}>💰</Text>
           <Text style={styles.heroTitle}>{ONBOARDING_UPGRADE_HEADLINE}</Text>
-          <Text style={styles.heroSubtitle}>{PRO_UPGRADE_HOOK}</Text>
-          <Text style={styles.heroHook}>Less than one impulse buy — savings that compound every week.</Text>
+          <Text style={styles.heroSubtitle}>{PAYWALL_SUBHEAD}</Text>
         </View>
 
         <View style={styles.proCard}>
-          <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>Pro — {proMonthlyLabel} · {PRO_BADGE_LABEL}</Text>
-          </View>
-          <Text style={styles.proCardLead}>Everything you need to shop smarter as a family:</Text>
+          <Text style={styles.proBadgeText}>
+            Pro — {proMonthlyLabel} · {PRO_BADGE_LABEL}
+          </Text>
           <ProPlanFeaturesList
             variant="full"
+            leadLabel={PRO_PLAN_LEAD}
             accentColor={GREEN}
             mutedColor={TEXT_MUTED}
             featureTextStyle={styles.benefitText}
+            leadTextStyle={styles.benefitText}
           />
         </View>
 
@@ -92,6 +94,7 @@ export default function UpgradeScreen() {
           </Text>
         </Pressable>
 
+        <Text style={styles.ctaSubtext}>{PRO_CTA_SUBTEXT}</Text>
         <Text style={styles.commitNote}>{COMMIT_NOTE}</Text>
 
         <Pressable
@@ -135,21 +138,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   heroSubtitle: {
-    color: GREEN,
+    color: TEXT_MUTED,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
     textAlign: 'center',
     lineHeight: 23,
     maxWidth: 320,
-  },
-  heroHook: {
-    color: TEXT_MUTED,
-    fontSize: 14,
-    fontWeight: '500',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginTop: 10,
-    maxWidth: 300,
   },
   proCard: {
     backgroundColor: CARD_BG,
@@ -160,27 +154,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(34,197,94,0.25)',
     marginBottom: 28,
   },
-  proCardLead: {
-    color: TEXT_MUTED,
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
-    marginBottom: 2,
-  },
-  proBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(34,197,94,0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
-    marginBottom: 4,
-  },
   proBadgeText: {
     color: GREEN,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
+    marginBottom: 4,
   },
   benefitText: {
     color: TEXT_PRIMARY,
@@ -196,7 +174,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   upgradeBtnPressed: {
     opacity: 0.82,
@@ -206,6 +184,13 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.1,
+  },
+  ctaSubtext: {
+    color: TEXT_MUTED,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 8,
+    lineHeight: 18,
   },
   commitNote: {
     color: TEXT_MUTED,

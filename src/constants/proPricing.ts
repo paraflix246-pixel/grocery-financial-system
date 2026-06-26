@@ -1,18 +1,22 @@
 export const CORE_NARRATIVE =
   'Penny Pantry tracks every receipt so you see what you really spend, which prices are climbing, and where inflation is quietly eating your budget.';
 
-export const ONBOARDING_UPGRADE_HEADLINE = 'Stop overpaying for groceries';
+export const ONBOARDING_UPGRADE_HEADLINE = 'Save money every time you shop.';
 
-export const PAYWALL_HEADLINE = 'Pick the plan that pays for itself';
+export const PAYWALL_HEADLINE = 'Save money every time you shop.';
 
 export const PAYWALL_SUBHEAD =
-  'Most members spot savings on their very first shop — price drops, store swaps, and inflation you would have missed.';
+  'Track prices, catch drops, and see where your money actually goes.';
 
 export const PRO_CTA_LABEL = 'Start saving with Pro';
 
+export const PRO_CTA_SUBTEXT = 'Smarter grocery spending starts here.';
+
 export const PRO_BADGE_LABEL = 'Best for families';
 
-export const CONTINUE_FREE_LABEL = 'Try Free first';
+export const PRO_PLAN_LEAD = 'Everything Free, plus:';
+
+export const CONTINUE_FREE_LABEL = 'Continue with Free';
 
 export const COMMIT_NOTE = 'Cancel anytime — no contracts.';
 
@@ -31,24 +35,24 @@ export const proMonthlyLabel = `${PRO_MONTHLY_PRICE}/mo`;
 export const proYearlyLabel = `${PRO_YEARLY_PRICE}/yr`;
 
 export const FREE_PLAN_FEATURES = [
-  `Up to ${FREE_RECEIPT_SCAN_LIMIT} receipt scans/month`,
-  'Build a basic grocery list',
+  `${FREE_RECEIPT_SCAN_LIMIT} receipt scans/month`,
+  'Basic grocery list',
   `${FREE_PRICE_HISTORY_DAYS}-day price history`,
-  'Set price alerts manually',
-  `${FREE_MAX_STORES} store at a time`,
-  `Pantry capped at ${FREE_PANTRY_MAX_ITEMS} items`,
+  'Manual price alerts',
+  `${FREE_MAX_STORES} store tracking`,
+  `Pantry up to ${FREE_PANTRY_MAX_ITEMS} items`,
 ] as const;
 
 export const PRO_PLAN_FEATURES = [
-  'Unlimited receipt scans — catch every price change',
-  'Full price history — see what you have actually paid',
-  'Instant sale alerts the moment your staples drop',
-  'Compare live prices across all your stores',
-  'Sync with family or roommates in real time',
-  'Forecast grocery spend before month-end surprises',
-  'Auto-find the cheapest basket across your stores',
-  'Export spending logs as CSV',
-  'Unlimited pantry — track everything you buy',
+  'Unlimited receipt scans',
+  'Full price history (all purchases)',
+  'Smart sale alerts for tracked items',
+  'Multi-store price comparison',
+  'Household sync (family/roommates)',
+  'Monthly spending overview',
+  'Cheapest cart across stores',
+  'Export spending data',
+  'Unlimited pantry tracking',
 ] as const;
 
 export const PRO_PLAN_FEATURE_GROUPS = [
@@ -70,15 +74,14 @@ export const PRO_PLAN_FEATURE_GROUPS = [
   },
 ] as const;
 
-export const PRO_UPGRADE_HOOK =
-  'Know about price drops and inflation before you fill your cart — not after you check out.';
+export const PRO_UPGRADE_HOOK = PAYWALL_SUBHEAD;
 
 export const UNLIMITED_PANTRY_LABEL = PRO_PLAN_FEATURES[8];
 export const UNLIMITED_SCANNING_LABEL = PRO_PLAN_FEATURES[0];
 
 /** User-facing names for gated modules — sourced from plan feature copy above. */
 export const PRO_FEATURE_LABELS = {
-  insights_pro: 'Know exactly where your grocery budget goes',
+  insights_pro: 'See where your grocery budget goes',
   inflation_tracker: 'See how inflation is hitting your basket',
   community_pricing: PRO_PLAN_FEATURES[3],
   usage_analytics: PRO_PLAN_FEATURES[1],

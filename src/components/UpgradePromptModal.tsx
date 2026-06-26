@@ -33,10 +33,10 @@ const FEATURE_BENEFITS: Record<string, readonly string[]> = {
   [PRO_FEATURE_LABELS.family_plans]: [
     'Everyone shops from the same live list',
     'No more duplicate buys or missed items',
-    'Catch price changes before anyone heads to the store',
+    'See price drops before anyone heads to the store',
   ],
   [PRO_FEATURE_LABELS.price_drop_alerts]: [
-    'Get pinged when staples you buy go on sale',
+    'Get notified when staples you track go on sale',
     'Stop paying full price for items you buy every week',
     PRO_FEATURE_LABELS.inflation_tracker,
   ],
@@ -56,8 +56,8 @@ const FEATURE_BENEFITS: Record<string, readonly string[]> = {
     PRO_FEATURE_LABELS.insights_pro,
   ],
   [PRO_FEATURE_LABELS.community_pricing]: [
-    'Find the cheapest store for your whole basket',
-    'Stop overpaying at the wrong store',
+    'Compare prices across your usual stores',
+    'See which store is cheaper for your list',
     PRO_FEATURE_LABELS.price_drop_alerts,
   ],
   [PRO_FEATURE_LABELS.export_advanced]: [
@@ -71,13 +71,13 @@ const FEATURE_BENEFITS: Record<string, readonly string[]> = {
     PRO_FEATURE_LABELS.family_plans,
   ],
   [PRO_FEATURE_LABELS.budget_forecasting]: [
-    'See your grocery spend before month-end surprises',
-    'Plan ahead instead of guessing at the register',
+    'See a monthly overview of your grocery spending',
+    'Spot trends before your next shop',
     PRO_PLAN_FEATURES[5],
   ],
   [PRO_FEATURE_LABELS.cheapest_basket]: [
-    'Get the lowest total across your usual stores',
-    'Let the app do the math — you just save',
+    'Compare cart totals across your usual stores',
+    'Find cheaper options before you check out',
     PRO_FEATURE_LABELS.community_pricing,
   ],
   [PRO_FEATURE_LABELS.pantry_unlimited]: [

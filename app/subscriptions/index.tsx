@@ -42,7 +42,7 @@ export default function SubscriptionsScreen() {
 
   const handleDowngrade = () => {
 
-    Alert.alert('Downgrade to Free?', 'You will lose unlimited scanning, live price alerts, and full price history.', [
+    Alert.alert('Downgrade to Free?', 'You will lose unlimited scanning, smart sale alerts, and full price history.', [
 
       { text: 'Cancel', style: 'cancel' },
 
@@ -142,7 +142,7 @@ export default function SubscriptionsScreen() {
 
               ? billingStatusLabel
 
-              : `Upgrade for price drop alerts, family sync & live store comparison — from ${proMonthlyLabel}`}
+              : `Upgrade for price drop alerts, household sync & multi-store comparison — from ${proMonthlyLabel}`}
 
           </Text>
 

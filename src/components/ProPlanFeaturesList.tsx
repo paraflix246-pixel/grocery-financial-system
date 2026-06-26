@@ -11,9 +11,11 @@ type Props = {
   variant?: Variant;
   accentColor?: string;
   mutedColor?: string;
+  leadLabel?: string;
   style?: StyleProp<ViewStyle>;
   featureTextStyle?: StyleProp<TextStyle>;
   secondaryTextStyle?: StyleProp<TextStyle>;
+  leadTextStyle?: StyleProp<TextStyle>;
 };
 
 function CheckRow({
@@ -58,9 +60,11 @@ export function ProPlanFeaturesList({
   variant = 'full',
   accentColor = SmartCartColors.primary,
   mutedColor = SmartCartColors.textMuted,
+  leadLabel,
   style,
   featureTextStyle,
   secondaryTextStyle,
+  leadTextStyle,
 }: Props) {
   if (variant === 'grouped') {
     return (
@@ -86,6 +90,9 @@ export function ProPlanFeaturesList({
 
   return (
     <View style={[styles.list, style]}>
+      {leadLabel ? (
+        <Text style={[styles.leadLabel, { color: mutedColor }, leadTextStyle]}>{leadLabel}</Text>
+      ) : null}
       {PRO_PLAN_FEATURES.map((feature) => (
         <CheckRow key={feature} text={feature} accent={accentColor} textStyle={featureTextStyle} />
       ))}
@@ -95,6 +102,12 @@ export function ProPlanFeaturesList({
 
 const styles = StyleSheet.create({
   list: { gap: 10, paddingRight: 4 },
+  leadLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginBottom: 2,
+  },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
