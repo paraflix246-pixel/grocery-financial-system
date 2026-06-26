@@ -19,7 +19,7 @@ import {
   type SubscriptionTier,
 } from '@/src/store/useSubscriptionStore';
 import { refreshScheduledNotifications } from '@/src/services/notificationService';
-import { signOut, getSession, getStoredUser } from '@/src/services/authService';
+import { signOut, getSession, getStoredUser, isSignedInAccount } from '@/src/services/authService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import {
   getOpenLastListPreference,
@@ -73,6 +73,7 @@ export default function SettingsScreen() {
   const [devTierSwitching, setDevTierSwitching] = useState(false);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const tier = useSubscriptionStore((s) => s.tier);
   const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
@@ -95,6 +96,8 @@ export default function SettingsScreen() {
     }
     const storedUser = await getStoredUser();
     const session = await getSession();
+    const signedIn = await isSignedInAccount();
+    setIsSignedIn(signedIn);
     setIsGuest(Boolean(storedUser?.isGuest || !session?.user));
     setLoading(false);
   }, [loadSettings]);
@@ -127,6 +130,11 @@ export default function SettingsScreen() {
     } finally {
       setDevResetting(false);
     }
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    router.replace('/onboarding/signin');
   };
 
   const handleSave = async () => {
@@ -412,6 +420,22 @@ export default function SettingsScreen() {
 
         <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
+          {isSignedIn ? (
+            <>
+              <Text style={styles.fieldHint}>
+                Signed in with your Penny Pantry account.
+              </Text>
+              <Pressable
+                style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
+                onPress={() => void handleLogout()}
+                accessibilityRole="button"
+                accessibilityLabel="Log out"
+              >
+                <Text style={styles.logoutBtnText}>Log out</Text>
+              </Pressable>
+              <View style={styles.divider} />
+            </>
+          ) : null}
           <Text style={styles.fieldHint}>
             {isGuest
               ? 'Remove all receipts, lists, and preferences stored on this device.'
@@ -523,4 +547,14 @@ const styles = StyleSheet.create({
   },
   dangerBtnPressed: { backgroundColor: `${SmartCartColors.danger}12` },
   dangerBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.danger },
+  logoutBtn: {
+    paddingVertical: 12,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  logoutBtnPressed: { backgroundColor: SmartCartColors.badge },
+  logoutBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
 });

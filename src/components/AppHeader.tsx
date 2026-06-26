@@ -1,12 +1,13 @@
-import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Text } from '@/components/Themed';
 import { BackButton } from '@/src/components/BackButton';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
-import { getSession, getStoredUser, signOut } from '@/src/services/authService';
+import { getStoredUser, isSignedInAccount, signOut } from '@/src/services/authService';
+import { supabase } from '@/src/services/supabaseClient';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
 type Props = {
@@ -18,12 +19,23 @@ type Props = {
 export function AppHeader({ notificationCount = 0, onNotificationPress, showBack = true }: Props) {
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
+  const [showSignIn, setShowSignIn] = useState(false);
 
   const refreshAuth = useCallback(async () => {
+    const signedIn = await isSignedInAccount();
     const stored = await getStoredUser();
-    const session = await getSession();
-    setShowLogout(!stored?.isGuest && Boolean(session?.user));
+    setShowLogout(signedIn);
+    setShowSignIn(!signedIn && Boolean(stored?.isGuest));
   }, []);
+
+  useEffect(() => {
+    void refreshAuth();
+    if (!supabase) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      void refreshAuth();
+    });
+    return () => subscription.unsubscribe();
+  }, [refreshAuth]);
 
   useFocusEffect(
     useCallback(() => {
@@ -32,16 +44,25 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
   );
 
   const handleLogoutPress = () => {
+    const doLogout = async () => {
+      await signOut();
+      router.replace('/onboarding/signin');
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm('Log out? You will need to sign in again to access your account.')) {
+        void doLogout();
+      }
+      return;
+    }
+
     Alert.alert('Log out?', 'You will need to sign in again to access your account.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Log out',
         style: 'destructive',
         onPress: () => {
-          void (async () => {
-            await signOut();
-            router.replace('/onboarding/signin');
-          })();
+          void doLogout();
         },
       },
     ]);
@@ -66,19 +87,19 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
         <View style={styles.rightActions}>
           {showLogout ? (
             <Pressable
-              style={styles.iconBtn}
+              style={styles.logoutBtn}
               accessibilityLabel="Log out"
               accessibilityRole="button"
               onPress={handleLogoutPress}>
-              <SymbolView
-                name={{
-                  ios: 'rectangle.portrait.and.arrow.right',
-                  android: 'logout',
-                  web: 'logout',
-                }}
-                tintColor={SmartCartColors.textMuted}
-                size={22}
-              />
+              <Text style={styles.logoutText}>Log out</Text>
+            </Pressable>
+          ) : showSignIn ? (
+            <Pressable
+              style={styles.logoutBtn}
+              accessibilityLabel="Sign in"
+              accessibilityRole="button"
+              onPress={() => router.push('/onboarding/signin?returnTo=%2F(tabs)' as never)}>
+              <Text style={styles.signInText}>Sign in</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -115,14 +136,32 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rightSlot: {
-    minWidth: 72,
+    minWidth: 120,
     alignItems: 'flex-end',
     justifyContent: 'center',
     marginLeft: 'auto',
+    flexShrink: 0,
   },
   rightActions: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+  },
+  logoutBtn: {
+    minHeight: 40,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: SmartCartColors.text,
+  },
+  signInText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: SmartCartColors.primary,
   },
   iconBtn: {
     width: 40,
