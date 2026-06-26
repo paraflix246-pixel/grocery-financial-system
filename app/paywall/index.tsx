@@ -13,10 +13,18 @@ import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { LegalFooter } from '@/src/components/legal/LegalFooter';
+import { FamilyPlanFeaturesList } from '@/src/components/FamilyPlanFeaturesList';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 
 import {
+  COMMIT_NOTE,
   CONTINUE_FREE_LABEL,
+  FAMILY_BADGE_LABEL,
+  FAMILY_CTA_SUBTEXT,
+  FAMILY_MONTHLY_PRICE,
+  FAMILY_PLAN_LEAD,
+  FAMILY_YEARLY_PRICE,
+  FAMILY_YEARLY_PRICE_PER_MONTH,
   FREE_PLAN_FEATURES,
   PAYWALL_HEADLINE,
   PAYWALL_SUBHEAD,
@@ -43,6 +51,8 @@ const BG = '#0F0F0F';
 
 const GREEN = '#22C55E';
 
+const PURPLE = '#7C3AED';
+
 const TEXT_PRIMARY = '#FFFFFF';
 
 const TEXT_MUTED = 'rgba(255,255,255,0.55)';
@@ -52,6 +62,8 @@ const CARD_BG = 'rgba(255,255,255,0.05)';
 const CARD_BORDER = 'rgba(255,255,255,0.1)';
 
 const WIDE_LAYOUT_MIN_WIDTH = 560;
+
+const FOOTER_ESTIMATE = 320;
 
 const PLANS = [
   {
@@ -82,10 +94,34 @@ function getProPeriod(billing: 'monthly' | 'yearly'): string {
   return billing === 'yearly' ? '/mo billed yearly' : '/month';
 }
 
+function getFamilyPrice(billing: 'monthly' | 'yearly'): string {
+  return billing === 'yearly' ? FAMILY_YEARLY_PRICE_PER_MONTH : FAMILY_MONTHLY_PRICE;
+}
+
+function getFamilyPeriod(billing: 'monthly' | 'yearly'): string {
+  return billing === 'yearly' ? '/mo billed yearly' : '/month';
+}
+
 function getSubscribeLabel(billing: 'monthly' | 'yearly', upgrading: boolean): string {
   if (upgrading) return 'Processing...';
   const price = billing === 'yearly' ? proYearlyLabel : `${PRO_MONTHLY_PRICE}/month`;
   return `${PRO_SUBSCRIBE_LABEL} — ${price}`;
+}
+
+function getBillingDisclaimer(billingMode: ReturnType<typeof getSubscriptionBillingMode>): string {
+  if (billingMode === 'stripe') {
+    return 'Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.';
+  }
+  if (billingMode === 'revenuecat') {
+    return 'Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.';
+  }
+  if (billingMode === 'mock') {
+    return 'Dev mock billing — no payment processed. Subscription is stored locally on this device.';
+  }
+  if (Platform.OS === 'web') {
+    return 'Web billing is not configured yet. Add Stripe env vars on Vercel or use mock mode locally.';
+  }
+  return 'In-app purchases are not configured yet. Set RevenueCat API keys for native builds.';
 }
 
 export default function PaywallScreen() {
@@ -99,6 +135,7 @@ export default function PaywallScreen() {
   const [selectedPro, setSelectedPro] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
+  const [footerHeight, setFooterHeight] = useState(FOOTER_ESTIMATE);
   const billingMode = getSubscriptionBillingMode();
 
   const handleStartTrial = async () => {
@@ -136,7 +173,11 @@ export default function PaywallScreen() {
     <View style={styles.container}>
       <ScreenHeader title="Choose your plan" />
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}>
+      <ScrollView
+        style={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 16 }]}>
+        {/* Section 1 — outcome hook */}
         <View style={styles.hero}>
           <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
           <Text style={styles.heroTitle}>{PAYWALL_HEADLINE}</Text>
@@ -158,6 +199,7 @@ export default function PaywallScreen() {
           </Pressable>
         </View>
 
+        {/* Section 2 — Free vs Pro comparison */}
         <View style={[styles.plansRow, isWide && styles.plansRowWide]}>
           {PLANS.map((plan) => {
             const isPaid = plan.id !== 'free';
@@ -227,21 +269,55 @@ export default function PaywallScreen() {
           })}
         </View>
 
+        {/* Section 3 — Family workspace callout (separate from Personal Pro) */}
+        <View style={styles.familySection}>
+          <Text style={styles.sectionLabel}>Need household sharing?</Text>
+          <View style={styles.familyCard}>
+            <Text style={styles.familyBadge}>{FAMILY_BADGE_LABEL}</Text>
+            <Text style={styles.familyTitle}>Family workspace</Text>
+            <Text style={styles.familySubtitle}>{FAMILY_CTA_SUBTEXT}</Text>
+            <View style={styles.priceRow}>
+              <Text style={[styles.planPrice, { color: PURPLE }]}>{getFamilyPrice(billing)}</Text>
+              <Text style={styles.planPeriod}>{getFamilyPeriod(billing)}</Text>
+            </View>
+            {billing === 'yearly' ? (
+              <Text style={styles.yearlyNote}>{FAMILY_YEARLY_PRICE} billed annually</Text>
+            ) : null}
+            <FamilyPlanFeaturesList
+              leadLabel={FAMILY_PLAN_LEAD}
+              accentColor={PURPLE}
+              mutedColor={TEXT_MUTED}
+              featureTextStyle={styles.featureText}
+              leadTextStyle={styles.featureText}
+            />
+            <Pressable
+              style={styles.familyBtn}
+              onPress={() => router.push('/family_plans' as never)}
+              accessibilityRole="button"
+              accessibilityLabel="Set up family workspace">
+              <Text style={styles.familyBtnText}>Set up family workspace</Text>
+            </Pressable>
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Section 4 — fixed bottom CTAs + legal */}
+      <View
+        style={[styles.footer, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}
+        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
         <Pressable
-          style={[styles.upgradeBtn, startingTrial && styles.upgradeBtnDisabled]}
+          style={[styles.upgradeBtn, startingTrial && styles.btnDisabled]}
           disabled={startingTrial || upgrading}
           onPress={handleStartTrial}
           accessibilityRole="button"
           accessibilityLabel={PRO_CTA_LABEL}>
-          <Text style={styles.upgradeBtnText}>
-            {startingTrial ? 'Starting trial...' : PRO_CTA_LABEL}
-          </Text>
+          <Text style={styles.upgradeBtnText}>{startingTrial ? 'Starting trial...' : PRO_CTA_LABEL}</Text>
         </Pressable>
 
         <Text style={styles.ctaSubtext}>{PRO_CTA_SUBTEXT}</Text>
 
         <Pressable
-          style={[styles.subscribeBtn, (upgrading || startingTrial) && styles.upgradeBtnDisabled]}
+          style={[styles.subscribeBtn, (upgrading || startingTrial) && styles.btnDisabled]}
           disabled={upgrading || startingTrial || !selectedPro}
           onPress={handleUpgrade}
           accessibilityRole="button"
@@ -249,32 +325,25 @@ export default function PaywallScreen() {
           <Text style={styles.subscribeBtnText}>{getSubscribeLabel(billing, upgrading)}</Text>
         </Pressable>
 
+        <Text style={styles.commitNote}>{COMMIT_NOTE}</Text>
+
         <Pressable style={styles.freeLink} onPress={() => router.back()}>
           <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL}</Text>
         </Pressable>
 
-        <Text style={styles.disclaimer}>
-          {billingMode === 'stripe'
-            ? 'Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.'
-            : billingMode === 'revenuecat'
-            ? 'Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.'
-            : billingMode === 'mock'
-              ? 'Dev mock billing — no payment processed. Subscription is stored locally on this device.'
-              : Platform.OS === 'web'
-                ? 'Web billing is not configured yet. Add Stripe env vars on Vercel or use mock mode locally.'
-                : 'In-app purchases are not configured yet. Set RevenueCat API keys for native builds.'}
-        </Text>
+        <Text style={styles.disclaimer}>{getBillingDisclaimer(billingMode)}</Text>
 
-        <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor="#7C3AED" />
-      </ScrollView>
+        <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor={PURPLE} style={styles.legalFooter} />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
-  content: { padding: 16, paddingBottom: 16 },
-  hero: { alignItems: 'center', marginBottom: 24 },
+  scroll: { flex: 1 },
+  content: { padding: 16, paddingTop: 8 },
+  hero: { alignItems: 'center', marginBottom: 20 },
   heroLogo: { marginBottom: 12 },
   heroTitle: {
     fontSize: 24,
@@ -306,7 +375,7 @@ const styles = StyleSheet.create({
   billingText: { fontSize: 13, fontWeight: '600', color: TEXT_MUTED },
   billingTextActive: { color: '#000' },
   plansRow: { gap: 14 },
-  plansRowWide: { flexDirection: 'row', alignItems: 'stretch' },
+  plansRowWide: { flexDirection: 'row', alignItems: 'flex-start' },
   planCard: {
     flex: 1,
     backgroundColor: CARD_BG,
@@ -314,8 +383,9 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: CARD_BORDER,
+    minHeight: 0,
   },
-  planCardWide: { minWidth: 0 },
+  planCardWide: { flexBasis: 0, minWidth: 0 },
   planCardHighlighted: { borderColor: 'rgba(34,197,94,0.35)' },
   planCardFree: { opacity: 0.92 },
   planBadge: {
@@ -325,11 +395,11 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   planName: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4 },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4, flexWrap: 'wrap' },
   planPrice: { fontSize: 32, fontWeight: '800', color: TEXT_PRIMARY },
   planPeriod: { fontSize: 14, color: TEXT_MUTED },
   yearlyNote: { fontSize: 12, color: TEXT_MUTED, marginTop: 2 },
-  featureList: { marginTop: 16, paddingRight: 4, gap: 10 },
+  featureList: { marginTop: 16, gap: 10 },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -366,14 +436,67 @@ const styles = StyleSheet.create({
     backgroundColor: TEXT_MUTED,
   },
   selectText: { fontSize: 12, fontWeight: '600', color: TEXT_MUTED },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: TEXT_MUTED,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 10,
+  },
+  familySection: { marginTop: 28 },
+  familyCard: {
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.28)',
+    gap: 10,
+  },
+  familyBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: PURPLE,
+  },
+  familyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: TEXT_PRIMARY,
+  },
+  familySubtitle: {
+    fontSize: 13,
+    color: TEXT_MUTED,
+    lineHeight: 19,
+  },
+  familyBtn: {
+    marginTop: 6,
+    borderRadius: 999,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(124,58,237,0.5)',
+    backgroundColor: 'rgba(124,58,237,0.12)',
+  },
+  familyBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: PURPLE,
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    gap: 10,
+    borderTopWidth: 1,
+    borderTopColor: CARD_BORDER,
+    backgroundColor: BG,
+  },
   upgradeBtn: {
     backgroundColor: GREEN,
     borderRadius: 999,
     paddingVertical: 16,
     alignItems: 'center',
-    marginTop: 8,
   },
-  upgradeBtnDisabled: { opacity: 0.7 },
+  btnDisabled: { opacity: 0.7 },
   upgradeBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
   subscribeBtn: {
     borderWidth: 1.5,
@@ -381,23 +504,32 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 12,
   },
   subscribeBtnText: { fontSize: 15, fontWeight: '700', color: TEXT_PRIMARY },
   ctaSubtext: {
-    fontSize: 13,
+    fontSize: 12,
     color: TEXT_MUTED,
     textAlign: 'center',
-    marginTop: 10,
-    lineHeight: 18,
+    lineHeight: 17,
+    marginTop: -2,
   },
-  freeLink: { alignItems: 'center', marginTop: 8, paddingVertical: 10 },
+  commitNote: {
+    fontSize: 12,
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 17,
+  },
+  freeLink: { alignItems: 'center', paddingVertical: 4 },
   freeLinkText: { fontSize: 14, fontWeight: '600', color: TEXT_MUTED },
   disclaimer: {
     fontSize: 11,
     color: 'rgba(255,255,255,0.35)',
     textAlign: 'center',
-    marginTop: 16,
     lineHeight: 16,
+    marginTop: 2,
+  },
+  legalFooter: {
+    marginTop: 0,
+    paddingBottom: 2,
   },
 });
