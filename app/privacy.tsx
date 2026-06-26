@@ -32,8 +32,8 @@ export default function PrivacyScreen() {
         We use trusted providers to operate the app, including:{'\n'}
         • Supabase — authentication and community price database{'\n'}
         • Google — optional sign-in (if you choose &quot;Continue with Google&quot;){'\n'}
-        • DeepRead, OpenAI, or similar — receipt OCR and text cleanup (images are sent for
-        processing; we do not store images on our servers after processing){'\n'}
+        • Receipt scanning providers — OCR and text cleanup (images are sent for processing; we do
+        not store images on our servers after processing){'\n'}
         • Vercel — hosting our web app and API routes{'\n'}
         • Optional price data providers (Kroger, SerpApi, Open Food Facts) when configured
       </LegalSection>

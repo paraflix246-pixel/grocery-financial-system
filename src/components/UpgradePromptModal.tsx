@@ -61,8 +61,8 @@ const FEATURE_BENEFITS: Record<string, readonly string[]> = {
     PRO_FEATURE_LABELS.price_drop_alerts,
   ],
   [PRO_FEATURE_LABELS.export_advanced]: [
-    'Download tax-ready spending logs in one tap',
-    'Keep a clean record for reimbursements or taxes',
+    'Download spending logs as CSV in one tap',
+    'Keep a clean record of every grocery purchase',
     PRO_PLAN_FEATURES[4],
   ],
   [PRO_FEATURE_LABELS.multi_user_sync]: [

@@ -47,7 +47,7 @@ export const PRO_PLAN_FEATURES = [
   'Sync with family or roommates in real time',
   'Forecast grocery spend before month-end surprises',
   'Auto-find the cheapest basket across your stores',
-  'Export CSV & tax-ready spending logs',
+  'Export spending logs as CSV',
   'Unlimited pantry — track everything you buy',
 ] as const;
 

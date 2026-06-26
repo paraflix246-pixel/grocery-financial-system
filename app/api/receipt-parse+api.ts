@@ -732,7 +732,7 @@ export async function POST(request: Request): Promise<Response> {
 
         error:
 
-          'AI receipt cleanup is not configured. Set OPENAI_API_KEY or DEEPSEEK_API_KEY in your environment.',
+          'Receipt cleanup is not configured. Set OPENAI_API_KEY or DEEPSEEK_API_KEY in your environment.',
 
       },
 
@@ -835,13 +835,13 @@ export async function POST(request: Request): Promise<Response> {
 
 
 
-    return Response.json({ error: 'Could not parse receipt with AI' }, { status: 422 });
+    return Response.json({ error: 'Could not parse receipt' }, { status: 422 });
 
   } catch (error) {
 
     console.warn('Receipt parse API failed:', error);
 
-    return Response.json({ error: 'AI receipt cleanup failed' }, { status: 500 });
+    return Response.json({ error: 'Receipt cleanup failed' }, { status: 500 });
 
   }
 
