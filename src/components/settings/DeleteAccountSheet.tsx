@@ -48,7 +48,7 @@ export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
 
   const isGuest = signedIn === false;
   const isClearLocal = mode === 'clear-local-data';
-  const title = isClearLocal ? 'Clear all local data?' : 'Delete account?';
+  const title = 'Delete account?';
   const canConfirm = isDeleteConfirmationValid(confirmText) && !busy;
 
   const handleConfirm = async () => {
@@ -90,12 +90,12 @@ export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
         onPress={handleConfirm}
         disabled={!canConfirm}
         accessibilityRole="button"
-        accessibilityLabel={isClearLocal ? 'Clear all local data' : 'Delete account'}
+        accessibilityLabel="Delete account"
       >
         {busy ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={styles.confirmText}>{isClearLocal ? 'Clear data' : 'Delete account'}</Text>
+          <Text style={styles.confirmText}>Delete account</Text>
         )}
       </Pressable>
     </View>
@@ -111,7 +111,7 @@ export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
           <Text style={styles.body}>
             {isClearLocal
               ? isGuest
-                ? 'This permanently removes receipts, lists, pantry items, and preferences stored on this device. Guest data is not synced to the cloud and cannot be recovered.'
+                ? 'This permanently deletes receipts, lists, pantry items, and preferences stored on this device. Guest data is not synced to the cloud and cannot be recovered.'
                 : 'This permanently removes receipts, lists, pantry items, and preferences stored on this device. Your cloud account and subscription are not deleted.'
               : 'This permanently deletes your cloud account and associated subscription records. Receipts, lists, and other data on this device will be cleared. Some local data may remain until you uninstall the app.'}
           </Text>

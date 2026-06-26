@@ -23,7 +23,8 @@ export default function PrivacyRequestScreen() {
 
       <LegalSection heading="In-app account deletion">
         If you are signed in, you can delete your cloud account directly in the app: Settings →
-        Account → Delete account. This permanently deletes your Supabase authentication account and
+        Delete account at the bottom of the Settings screen. This permanently deletes your Supabase
+        authentication account and
         associated cloud subscription records. Local data on your device (receipts, lists, pantry)
         is cleared as part of that flow, but some data may remain until you uninstall the app if
         deletion cannot complete for a specific key or database file.
@@ -42,7 +43,8 @@ export default function PrivacyRequestScreen() {
 
       <LegalSection heading="Guest mode">
         Guest data is stored only on your device and is not linked to a cloud account. To remove
-        guest data, use Settings → Local data → Clear all local data, or uninstall the app.
+        guest data, use Settings → Delete account at the bottom of the Settings screen, or uninstall
+        the app.
       </LegalSection>
 
       <LegalSection heading="California residents">

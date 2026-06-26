@@ -202,12 +202,12 @@ export default function PrivacyScreen() {
         your personal data, and to object to or restrict certain processing. To exercise these
         rights, contact us at the email below or visit our Privacy Requests page. We will respond
         within a reasonable time as required by applicable law.{'\n\n'}
-        To delete your account and associated cloud data when signed in, use Settings → Account →
-        Delete account in the app. You can also email privacy@pennypantry.xyz from the address tied
-        to your account. Deleting your account permanently removes your Supabase authentication
-        record and linked cloud subscription data. Local data on your device is cleared as part of
-        in-app deletion; some data may remain until you uninstall the app. Guest users can clear
-        local data via Settings → Local data → Clear all local data.
+        To delete your account and associated cloud data when signed in, use Settings → Delete
+        account at the bottom of the Settings screen. You can also email privacy@pennypantry.xyz from
+        the address tied to your account. Deleting your account permanently removes your Supabase
+        authentication record and linked cloud subscription data. Local data on your device is
+        cleared as part of in-app deletion; some data may remain until you uninstall the app. Guest
+        users can remove on-device data via Settings → Delete account, or uninstall the app.
       </LegalSection>
 
       <LegalSection heading="International users">

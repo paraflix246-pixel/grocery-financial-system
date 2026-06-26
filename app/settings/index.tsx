@@ -194,25 +194,6 @@ export default function SettingsScreen() {
           />
         </View>
 
-        {!isGuest && (
-          <>
-            <Text style={styles.sectionTitle}>Account</Text>
-            <View style={styles.card}>
-              <Text style={styles.fieldHint}>
-                Permanently delete your cloud account and clear local app data.
-              </Text>
-              <Pressable
-                style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
-                onPress={() => setAccountSheetMode('delete-account')}
-                accessibilityRole="button"
-                accessibilityLabel="Delete account"
-              >
-                <Text style={styles.dangerBtnText}>Delete account</Text>
-              </Pressable>
-            </View>
-          </>
-        )}
-
         <Text style={styles.sectionTitle}>Notifications</Text>
         <View style={styles.card}>
           <View style={styles.toggleRow}>
@@ -449,18 +430,20 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Local data</Text>
+        <Text style={styles.sectionTitle}>Account</Text>
         <View style={styles.card}>
           <Text style={styles.fieldHint}>
-            Remove all receipts, lists, and preferences stored on this device.
+            {isGuest
+              ? 'Remove all receipts, lists, and preferences stored on this device.'
+              : 'Permanently delete your cloud account and clear local app data.'}
           </Text>
           <Pressable
             style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
-            onPress={() => setAccountSheetMode('clear-local-data')}
+            onPress={() => setAccountSheetMode(isGuest ? 'clear-local-data' : 'delete-account')}
             accessibilityRole="button"
-            accessibilityLabel="Clear all local data"
+            accessibilityLabel="Delete account"
           >
-            <Text style={styles.dangerBtnText}>Clear all local data</Text>
+            <Text style={styles.dangerBtnText}>Delete account</Text>
           </Pressable>
         </View>
       </ScrollView>
