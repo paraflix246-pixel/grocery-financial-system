@@ -27,7 +27,11 @@ if (!fs.existsSync(imagePath)) {
 }
 
 const imageBase64 = fs.readFileSync(imagePath).toString('base64');
-const paddleUrl = process.env.PADDLEOCR_API_URL?.trim() || 'http://localhost:8089';
+const paddleUrl = process.env.PADDLEOCR_API_URL?.trim();
+if (!paddleUrl) {
+  console.error('PADDLEOCR_API_URL is not set. Example: PADDLEOCR_API_URL=http://localhost:8089');
+  process.exit(1);
+}
 
 console.log('Image:', imagePath);
 console.log('PaddleOCR:', paddleUrl);

@@ -33,6 +33,7 @@
     "react-native-gifted-charts": "^1.4.77",
     "react-native-nitro-image": "0.15.1",
     "react-native-nitro-modules": "0.35.9",
+    "react-native-purchases": "^10.4.0",
     "react-native-reanimated": "4.3.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
@@ -58,6 +59,8 @@
     "build:web": "expo export -p web",
     "test": "tsx --test src/utils/*.test.ts src/services/**/*.test.ts src/models/*.test.ts src/components/**/*.test.ts src/hooks/*.test.ts",
     "typecheck": "tsc --noEmit",
+    "validate:receipt": "tsx scripts/test-deepread-receipt.ts",
+    "validate:receipt-paddle": "tsx scripts/diag-receipt-pipeline.ts",
     "build:android:apk": "eas build --platform android --profile preview"
   },
   "private": true,

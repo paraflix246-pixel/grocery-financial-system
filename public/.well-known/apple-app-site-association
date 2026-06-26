@@ -1,0 +1,16 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "TEAMID.com.groceryfinancialsystem.app",
+        "paths": [
+          "/list/join",
+          "/list/join/*",
+          "/onboarding/upgrade",
+          "/reset-password"
+        ]
+      }
+    ]
+  }
+}

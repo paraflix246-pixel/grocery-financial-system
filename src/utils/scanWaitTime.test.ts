@@ -80,17 +80,13 @@ describe('getDeepReadScanWaitMessages', () => {
 
   it('shows refining stage label', () => {
     const messages = getDeepReadScanWaitMessages(5, 'refining');
-    assert.equal(messages.label, 'Refining with AI… 5s');
+    assert.equal(messages.label, 'Almost done… 5s');
   });
 
-  it('mentions DeepRead processing after two minutes', () => {
-
+  it('mentions complex receipt copy after two minutes', () => {
     const messages = getDeepReadScanWaitMessages(130, 'extracting');
-
     assert.match(messages.label, /Still working/);
-
-    assert.match(messages.hint, /up to 3 minutes/);
-
+    assert.match(messages.hint, /complex receipts/i);
   });
 
 });

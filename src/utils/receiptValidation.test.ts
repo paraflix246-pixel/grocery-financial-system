@@ -91,7 +91,7 @@ describe('validateParsedReceipt', () => {
       draft
     );
     assert.equal(messages.length, 2);
-    assert.match(messages[0]!, /Low OCR confidence/i);
+    assert.match(messages[0]!, /may not have been read correctly/i);
     assert.match(messages[1]!, /Line items do not add up/i);
   });
 

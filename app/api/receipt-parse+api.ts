@@ -1,6 +1,7 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
 
 import { parseReceiptText } from '@/src/services/receiptParser';
+import { resolveProductionSafeUrl } from '@/src/utils/productionEnvGuard';
 
 import { fetchReceiptOcrOverlay } from '@/src/services/ocr/fetchReceiptOcrOverlay';
 import {
@@ -719,7 +720,7 @@ export async function POST(request: Request): Promise<Response> {
   const deepseekKey = process.env.DEEPSEEK_API_KEY?.trim();
 
   const ocrSpaceKey = process.env.OCR_SPACE_API_KEY?.trim();
-  const paddleOcrUrl = process.env.PADDLEOCR_API_URL?.trim();
+  const paddleOcrUrl = resolveProductionSafeUrl(process.env.PADDLEOCR_API_URL, 'PADDLEOCR_API_URL');
 
 
 
@@ -800,7 +801,7 @@ export async function POST(request: Request): Promise<Response> {
       deepseekKey,
 
       ocrSpaceKey,
-      paddleOcrUrl,
+      paddleOcrUrl: paddleOcrUrl ?? undefined,
 
       imageBase64,
 

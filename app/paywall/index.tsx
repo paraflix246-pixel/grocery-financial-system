@@ -28,6 +28,7 @@ import {
   proYearlyLabel,
 } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { getSubscriptionBillingMode } from '@/src/services/subscriptionService';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
 const BG = '#0F0F0F';
@@ -104,6 +105,7 @@ export default function PaywallScreen() {
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedTier, setSelectedTier] = useState<PaidTier>('pro');
   const [upgrading, setUpgrading] = useState(false);
+  const billingMode = getSubscriptionBillingMode();
 
   const handleUpgrade = async () => {
     setUpgrading(true);
@@ -114,6 +116,9 @@ export default function PaywallScreen() {
         await upgradeToPro(billing);
       }
       router.replace('/subscriptions' as never);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Purchase failed. Please try again.';
+      console.warn('[paywall] upgrade failed:', message);
     } finally {
       setUpgrading(false);
     }
@@ -219,7 +224,11 @@ export default function PaywallScreen() {
         </Pressable>
 
         <Text style={styles.disclaimer}>
-          Mock purchase for MVP. No payment processed. Subscription stored locally on this device.
+          {billingMode === 'revenuecat'
+            ? 'Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.'
+            : billingMode === 'mock'
+              ? 'Dev mock billing — no payment processed. Subscription is stored locally on this device.'
+              : 'In-app purchases are not configured yet. Set RevenueCat API keys for native builds.'}
         </Text>
       </ScrollView>
     </View>

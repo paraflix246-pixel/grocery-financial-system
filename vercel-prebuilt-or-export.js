@@ -52,6 +52,18 @@ function verifyDist() {
   console.log(`Verified client bundle: ${bundles[0]}`);
 }
 
+function copyWellKnownFiles() {
+  const sourceDir = path.join('public', '.well-known');
+  const targetDir = path.join('dist', 'client', '.well-known');
+  if (!fs.existsSync(sourceDir)) return;
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const file of fs.readdirSync(sourceDir)) {
+    fs.copyFileSync(path.join(sourceDir, file), path.join(targetDir, file));
+  }
+  console.log('Copied public/.well-known → dist/client/.well-known');
+}
+
 const forceBuild = process.env.VERCEL === '1' || process.env.FORCE_VERCEL_BUILD === '1';
 const shouldBuild = forceBuild || !isDistComplete();
 
@@ -68,3 +80,4 @@ if (shouldBuild) {
 }
 
 verifyDist();
+copyWellKnownFiles();

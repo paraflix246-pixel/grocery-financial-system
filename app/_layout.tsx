@@ -23,6 +23,7 @@ import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useListStore } from '@/src/store/useListStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { initializeSubscriptionProvider } from '@/src/services/subscriptionService';
 import { startFamilyRealtimeSync } from '@/src/services/familySyncService';
 
 export { ErrorBoundary };
@@ -108,6 +109,7 @@ function ensureAppInitialized(): Promise<void> {
         await syncProfileDisplayNameFromAuth();
       }
     });
+    await runInitStep('subscription provider', () => initializeSubscriptionProvider());
     await runInitStep('subscription', () => useSubscriptionStore.getState().loadSubscription());
     await runInitStep('lists', () => useListStore.getState().loadLists());
     await runInitStep('onboarding', async () => {

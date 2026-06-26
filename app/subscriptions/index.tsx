@@ -12,6 +12,7 @@ import {
   proMonthlyLabel,
 } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { getSubscriptionBillingMode, restoreSubscriptionPurchases } from '@/src/services/subscriptionService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 
@@ -36,8 +37,26 @@ export default function SubscriptionsScreen() {
 
   const isPaid = tier === 'pro' || tier === 'household';
   const isHousehold = tier === 'household';
+  const billingMode = getSubscriptionBillingMode();
   const planLabel = isHousehold ? 'Penny Pantry Household' : isPaid ? 'Penny Pantry Pro' : 'Penny Pantry Free';
   const benefits = isHousehold ? HOUSEHOLD_PLAN_FEATURES : PRO_PLAN_FEATURES;
+
+  const billingStatusLabel =
+    billingMode === 'revenuecat'
+      ? `${plan === 'yearly' ? 'Annual' : 'Monthly'} · billed via App Store / Play Store`
+      : billingMode === 'mock'
+        ? `${plan === 'yearly' ? 'Annual' : 'Monthly'} plan · dev mock subscription`
+        : `${plan === 'yearly' ? 'Annual' : 'Monthly'} plan · local only`;
+
+  const handleRestore = async () => {
+    const result = await restoreSubscriptionPurchases();
+    if (result.success && result.state.tier !== 'free') {
+      await loadSubscription();
+      Alert.alert('Restored', 'Your subscription is active on this device.');
+      return;
+    }
+    Alert.alert('No subscription found', result.error ?? 'No active subscription to restore.');
+  };
 
   return (
     <View style={styles.container}>
@@ -57,7 +76,7 @@ export default function SubscriptionsScreen() {
           <Text style={styles.statusTitle}>{planLabel}</Text>
           <Text style={styles.statusSub}>
             {isPaid
-              ? `${plan === 'yearly' ? 'Annual' : 'Monthly'} plan · mock local subscription`
+              ? billingStatusLabel
               : `Upgrade for price drop alerts, inflation tracking & live store comparison — from ${proMonthlyLabel}`}
           </Text>
           {isPaid && expiresAt && (
@@ -89,6 +108,12 @@ export default function SubscriptionsScreen() {
             <Pressable style={styles.downgradeBtn} onPress={handleDowngrade}>
               <Text style={styles.downgradeText}>Downgrade to Free</Text>
             </Pressable>
+
+            {billingMode === 'revenuecat' ? (
+              <Pressable style={styles.restoreBtn} onPress={() => void handleRestore()}>
+                <Text style={styles.restoreText}>Restore purchases</Text>
+              </Pressable>
+            ) : null}
           </>
         ) : (
           <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall' as never)}>
@@ -97,10 +122,15 @@ export default function SubscriptionsScreen() {
         )}
 
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>Local-first billing</Text>
+          <Text style={styles.infoTitle}>
+            {billingMode === 'revenuecat' ? 'Store billing' : 'Billing status'}
+          </Text>
           <Text style={styles.infoBody}>
-            Subscriptions are stored on this device for MVP testing. A production build would connect to App Store /
-            Play Store billing.
+            {billingMode === 'revenuecat'
+              ? 'Subscriptions are managed by Apple or Google. Cancel anytime in your device subscription settings; access continues until the period ends.'
+              : billingMode === 'mock'
+                ? 'Dev mock mode — subscriptions are stored locally for testing tier gates without App Store / Play billing.'
+                : 'Native billing is not configured. Add RevenueCat keys and rebuild with EAS to enable real Pro and Household purchases.'}
           </Text>
         </View>
       </ScrollView>
@@ -157,6 +187,8 @@ const styles = StyleSheet.create({
     borderColor: SmartCartColors.danger,
   },
   downgradeText: { fontSize: 15, fontWeight: '600', color: SmartCartColors.danger },
+  restoreBtn: { marginTop: 12, paddingVertical: 12, alignItems: 'center' },
+  restoreText: { fontSize: 14, fontWeight: '600', color: SmartCartColors.textSecondary },
   infoCard: {
     marginTop: 24,
     backgroundColor: SmartCartColors.card,

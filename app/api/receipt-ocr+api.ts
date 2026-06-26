@@ -4,13 +4,15 @@ import {
   type PaddleScanResult,
 } from '@/src/services/receiptPaddleParse';
 
+import { resolveProductionSafeUrl } from '@/src/utils/productionEnvGuard';
+
 export async function POST(request: Request): Promise<Response> {
-  const paddleUrl = process.env.PADDLEOCR_API_URL?.trim();
+  const paddleUrl = resolveProductionSafeUrl(process.env.PADDLEOCR_API_URL, 'PADDLEOCR_API_URL');
   if (!paddleUrl) {
     return Response.json(
       {
         error:
-          'PaddleOCR is not configured. Set PADDLEOCR_API_URL=http://localhost:8089 in .env and restart Expo.',
+          'PaddleOCR is not configured. Set PADDLEOCR_API_URL to your hosted OCR service (not localhost in production).',
       },
       { status: 503 }
     );

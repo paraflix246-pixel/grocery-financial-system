@@ -5,7 +5,7 @@ Penny Pantry uses **https://pennypantry.xyz** as the primary production web orig
 
 The Vercel project slug remains `grocery-financial-system`; only the public domain changed.
 
-**Status (2026-06-25):** `pennypantry.xyz` and `www.pennypantry.xyz` were added to the Vercel project `grocery-financial-system` via CLI. DNS at the registrar is still pending — see records below.
+**Status (2026-06-26):** `pennypantry.xyz` and `www.pennypantry.xyz` are added to Vercel project `grocery-financial-system`. DNS at the registrar is still pending. Universal link files are in `public/.well-known/` (copied to `dist/client` on deploy) — replace `TEAMID` and SHA256 placeholders before native app links will verify.
 
 ---
 
@@ -75,8 +75,28 @@ Web dev uses `window.location.origin` automatically (e.g. `http://localhost:8081
 - **iOS** `associatedDomains`: `applinks:pennypantry.xyz`, `applinks:www.pennypantry.xyz`
 - **Android** HTTPS intent filters for both hosts
 
-After changing these, run `npx expo prebuild` and rebuild native apps.  
-Host `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` on the web app for universal links (Expo Router / Vercel can serve these when you add them).
+After changing these, run `npx expo prebuild` and rebuild native apps.
+
+### Universal links (web files)
+
+Static files live in `public/.well-known/` and are copied to `dist/client/.well-known/` during Vercel build:
+
+| File | Purpose |
+|------|---------|
+| `apple-app-site-association` | iOS universal links |
+| `assetlinks.json` | Android App Links verification |
+
+**Before native deep links work**, replace placeholders:
+
+1. **`apple-app-site-association`** — set `appID` to `{APPLE_TEAM_ID}.com.groceryfinancialsystem.app` (Team ID from Apple Developer → Membership).
+2. **`assetlinks.json`** — set `sha256_cert_fingerprints` to your **release** signing cert SHA256 (Play Console → App integrity, or `keytool -list -v -keystore your-release.keystore`).
+
+Verify after deploy:
+
+```bash
+curl -s https://pennypantry.xyz/.well-known/apple-app-site-association
+curl -s https://pennypantry.xyz/.well-known/assetlinks.json
+```
 
 Custom URL scheme (fallback): `groceryfinancialsystem://` (from `app.json`).
 
@@ -150,6 +170,7 @@ https://<project-ref>.supabase.co/auth/v1/callback
 
 - [ ] DNS resolves: `pennypantry.xyz` and `www.pennypantry.xyz` → Vercel
 - [ ] HTTPS works on both; www redirects to apex
+- [ ] `/.well-known/apple-app-site-association` and `/.well-known/assetlinks.json` return JSON (placeholders replaced)
 - [ ] `EXPO_PUBLIC_APP_URL` set locally, on Vercel, and in EAS secrets for native builds
 - [ ] Supabase Site URL + redirect URLs updated
 - [ ] Google OAuth origins and Supabase callback URI configured

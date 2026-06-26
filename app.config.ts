@@ -14,6 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: base.slug ?? 'grocery-financial-system',
     ios: {
       ...base.ios,
+      bundleIdentifier: base.ios?.bundleIdentifier ?? 'com.groceryfinancialsystem.app',
       associatedDomains: [
         'applinks:pennypantry.xyz',
         'applinks:www.pennypantry.xyz',

@@ -1,4 +1,5 @@
 import type { SubscriptionPlan, SubscriptionState, SubscriptionTier } from '@/src/store/useSubscriptionStore';
+import { Platform } from 'react-native';
 
 export type PurchaseResult = {
   success: boolean;
@@ -6,16 +7,103 @@ export type PurchaseResult = {
   error?: string;
 };
 
-/** When true, purchases use local mock tokens instead of RevenueCat. */
-export const SUBSCRIPTION_DEV_MOCK =
-  typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
-
 const DEFAULT_STATE: SubscriptionState = {
   tier: 'free',
   plan: null,
   expiresAt: null,
   mockPurchaseToken: null,
 };
+
+const ENTITLEMENT_PRO = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_PRO?.trim() || 'pro';
+const ENTITLEMENT_HOUSEHOLD =
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_HOUSEHOLD?.trim() || 'household';
+const OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING?.trim() || 'default';
+
+function revenueCatApiKey(): string | null {
+  if (Platform.OS === 'ios') {
+    return process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim() || null;
+  }
+  if (Platform.OS === 'android') {
+    return process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() || null;
+  }
+  return null;
+}
+
+/** True when RevenueCat public SDK keys are set for the current native platform. */
+export function isRevenueCatConfigured(): boolean {
+  return Platform.OS !== 'web' && revenueCatApiKey() != null;
+}
+
+/** When true, purchases use local mock tokens instead of the store. */
+export function isSubscriptionMockMode(): boolean {
+  if (isRevenueCatConfigured()) {
+    return process.env.EXPO_PUBLIC_REVENUECAT_USE_MOCK === 'true';
+  }
+  return typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
+}
+
+/** @deprecated Use isSubscriptionMockMode() */
+export const SUBSCRIPTION_DEV_MOCK = isSubscriptionMockMode();
+
+type PurchasesModule = typeof import('react-native-purchases').default;
+type CustomerInfo = import('react-native-purchases').CustomerInfo;
+type PurchasesPackage = import('react-native-purchases').PurchasesPackage;
+type PACKAGE_TYPE = typeof import('react-native-purchases').PACKAGE_TYPE;
+
+let purchasesModule: PurchasesModule | null | undefined;
+let configured = false;
+
+function getPurchasesModule(): PurchasesModule | null {
+  if (Platform.OS === 'web') return null;
+  if (purchasesModule !== undefined) return purchasesModule;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    purchasesModule = require('react-native-purchases').default as PurchasesModule;
+  } catch {
+    purchasesModule = null;
+  }
+  return purchasesModule;
+}
+
+function getPackageTypeEnum(): PACKAGE_TYPE | null {
+  if (Platform.OS === 'web') return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('react-native-purchases').PACKAGE_TYPE as PACKAGE_TYPE;
+  } catch {
+    return null;
+  }
+}
+
+function planFromProductId(productId: string): SubscriptionPlan {
+  const id = productId.toLowerCase();
+  if (id.includes('year') || id.includes('annual')) return 'yearly';
+  return 'monthly';
+}
+
+function mapCustomerInfoToState(info: CustomerInfo): SubscriptionState | null {
+  const householdEnt = info.entitlements.active[ENTITLEMENT_HOUSEHOLD];
+  if (householdEnt?.isActive) {
+    return {
+      tier: 'household',
+      plan: planFromProductId(householdEnt.productIdentifier),
+      expiresAt: householdEnt.expirationDate ?? null,
+      mockPurchaseToken: null,
+    };
+  }
+
+  const proEnt = info.entitlements.active[ENTITLEMENT_PRO];
+  if (proEnt?.isActive) {
+    return {
+      tier: 'pro',
+      plan: planFromProductId(proEnt.productIdentifier),
+      expiresAt: proEnt.expirationDate ?? null,
+      mockPurchaseToken: null,
+    };
+  }
+
+  return null;
+}
 
 function buildMockPaidState(plan: SubscriptionPlan, tier: Exclude<SubscriptionTier, 'free'>): SubscriptionState {
   const expires = new Date();
@@ -28,37 +116,153 @@ function buildMockPaidState(plan: SubscriptionPlan, tier: Exclude<SubscriptionTi
   };
 }
 
-/** RevenueCat-ready hook: replace body with Purchases.getCustomerInfo(). */
+async function ensureRevenueCatConfigured(): Promise<PurchasesModule> {
+  const Purchases = getPurchasesModule();
+  const apiKey = revenueCatApiKey();
+  if (!Purchases || !apiKey) {
+    throw new Error('In-app purchases are not configured for this platform.');
+  }
+
+  if (!configured) {
+    Purchases.configure({ apiKey });
+    configured = true;
+  }
+  return Purchases;
+}
+
+async function findPackage(
+  Purchases: PurchasesModule,
+  tier: Exclude<SubscriptionTier, 'free'>,
+  plan: SubscriptionPlan
+): Promise<PurchasesPackage> {
+  const offerings = await Purchases.getOfferings();
+  const offering = offerings.current ?? offerings.all[OFFERING_ID];
+  if (!offering?.availablePackages.length) {
+    throw new Error('No subscription products are available. Check RevenueCat offerings.');
+  }
+
+  const PACKAGE_TYPE = getPackageTypeEnum();
+  const targetType = plan === 'yearly' ? PACKAGE_TYPE?.ANNUAL : PACKAGE_TYPE?.MONTHLY;
+  const tierNeedle = tier === 'household' ? 'household' : 'pro';
+
+  const tierMatch = offering.availablePackages.find((pkg) => {
+    const id = pkg.identifier.toLowerCase();
+    const productId = pkg.product.identifier.toLowerCase();
+    const matchesTier = id.includes(tierNeedle) || productId.includes(tierNeedle);
+    if (!matchesTier) return false;
+    return targetType == null || pkg.packageType === targetType;
+  });
+  if (tierMatch) return tierMatch;
+
+  const planMatch = offering.availablePackages.find(
+    (pkg) => targetType == null || pkg.packageType === targetType
+  );
+  if (planMatch) return planMatch;
+
+  throw new Error(`No ${tier} ${plan} package found in RevenueCat offering "${offering.identifier}".`);
+}
+
+/** Initialize RevenueCat on native when API keys are present. Safe to call multiple times. */
+export async function initializeSubscriptionProvider(): Promise<void> {
+  if (!isRevenueCatConfigured()) return;
+  await ensureRevenueCatConfigured();
+}
+
 export async function loadSubscriptionFromProvider(): Promise<SubscriptionState | null> {
-  return null;
+  if (!isRevenueCatConfigured()) return null;
+
+  try {
+    const Purchases = await ensureRevenueCatConfigured();
+    const info = await Purchases.getCustomerInfo();
+    return mapCustomerInfoToState(info);
+  } catch (error) {
+    console.warn('[subscription] RevenueCat load failed:', error);
+    return null;
+  }
 }
 
 export async function purchaseSubscription(
   plan: SubscriptionPlan,
   tier: Exclude<SubscriptionTier, 'free'> = 'pro'
 ): Promise<PurchaseResult> {
-  if (SUBSCRIPTION_DEV_MOCK) {
+  if (isSubscriptionMockMode()) {
     const state = buildMockPaidState(plan, tier);
     return { success: true, state };
   }
-  return {
-    success: false,
-    state: DEFAULT_STATE,
-    error: 'In-app purchases are not configured yet.',
-  };
+
+  if (!isRevenueCatConfigured()) {
+    return {
+      success: false,
+      state: DEFAULT_STATE,
+      error:
+        Platform.OS === 'web'
+          ? 'Subscribe in the iOS or Android app. Web billing is not enabled yet.'
+          : 'In-app purchases are not configured. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY / EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY.',
+    };
+  }
+
+  try {
+    const Purchases = await ensureRevenueCatConfigured();
+    const pkg = await findPackage(Purchases, tier, plan);
+    const { customerInfo } = await Purchases.purchasePackage(pkg);
+    const state = mapCustomerInfoToState(customerInfo);
+    if (!state) {
+      return {
+        success: false,
+        state: DEFAULT_STATE,
+        error: 'Purchase completed but no active entitlement was found. Check RevenueCat entitlements.',
+      };
+    }
+    return { success: true, state };
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : 'Purchase failed. Please try again.';
+    if (/user cancelled|purchase cancelled/i.test(message)) {
+      return { success: false, state: DEFAULT_STATE, error: 'Purchase cancelled.' };
+    }
+    return { success: false, state: DEFAULT_STATE, error: message };
+  }
 }
 
 export async function restoreSubscriptionPurchases(): Promise<PurchaseResult> {
-  if (SUBSCRIPTION_DEV_MOCK) {
+  if (isSubscriptionMockMode()) {
     return { success: true, state: DEFAULT_STATE };
   }
-  return {
-    success: false,
-    state: DEFAULT_STATE,
-    error: 'Restore purchases is not configured yet.',
-  };
+
+  if (!isRevenueCatConfigured()) {
+    return {
+      success: false,
+      state: DEFAULT_STATE,
+      error: 'Restore purchases is not configured for this platform.',
+    };
+  }
+
+  try {
+    const Purchases = await ensureRevenueCatConfigured();
+    const info = await Purchases.restorePurchases();
+    const state = mapCustomerInfoToState(info);
+    if (!state) {
+      return {
+        success: false,
+        state: DEFAULT_STATE,
+        error: 'No active subscription found for this account.',
+      };
+    }
+    return { success: true, state };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Could not restore purchases.';
+    return { success: false, state: DEFAULT_STATE, error: message };
+  }
 }
 
 export function isSubscriptionExpired(state: SubscriptionState): boolean {
   return Boolean(state.expiresAt && new Date(state.expiresAt) < new Date());
+}
+
+export function getSubscriptionBillingMode(): 'revenuecat' | 'mock' | 'unconfigured' {
+  if (isRevenueCatConfigured() && !isSubscriptionMockMode()) return 'revenuecat';
+  if (isSubscriptionMockMode()) return 'mock';
+  return 'unconfigured';
 }
