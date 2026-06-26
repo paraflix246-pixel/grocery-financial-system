@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
-/** Legacy URL — tab route is now `shopping-lists`. */
+/** Legacy URL — send users to the dashboard home tab. */
 export default function ListsLegacyRedirect() {
-  return <Redirect href="/(tabs)/shopping-lists?browse=1" />;
+  return <Redirect href="/(tabs)" />;
 }

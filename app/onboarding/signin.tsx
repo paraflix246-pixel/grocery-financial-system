@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,11 +11,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { signInWithEmail, continueAsGuest, signInWithGoogle } from '@/src/services/authService';
+import {
+  getRememberMePreference,
+  recordActivityTimestamp,
+  setRememberMePreference,
+} from '@/src/services/authRoutingService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 
 const BG = '#0F0F0F';
@@ -30,15 +35,28 @@ const DIVIDER_COLOR = 'rgba(255,255,255,0.12)';
 
 export default function SigninScreen() {
   const router = useRouter();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const insets = useSafeAreaInsets();
   const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    void getRememberMePreference().then(setRememberMe);
+  }, []);
+
+  function resolveReturnPath(): Href {
+    if (typeof returnTo === 'string' && returnTo.trim()) {
+      return decodeURIComponent(returnTo) as Href;
+    }
+    return '/(tabs)' as Href;
+  }
 
   async function handleSignIn() {
     setError(null);
@@ -52,8 +70,15 @@ export default function SigninScreen() {
     }
     setLoading(true);
     try {
+      await setRememberMePreference(rememberMe);
       await signInWithEmail(email, password);
-      router.push('/onboarding/upgrade');
+      await recordActivityTimestamp();
+      if (returnTo) {
+        await completeOnboarding();
+        router.replace(resolveReturnPath());
+      } else {
+        router.push('/onboarding/upgrade');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not sign in. Please check your credentials.');
     } finally {
@@ -67,6 +92,7 @@ export default function SigninScreen() {
     try {
       await continueAsGuest();
       await completeOnboarding();
+      await recordActivityTimestamp();
       router.replace('/(tabs)');
     } catch (e) {
       setError('Something went wrong. Please try again.');
@@ -164,6 +190,19 @@ export default function SigninScreen() {
         {/* Forgot password */}
         <Pressable style={styles.forgotLink} onPress={handleForgotPassword} accessibilityRole="button">
           <Text style={styles.forgotText}>Forgot password?</Text>
+        </Pressable>
+
+        {/* Remember me */}
+        <Pressable
+          style={styles.rememberRow}
+          onPress={() => setRememberMe((current) => !current)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: rememberMe }}
+          accessibilityLabel="Remember me">
+          <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+            {rememberMe ? <Text style={styles.checkmark}>✓</Text> : null}
+          </View>
+          <Text style={styles.rememberLabel}>Remember me</Text>
         </Pressable>
 
         {/* Sign in button */}
@@ -304,6 +343,36 @@ const styles = StyleSheet.create({
     color: PURPLE,
     fontSize: 14,
     fontWeight: '600',
+  },
+  rememberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.28)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: GREEN,
+    borderColor: GREEN,
+  },
+  checkmark: {
+    color: '#000',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 16,
+  },
+  rememberLabel: {
+    color: TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '500',
   },
   ctaBtn: {
     backgroundColor: GREEN,

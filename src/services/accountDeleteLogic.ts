@@ -17,6 +17,8 @@ export const LOCAL_PREF_KEYS = [
   '@smartcart_hidden_tracked_items',
   'spending-analytics-period',
   '@smartcart_auth_user_v1',
+  '@smartcart_remember_me',
+  '@smartcart_last_activity_at',
   '@smartcart_custom_catalog_v1',
   '@smartcart_community_catalog_v1',
   '@smartcart_community_prices_v1',

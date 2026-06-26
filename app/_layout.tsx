@@ -25,10 +25,12 @@ import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useListStore } from '@/src/store/useListStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { initializeSubscriptionProvider } from '@/src/services/subscriptionService';
 import { ensureTrialExpiredDowngrade } from '@/src/services/trialService';
-import { canAccessFeature } from '@/src/services/featureGateService';
+import { canAccessWorkspaceFeature } from '@/src/services/featureGateService';
 import { startFamilyRealtimeSync } from '@/src/services/familySyncService';
+import { AuthSessionGuard } from '@/src/components/AuthSessionGuard';
 
 export { ErrorBoundary };
 
@@ -124,6 +126,7 @@ function ensureAppInitialized(): Promise<void> {
         await useSubscriptionStore.getState().downgradeToFree();
       }
     });
+    await runInitStep('workspaces', () => useWorkspaceStore.getState().loadWorkspaces());
     await runInitStep('lists', () => useListStore.getState().loadLists());
     await runInitStep('onboarding', async () => {
       // If a valid Supabase session exists, treat onboarding as complete regardless
@@ -150,14 +153,14 @@ function ensureAppInitialized(): Promise<void> {
 }
 
 function FamilyRealtimeBootstrap() {
-  const tier = useSubscriptionStore((s) => s.tier);
-  const syncUnlocked = canAccessFeature('multi_user_sync');
+  const hasWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
+  const syncUnlocked = canAccessWorkspaceFeature();
   useEffect(() => {
     if (!syncUnlocked) return;
     void startFamilyRealtimeSync().catch((error) => {
       console.warn('[familySync] realtime start failed:', error);
     });
-  }, [tier, syncUnlocked]);
+  }, [hasWorkspaceSub, syncUnlocked]);
   return null;
 }
 
@@ -167,6 +170,7 @@ export default function RootLayout() {
   });
   const [fontsTimedOut, setFontsTimedOut] = useState(Platform.OS === 'web');
   const onboardingComplete = useBudgetStore((s) => s.onboardingComplete);
+  const onboardingReady = useBudgetStore((s) => s.onboardingReady);
   const fontsReady =
     Platform.OS === 'web' || loaded || fontsTimedOut || Boolean(fontError);
   const router = useRouter();
@@ -207,14 +211,13 @@ export default function RootLayout() {
     }
   }, [fontsReady]);
 
-  // Redirect to onboarding when the async check resolves to incomplete.
-  // onboardingComplete starts as `true` (safe default) then flips to `false`
-  // once checkOnboarding() reads AsyncStorage during init.
+  // Redirect deep links to onboarding once boot has resolved onboarding state.
   useEffect(() => {
-    if (!onboardingComplete && !isPublicRoute && !isOnboardingRoute) {
-      router.replace('/onboarding' as Href);
+    if (!onboardingReady || onboardingComplete || isPublicRoute || isOnboardingRoute) {
+      return;
     }
-  }, [onboardingComplete, isPublicRoute, isOnboardingRoute, router]);
+    router.replace('/onboarding' as Href);
+  }, [onboardingReady, onboardingComplete, isPublicRoute, isOnboardingRoute, router]);
 
   // Listen for Supabase auth state changes to handle token refresh and sign-out.
   useEffect(() => {
@@ -251,6 +254,7 @@ export default function RootLayout() {
           <UpgradePromptProvider>
             <TrialReminderProvider>
               <FamilyRealtimeBootstrap />
+              <AuthSessionGuard />
               <DevConnectionBanner />
               <StorageSlowBanner />
               <RootLayoutNav />
@@ -280,6 +284,7 @@ function RootLayoutNav() {
             overflow: 'hidden',
           },
         }}>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="lists" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />

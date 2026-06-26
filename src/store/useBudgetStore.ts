@@ -9,6 +9,7 @@ const ONBOARDING_KEY = 'grocery_onboarding_complete';
 type BudgetStore = {
   settings: BudgetSettings | null;
   onboardingComplete: boolean;
+  onboardingReady: boolean;
   loading: boolean;
   loadSettings: () => Promise<void>;
   saveSettings: (weeklyBudget: number, alertThreshold: number, categoryLimits?: CategoryLimits) => Promise<void>;
@@ -18,7 +19,8 @@ type BudgetStore = {
 
 export const useBudgetStore = create<BudgetStore>((set) => ({
   settings: null,
-  onboardingComplete: true,
+  onboardingComplete: false,
+  onboardingReady: false,
   loading: false,
 
   loadSettings: async () => {
@@ -35,12 +37,12 @@ export const useBudgetStore = create<BudgetStore>((set) => ({
   checkOnboarding: async () => {
     const value = await AsyncStorage.getItem(ONBOARDING_KEY);
     const complete = value === 'true';
-    set({ onboardingComplete: complete });
+    set({ onboardingComplete: complete, onboardingReady: true });
     return complete;
   },
 
   completeOnboarding: async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
-    set({ onboardingComplete: true });
+    set({ onboardingComplete: true, onboardingReady: true });
   },
 }));
