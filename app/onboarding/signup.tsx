@@ -17,16 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { signUpWithEmail, continueAsGuest, signInWithGoogle } from '@/src/services/authService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
-
-const BG = '#0F0F0F';
-const PURPLE = '#7C3AED';
-const GREEN = '#22C55E';
-const TEXT_PRIMARY = '#FFFFFF';
-const TEXT_MUTED = 'rgba(255,255,255,0.52)';
-const INPUT_BG = '#1A1A1E';
-const INPUT_BORDER = 'rgba(255,255,255,0.12)';
-const INPUT_BORDER_FOCUS = PURPLE;
-const DIVIDER_COLOR = 'rgba(255,255,255,0.12)';
+import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -102,7 +93,7 @@ export default function SignupScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.background} />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -111,7 +102,7 @@ export default function SignupScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PennyPantryLogo />
+        <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
 
         {/* Heading */}
         <Text style={styles.heading}>Create your account</Text>
@@ -135,14 +126,14 @@ export default function SignupScreen() {
               nameFocused && styles.inputFocused,
             ]}
             placeholder="Your first name"
-            placeholderTextColor="rgba(255,255,255,0.28)"
+            placeholderTextColor={OnboardingColors.textLight}
             autoCapitalize="words"
             autoComplete="name-given"
             value={name}
             onChangeText={setName}
             onFocus={() => setNameFocused(true)}
             onBlur={() => setNameFocused(false)}
-            selectionColor={PURPLE}
+            selectionColor={OnboardingColors.green}
           />
         </View>
 
@@ -155,7 +146,7 @@ export default function SignupScreen() {
               emailFocused && styles.inputFocused,
             ]}
             placeholder="you@example.com"
-            placeholderTextColor="rgba(255,255,255,0.28)"
+            placeholderTextColor={OnboardingColors.textLight}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -164,7 +155,7 @@ export default function SignupScreen() {
             onChangeText={setEmail}
             onFocus={() => setEmailFocused(true)}
             onBlur={() => setEmailFocused(false)}
-            selectionColor={PURPLE}
+            selectionColor={OnboardingColors.green}
           />
         </View>
 
@@ -177,7 +168,7 @@ export default function SignupScreen() {
               passwordFocused && styles.inputFocused,
             ]}
             placeholder="At least 6 characters"
-            placeholderTextColor="rgba(255,255,255,0.28)"
+            placeholderTextColor={OnboardingColors.textLight}
             secureTextEntry
             autoCapitalize="none"
             autoComplete="new-password"
@@ -187,7 +178,7 @@ export default function SignupScreen() {
             onBlur={() => setPasswordFocused(false)}
             onSubmitEditing={handleSignUp}
             returnKeyType="done"
-            selectionColor={PURPLE}
+            selectionColor={OnboardingColors.green}
           />
         </View>
 
@@ -204,7 +195,7 @@ export default function SignupScreen() {
           accessibilityLabel="Continue"
         >
           {loading ? (
-            <ActivityIndicator color="#000" />
+            <ActivityIndicator color="#FFFFFF" />
           ) : (
             <Text style={styles.ctaBtnText}>Continue</Text>
           )}
@@ -279,35 +270,38 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: OnboardingColors.background,
   },
   scrollContent: {
     paddingHorizontal: 24,
     flexGrow: 1,
   },
+  logo: {
+    marginBottom: 8,
+  },
   heading: {
-    color: TEXT_PRIMARY,
+    color: OnboardingColors.text,
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.5,
     marginBottom: 8,
   },
   subheading: {
-    color: TEXT_MUTED,
+    color: OnboardingColors.textMuted,
     fontSize: 16,
     marginBottom: 32,
     lineHeight: 24,
   },
   errorBox: {
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    backgroundColor: '#FEF2F2',
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
+    borderColor: 'rgba(239,68,68,0.25)',
   },
   errorText: {
-    color: '#F87171',
+    color: '#DC2626',
     fontSize: 14,
   },
   inputGroup: {
@@ -315,25 +309,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: 'rgba(255,255,255,0.7)',
+    color: OnboardingColors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: INPUT_BG,
+    backgroundColor: OnboardingColors.card,
     borderWidth: 1,
-    borderColor: INPUT_BORDER,
+    borderColor: OnboardingColors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 15,
-    color: TEXT_PRIMARY,
+    color: OnboardingColors.text,
     fontSize: 16,
   },
   inputFocused: {
-    borderColor: INPUT_BORDER_FOCUS,
+    borderColor: OnboardingColors.green,
   },
   ctaBtn: {
-    backgroundColor: GREEN,
+    backgroundColor: OnboardingColors.green,
     borderRadius: 999,
     paddingVertical: 17,
     alignItems: 'center',
@@ -344,10 +338,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   ctaBtnPressed: {
-    opacity: 0.82,
+    opacity: 0.88,
   },
   ctaBtnText: {
-    color: '#000',
+    color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.1,
@@ -361,38 +355,39 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: DIVIDER_COLOR,
+    backgroundColor: OnboardingColors.border,
   },
   dividerText: {
-    color: TEXT_MUTED,
+    color: OnboardingColors.textMuted,
     fontSize: 13,
     fontWeight: '500',
   },
   ghostBtn: {
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.22)',
+    borderColor: OnboardingColors.border,
     borderRadius: 999,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: OnboardingColors.card,
   },
   ghostBtnPressed: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#F9FAFB',
   },
   ghostBtnText: {
-    color: TEXT_PRIMARY,
+    color: OnboardingColors.text,
     fontSize: 16,
     fontWeight: '600',
   },
   terms: {
-    color: TEXT_MUTED,
+    color: OnboardingColors.textMuted,
     fontSize: 12,
     textAlign: 'center',
     marginTop: 20,
     lineHeight: 18,
   },
   termsLink: {
-    color: 'rgba(255,255,255,0.7)',
+    color: OnboardingColors.green,
     textDecorationLine: 'underline',
   },
   signinLink: {
@@ -401,27 +396,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   signinLinkText: {
-    color: TEXT_MUTED,
+    color: OnboardingColors.textMuted,
     fontSize: 14,
   },
   signinHighlight: {
-    color: GREEN,
+    color: OnboardingColors.green,
     fontWeight: '600',
   },
   googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: OnboardingColors.card,
     borderRadius: 999,
     paddingVertical: 15,
     gap: 10,
     borderWidth: 1.5,
-    borderColor: '#4285F4',
+    borderColor: OnboardingColors.border,
     marginTop: 8,
   },
   googleBtnPressed: {
-    opacity: 0.85,
+    backgroundColor: '#F9FAFB',
   },
   googleBtnG: {
     fontSize: 17,
@@ -431,6 +426,6 @@ const styles = StyleSheet.create({
   googleBtnText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: OnboardingColors.text,
   },
 });
