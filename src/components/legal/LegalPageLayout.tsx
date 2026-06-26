@@ -1,5 +1,6 @@
+import { useRouter } from 'expo-router';
 import React, { type ReactNode } from 'react';
-import { ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BG = '#0F0F0F';
@@ -7,14 +8,21 @@ const PURPLE = '#7C3AED';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_MUTED = 'rgba(255,255,255,0.52)';
 
+type RelatedPage = {
+  label: string;
+  href: '/privacy' | '/terms';
+};
+
 type Props = {
   title: string;
   lastUpdated: string;
+  relatedPage?: RelatedPage;
   children: ReactNode;
 };
 
-export function LegalPageLayout({ title, lastUpdated, children }: Props) {
+export function LegalPageLayout({ title, lastUpdated, relatedPage, children }: Props) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
     <View style={styles.root}>
@@ -33,6 +41,18 @@ export function LegalPageLayout({ title, lastUpdated, children }: Props) {
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.updated}>Last updated: {lastUpdated}</Text>
         {children}
+        {relatedPage ? (
+          <View style={styles.relatedRow}>
+            <Text style={styles.relatedText}>See also: </Text>
+            <Pressable
+              onPress={() => router.push(relatedPage.href)}
+              accessibilityRole="link"
+              accessibilityLabel={relatedPage.label}
+            >
+              <Text style={styles.relatedLink}>{relatedPage.label}</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -97,5 +117,23 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.78)',
     fontSize: 15,
     lineHeight: 24,
+  },
+  relatedRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 20,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+  },
+  relatedText: {
+    color: TEXT_MUTED,
+    fontSize: 14,
+  },
+  relatedLink: {
+    color: PURPLE,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -200,6 +200,17 @@ https://<project-ref>.supabase.co/auth/v1/callback
 - Privacy policy: `https://pennypantry.xyz/privacy`
 - Terms of service: `https://pennypantry.xyz/terms`
 
+### App store legal URLs (Google Play & App Store)
+
+Use these public URLs in Play Console, App Store Connect, and OAuth consent screens:
+
+| Document | Production URL |
+|----------|----------------|
+| Privacy Policy | `https://pennypantry.xyz/privacy` |
+| Terms of Service | `https://pennypantry.xyz/terms` |
+
+Routes are implemented in `app/privacy.tsx` and `app/terms.tsx` (Expo Router). They are public routes (no auth required) and match the SmartCart dark theme. Contact emails in the policies are placeholders until a live mailbox is configured.
+
 ---
 
 ## 5. Verification checklist

@@ -321,6 +321,56 @@ export default function SettingsScreen() {
           </>
         )}
 
+        <Text style={styles.sectionTitle}>Legal</Text>
+        <View style={styles.menu}>
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/privacy')}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'hand.raised.fill', android: 'privacy_tip', web: 'privacy_tip' }}
+                tintColor={SmartCartColors.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>Privacy Policy</Text>
+              <Text style={styles.menuSub}>How we collect and use your data</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/terms')}
+            accessibilityRole="link"
+            accessibilityLabel="Terms of Service"
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'doc.text.fill', android: 'description', web: 'description' }}
+                tintColor={SmartCartColors.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>Terms of Service</Text>
+              <Text style={styles.menuSub}>Usage rules and subscription terms</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
+        </View>
+
         <Text style={styles.sectionTitle}>Preferences</Text>
         <View style={styles.menu}>
           {MENU_ITEMS.map((item) => (
