@@ -34,15 +34,22 @@ export function getStripeClient(): Stripe {
   return stripeClient;
 }
 
-export function getStripePriceId(plan: SubscriptionPlan): string {
-  const monthly = process.env.STRIPE_PRICE_PRO_MONTHLY?.trim();
-  const yearly = process.env.STRIPE_PRICE_PRO_YEARLY?.trim();
+export function getStripePriceId(plan: SubscriptionPlan, product: 'pro' | 'family' = 'pro'): string {
+  const monthly =
+    product === 'family'
+      ? process.env.STRIPE_PRICE_FAMILY_MONTHLY?.trim() || process.env.STRIPE_PRICE_PRO_MONTHLY?.trim()
+      : process.env.STRIPE_PRICE_PRO_MONTHLY?.trim();
+  const yearly =
+    product === 'family'
+      ? process.env.STRIPE_PRICE_FAMILY_YEARLY?.trim() || process.env.STRIPE_PRICE_PRO_YEARLY?.trim()
+      : process.env.STRIPE_PRICE_PRO_YEARLY?.trim();
   const priceId = plan === 'yearly' ? yearly : monthly;
   if (!priceId) {
+    const label = product === 'family' ? 'Family' : 'Pro';
     throw new Error(
       plan === 'yearly'
-        ? 'STRIPE_PRICE_PRO_YEARLY is not configured.'
-        : 'STRIPE_PRICE_PRO_MONTHLY is not configured.'
+        ? `STRIPE_PRICE_${product === 'family' ? 'FAMILY' : 'PRO'}_YEARLY is not configured.`
+        : `STRIPE_PRICE_${product === 'family' ? 'FAMILY' : 'PRO'}_MONTHLY is not configured.`
     );
   }
   return priceId;

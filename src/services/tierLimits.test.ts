@@ -32,11 +32,12 @@ describe('TIER_LIMITS', () => {
     assert.equal(TIER_LIMITS.household.pantryMaxItems, null);
   });
 
-  it('grants all paid features on pro tier', () => {
+  it('grants personal pro features on pro tier', () => {
     assert.equal(TIER_LIMITS.pro.csvExport, true);
     assert.equal(TIER_LIMITS.pro.cheapestBasket, true);
-    assert.equal(TIER_LIMITS.pro.multiUserSync, true);
     assert.equal(TIER_LIMITS.pro.budgetForecasting, true);
+    assert.equal(TIER_LIMITS.pro.multiUserSync, false);
+    assert.equal(TIER_LIMITS.pro.familyLists, false);
   });
 
   it('maps legacy household tier to pro limits', () => {
@@ -52,14 +53,15 @@ describe('tierAllowsFeature', () => {
     assert.equal(tierAllowsFeature('community_pricing', getTierLimits('free')), false);
   });
 
-  it('unlocks all features on pro tier', () => {
+  it('unlocks personal pro features on pro tier', () => {
     const pro = getTierLimits('pro');
     assert.equal(tierAllowsFeature('insights_pro', pro), true);
     assert.equal(tierAllowsFeature('inflation_tracker', pro), true);
     assert.equal(tierAllowsFeature('export_advanced', pro), true);
-    assert.equal(tierAllowsFeature('multi_user_sync', pro), true);
     assert.equal(tierAllowsFeature('budget_forecasting', pro), true);
     assert.equal(tierAllowsFeature('cheapest_basket', pro), true);
+    assert.equal(tierAllowsFeature('multi_user_sync', pro), false);
+    assert.equal(tierAllowsFeature('family_plans', pro), false);
   });
 });
 

@@ -53,7 +53,10 @@ export async function fetchStripeSubscriptionStatus(): Promise<StripeSubscriptio
   }
 }
 
-export async function redirectToStripeCheckout(plan: SubscriptionPlan): Promise<void> {
+export async function redirectToStripeCheckout(
+  plan: SubscriptionPlan,
+  product: 'pro' | 'family' = 'pro'
+): Promise<void> {
   const apiUrl = resolveStripeApiUrl('/api/stripe/create-checkout-session');
   if (!apiUrl) {
     throw new Error('Stripe checkout is only available on the web app.');
@@ -63,7 +66,7 @@ export async function redirectToStripeCheckout(plan: SubscriptionPlan): Promise<
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify({ plan, product }),
   });
 
   if (!response.ok) {

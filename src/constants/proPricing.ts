@@ -17,7 +17,19 @@ export const PRO_SUBSCRIBE_LABEL = 'Subscribe to Pro';
 export const TRIAL_BADGE_LABEL = (daysRemaining: number) =>
   `Pro trial — ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left`;
 
-export const PRO_BADGE_LABEL = 'Best for families';
+export const PRO_BADGE_LABEL = 'Best value';
+
+export const FAMILY_BADGE_LABEL = 'One sub, whole household';
+
+export const FAMILY_MONTHLY_PRICE = '$4.99';
+export const FAMILY_YEARLY_PRICE = '$49.99';
+export const FAMILY_YEARLY_PRICE_PER_MONTH = '$4.17';
+
+export const FAMILY_PLAN_LEAD = 'Everything your household needs:';
+
+export const FAMILY_SUBSCRIBE_LABEL = 'Subscribe to Family';
+
+export const FAMILY_CTA_SUBTEXT = 'One subscription for your household. Invite members free.';
 
 export const PRO_PLAN_LEAD = 'Everything Free, plus:';
 
@@ -53,12 +65,19 @@ export const PRO_PLAN_FEATURES = [
   'Full price history (all purchases)',
   'Smart sale alerts for tracked items',
   'Multi-store price comparison',
-  'Household sync (family/roommates)',
   'Monthly spending overview',
   'Cheapest cart across stores',
   'Export spending data',
   'Unlimited pantry tracking',
   'Ad-free experience (when ads are shown on Free)',
+] as const;
+
+export const FAMILY_PLAN_FEATURES = [
+  'Shared shopping lists for your household',
+  'Live multi-user sync across phones',
+  'Invite family members free — no Pro required',
+  'Save receipts to your household workspace',
+  'One payer funds the whole household',
 ] as const;
 
 export const PRO_PLAN_FEATURE_GROUPS = [
@@ -68,25 +87,36 @@ export const PRO_PLAN_FEATURE_GROUPS = [
   },
   {
     title: 'Stores & savings',
-    items: [PRO_PLAN_FEATURES[3], PRO_PLAN_FEATURES[6]],
+    items: [PRO_PLAN_FEATURES[3], PRO_PLAN_FEATURES[5]],
   },
   {
-    title: 'Family & budget',
-    items: [PRO_PLAN_FEATURES[4], PRO_PLAN_FEATURES[5]],
+    title: 'Budget',
+    items: [PRO_PLAN_FEATURES[4]],
   },
   {
     title: 'Export & pantry',
-    items: [PRO_PLAN_FEATURES[7], PRO_PLAN_FEATURES[8]],
+    items: [PRO_PLAN_FEATURES[6], PRO_PLAN_FEATURES[7]],
   },
   {
     title: 'Experience',
-    items: [PRO_PLAN_FEATURES[9]],
+    items: [PRO_PLAN_FEATURES[8]],
+  },
+] as const;
+
+export const FAMILY_PLAN_FEATURE_GROUPS = [
+  {
+    title: 'Household sharing',
+    items: [FAMILY_PLAN_FEATURES[0], FAMILY_PLAN_FEATURES[1], FAMILY_PLAN_FEATURES[2]],
+  },
+  {
+    title: 'Workspace',
+    items: [FAMILY_PLAN_FEATURES[3], FAMILY_PLAN_FEATURES[4]],
   },
 ] as const;
 
 export const PRO_UPGRADE_HOOK = PAYWALL_SUBHEAD;
 
-export const UNLIMITED_PANTRY_LABEL = PRO_PLAN_FEATURES[8];
+export const UNLIMITED_PANTRY_LABEL = PRO_PLAN_FEATURES[7];
 export const UNLIMITED_SCANNING_LABEL = PRO_PLAN_FEATURES[0];
 
 /** User-facing names for gated modules — sourced from plan feature copy above. */
@@ -95,12 +125,12 @@ export const PRO_FEATURE_LABELS = {
   inflation_tracker: 'See how inflation is hitting your basket',
   community_pricing: PRO_PLAN_FEATURES[3],
   usage_analytics: PRO_PLAN_FEATURES[1],
-  family_plans: 'Share lists with family — everyone stays in sync',
+  family_plans: FAMILY_PLAN_FEATURES[0],
   price_drop_alerts: PRO_PLAN_FEATURES[2],
-  export_advanced: PRO_PLAN_FEATURES[7],
-  multi_user_sync: PRO_PLAN_FEATURES[4],
-  budget_forecasting: PRO_PLAN_FEATURES[5],
-  cheapest_basket: PRO_PLAN_FEATURES[6],
+  export_advanced: PRO_PLAN_FEATURES[6],
+  multi_user_sync: FAMILY_PLAN_FEATURES[1],
+  budget_forecasting: PRO_PLAN_FEATURES[4],
+  cheapest_basket: PRO_PLAN_FEATURES[5],
   api_access: PRO_PLAN_FEATURES[3],
   pantry_unlimited: UNLIMITED_PANTRY_LABEL,
 } as const;

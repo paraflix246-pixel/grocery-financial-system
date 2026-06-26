@@ -242,3 +242,11 @@ export async function getStoredUser(): Promise<AuthUser | null> {
     return null;
   }
 }
+
+/** Supabase auth user id, or guest/local id — used for workspace membership. */
+export async function resolveAppUserId(): Promise<string | null> {
+  const session = await getSession();
+  if (session?.user?.id) return session.user.id;
+  const stored = await getStoredUser();
+  return stored?.id ?? null;
+}

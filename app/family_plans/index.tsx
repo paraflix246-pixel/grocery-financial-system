@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import {
-  proMonthlyLabel,
+  FAMILY_CTA_SUBTEXT,
 } from '@/src/constants/proPricing';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import {
@@ -79,7 +79,7 @@ const SHARE_STEPS = [
 
 const SYNC_STEP = {
   title: 'Stay in sync automatically',
-  body: 'With Pro, everyone sees list updates without copying and pasting each time.',
+  body: 'With an active Family workspace, everyone sees list updates without copying and pasting each time.',
   icon: { ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' },
 } as const satisfies { title: string; body: string; icon: StepIconName };
 
@@ -317,14 +317,14 @@ export default function FamilyPlansScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.heroGradient}>
             <TierBadge
-              label="Pro"
+              label="Family"
               accent={GOLD}
               accentBg="rgba(22,163,74,0.22)"
               accentBorder="rgba(234,179,8,0.45)"
             />
-            <Text style={styles.heroTitle}>Your whole household, one list</Text>
+            <Text style={styles.heroTitle}>Your whole household, one workspace</Text>
             <Text style={styles.heroSubtitle}>
-              Share shopping lists with family or roommates and keep everyone in sync — no more duplicate trips to the store.
+              Share shopping lists with family or roommates. Members join free — one Family subscription funds the household.
             </Text>
           </LinearGradient>
         ) : (
@@ -337,10 +337,10 @@ export default function FamilyPlansScreen() {
             />
             <Text style={[styles.heroTitle, styles.heroTitleMuted]}>Shop solo on Free</Text>
             <Text style={styles.heroSubtitle}>
-              Your basic grocery list works great for one person. Upgrade to Pro to share lists and sync with your family.
+              Your basic grocery list works great for one person. Subscribe to Family workspace to share lists and sync with your household.
             </Text>
-            <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall' as never)}>
-              <Text style={styles.upgradeBtnText}>Upgrade to Pro — {proMonthlyLabel}</Text>
+            <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall?family=1' as never)}>
+              <Text style={styles.upgradeBtnText}>Get Family workspace</Text>
             </Pressable>
           </View>
         )}
@@ -381,8 +381,8 @@ export default function FamilyPlansScreen() {
           </View>
           <Text style={styles.sectionHint}>
             {unlocked
-              ? 'Share this code with your spouse or kids so they can connect to your family plan.'
-              : 'Available with Pro — share lists with up to 5 family members.'}
+              ? 'Available with Family workspace — share lists with your household.'
+              : 'Subscribe to Family workspace — invite members free.'}
           </Text>
           <Pressable
             onPress={() => void (unlocked ? handleCopyCode() : requestAccess())}
@@ -390,7 +390,7 @@ export default function FamilyPlansScreen() {
             <Text style={[styles.codeValue, !unlocked && styles.codeValueLocked]}>
               {unlocked ? familyCode || '…' : '••••-••••'}
             </Text>
-            {!unlocked ? <Text style={styles.codeTapHint}>Tap to unlock with Pro</Text> : null}
+            {!unlocked ? <Text style={styles.codeTapHint}>Tap to unlock with Family workspace</Text> : null}
           </Pressable>
           <Pressable
             style={[styles.primaryBtn, hasLiveSync && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
@@ -401,7 +401,7 @@ export default function FamilyPlansScreen() {
               size={18}
             />
             <Text style={[styles.primaryBtnText, !unlocked && styles.primaryBtnTextMuted]}>
-              {unlocked ? 'Copy family code' : `Unlock with Pro — ${proMonthlyLabel}`}
+              {unlocked ? 'Copy household invite code' : 'Unlock with Family workspace'}
             </Text>
           </Pressable>
         </View>
@@ -490,10 +490,10 @@ export default function FamilyPlansScreen() {
             ) : (
               <>
                 <Text style={styles.sectionHint}>
-                  Upgrade to Pro for automatic sync with family or roommates — everyone sees the same list.
+                  Upgrade to Family workspace for automatic sync — everyone sees the same list.
                 </Text>
-                <Pressable style={[styles.primaryBtn, styles.primaryBtnHousehold]} onPress={() => router.push('/paywall' as never)}>
-                  <Text style={styles.primaryBtnText}>Upgrade to Pro — {proMonthlyLabel}</Text>
+                <Pressable style={[styles.primaryBtn, styles.primaryBtnHousehold]} onPress={() => router.push('/paywall?family=1' as never)}>
+                  <Text style={styles.primaryBtnText}>Get Family workspace</Text>
                 </Pressable>
               </>
             )}
@@ -525,18 +525,18 @@ export default function FamilyPlansScreen() {
             style={[styles.primaryBtn, hasLiveSync && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
             onPress={handleImport}>
             <Text style={[styles.primaryBtnText, !unlocked && styles.primaryBtnTextMuted]}>
-              {unlocked ? 'Add to my lists' : `Unlock with Pro — ${proMonthlyLabel}`}
+              {unlocked ? 'Add to my lists' : 'Unlock with Family workspace'}
             </Text>
           </Pressable>
         </View>
 
         {!unlocked && (
           <View style={styles.planCompareCard}>
-            <Text style={styles.planCompareTitle}>What you get with Pro</Text>
-            <Text style={styles.planCompareItem}>• Family & shared lists — {proMonthlyLabel}</Text>
-            <Text style={styles.planCompareItem}>• Multi-user sync & CSV export — included</Text>
-            <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall' as never)}>
-              <Text style={styles.upgradeBtnText}>Compare Free & Pro</Text>
+            <Text style={styles.planCompareTitle}>What you get with Family workspace</Text>
+            <Text style={styles.planCompareItem}>• Shared lists & live sync for your household</Text>
+            <Text style={styles.planCompareItem}>• Invite members free — no Pro required</Text>
+            <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall?family=1' as never)}>
+              <Text style={styles.upgradeBtnText}>Compare plans</Text>
             </Pressable>
           </View>
         )}

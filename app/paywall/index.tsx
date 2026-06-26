@@ -23,6 +23,7 @@ import {
   FAMILY_CTA_SUBTEXT,
   FAMILY_MONTHLY_PRICE,
   FAMILY_PLAN_LEAD,
+  FAMILY_SUBSCRIBE_LABEL,
   FAMILY_YEARLY_PRICE,
   FAMILY_YEARLY_PRICE_PER_MONTH,
   FREE_PLAN_FEATURES,
@@ -134,6 +135,7 @@ export default function PaywallScreen() {
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedPro, setSelectedPro] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
+  const [upgradingFamily, setUpgradingFamily] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const [footerHeight, setFooterHeight] = useState(FOOTER_ESTIMATE);
   const billingMode = getSubscriptionBillingMode();
@@ -148,6 +150,22 @@ export default function PaywallScreen() {
       console.warn('[paywall] trial start failed:', message);
     } finally {
       setStartingTrial(false);
+    }
+  };
+
+  const handleFamilyUpgrade = async () => {
+    setUpgradingFamily(true);
+    try {
+      if (Platform.OS === 'web' && billingMode === 'stripe') {
+        await redirectToStripeCheckout(billing, 'family');
+        return;
+      }
+      router.push('/family_plans' as never);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Purchase failed. Please try again.';
+      console.warn('[paywall] family upgrade failed:', message);
+    } finally {
+      setUpgradingFamily(false);
     }
   };
 
@@ -291,11 +309,19 @@ export default function PaywallScreen() {
               leadTextStyle={styles.featureText}
             />
             <Pressable
-              style={styles.familyBtn}
-              onPress={() => router.push('/family_plans' as never)}
+              style={[styles.familyBtn, upgradingFamily && styles.btnDisabled]}
+              disabled={upgradingFamily}
+              onPress={() => void handleFamilyUpgrade()}
               accessibilityRole="button"
-              accessibilityLabel="Set up family workspace">
-              <Text style={styles.familyBtnText}>Set up family workspace</Text>
+              accessibilityLabel={FAMILY_SUBSCRIBE_LABEL}>
+              <Text style={styles.familyBtnText}>
+                {upgradingFamily ? 'Processing...' : `${FAMILY_SUBSCRIBE_LABEL} — ${getFamilyPrice(billing)}/mo`}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={styles.familyLink}
+              onPress={() => router.push('/family_plans' as never)}>
+              <Text style={styles.familyLinkText}>Create or join a household</Text>
             </Pressable>
           </View>
         </View>
@@ -482,6 +508,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: PURPLE,
   },
+  familyLink: { alignItems: 'center', paddingVertical: 4 },
+  familyLinkText: { fontSize: 12, fontWeight: '600', color: TEXT_MUTED },
   footer: {
     paddingHorizontal: 16,
     paddingTop: 12,

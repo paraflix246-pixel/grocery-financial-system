@@ -10,32 +10,52 @@ import {
   stripePeriodEndIso,
 } from '@/src/services/stripe/stripe.server';
 import {
+  createWorkspaceForOwner,
   getStripeSubscriptionForUser,
   getUserFromAuthHeader,
+  getWorkspaceByStripeSubscriptionId,
+  getWorkspaceForOwner,
   isSupabaseAdminConfigured,
   upsertStripeSubscription,
+  upsertWorkspaceStripeSubscription,
 } from '@/src/services/stripe/stripeSupabase.server';
 import type { SubscriptionPlan } from '@/src/store/useSubscriptionStore';
+
+export type CheckoutProduct = 'pro' | 'family';
 
 export async function createCheckoutSessionForUser(
   userId: string,
   email: string | undefined,
-  plan: SubscriptionPlan
+  plan: SubscriptionPlan,
+  product: CheckoutProduct = 'pro'
 ): Promise<{ url: string }> {
   const stripe = getStripeClient();
-  const priceId = getStripePriceId(plan);
+  const priceId = getStripePriceId(plan, product === 'family' ? 'family' : 'pro');
   const baseUrl = getAppBaseUrl();
 
+  let workspaceId: string | undefined;
+  if (product === 'family') {
+    const existingWorkspace = await getWorkspaceForOwner(userId);
+    workspaceId = existingWorkspace?.id ?? (await createWorkspaceForOwner(userId));
+  }
+
   const existing = await getStripeSubscriptionForUser(userId);
+  const metadata: Record<string, string> = {
+    user_id: userId,
+    plan,
+    type: product,
+  };
+  if (workspaceId) metadata.workspace_id = workspaceId;
+
   const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
     mode: 'subscription',
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${baseUrl}/subscriptions?stripe=success`,
+    success_url: `${baseUrl}/subscriptions?stripe=success&type=${product}`,
     cancel_url: `${baseUrl}/paywall?stripe=cancel`,
     client_reference_id: userId,
-    metadata: { user_id: userId, plan },
+    metadata,
     subscription_data: {
-      metadata: { user_id: userId, plan },
+      metadata,
     },
     allow_promotion_codes: true,
   };
@@ -74,6 +94,26 @@ export async function syncSubscriptionFromStripeObject(
   subscription: Stripe.Subscription,
   userIdHint?: string
 ): Promise<void> {
+  const subscriptionType = subscription.metadata?.type?.trim() || 'pro';
+  const workspaceId = subscription.metadata?.workspace_id?.trim();
+
+  if (subscriptionType === 'workspace' || subscriptionType === 'family') {
+    const targetWorkspaceId =
+      workspaceId ||
+      (await getWorkspaceByStripeSubscriptionId(subscription.id))?.id ||
+      undefined;
+    if (targetWorkspaceId) {
+      await upsertWorkspaceStripeSubscription({
+        workspaceId: targetWorkspaceId,
+        stripeSubscriptionId: subscription.id,
+        status: subscription.status,
+        plan: planFromStripeSubscription(subscription),
+        currentPeriodEnd: stripePeriodEndIso(subscription),
+      });
+      return;
+    }
+  }
+
   const userId =
     userIdHint ||
     subscription.metadata?.user_id?.trim() ||
@@ -112,6 +152,22 @@ export async function handleCheckoutSessionCompleted(
 
   if (!userId || !customerId) {
     console.warn('[stripe] checkout.session.completed missing user or customer');
+    return;
+  }
+
+  const checkoutType = session.metadata?.type?.trim() || 'pro';
+  const workspaceId = session.metadata?.workspace_id?.trim();
+
+  if ((checkoutType === 'family' || checkoutType === 'workspace') && workspaceId && subscriptionId) {
+    const stripe = getStripeClient();
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    await upsertWorkspaceStripeSubscription({
+      workspaceId,
+      stripeSubscriptionId: subscription.id,
+      status: subscription.status,
+      plan: planFromStripeSubscription(subscription),
+      currentPeriodEnd: stripePeriodEndIso(subscription),
+    });
     return;
   }
 

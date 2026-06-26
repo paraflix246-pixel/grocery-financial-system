@@ -13,6 +13,7 @@ import {
 import { SymbolView } from 'expo-symbols';
 import { Text } from '@/components/Themed';
 import { ReceiptDraftLinesList, formatReceiptLineCountSummary } from '@/src/components/ReceiptDraftLinesList';
+import { DataScopePicker } from '@/src/components/DataScopePicker';
 import { ReceiptScanWarnings } from '@/src/components/ReceiptScanWarnings';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { StoreLocationSection } from '@/src/components/StoreLocationSection';
@@ -29,6 +30,9 @@ import { savePriceRecords } from '@/src/services/communityPricingService';
 import { getScanLimitStatus } from '@/src/services/scanLimitService';
 import { invalidatePrimaryStoreCache } from '@/src/services/tierLimits';
 import { useScanStore } from '@/src/store/useScanStore';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import type { DataScope } from '@/src/models/workspace';
+import { saveReceiptToWorkspace } from '@/src/services/workspaceReceiptService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { generateId } from '@/src/utils/id';
@@ -73,6 +77,11 @@ export default function EditReceiptScreen() {
   } = useScanStore();
   const [saving, setSaving] = useState(false);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
+  const [saveScope, setSaveScope] = useState<DataScope>('personal');
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const hasWorkspaceMembership = useWorkspaceStore((s) => s.isCurrentMember && Boolean(s.currentWorkspaceId));
+  const hasActiveWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
+  const workspaceScopeAvailable = hasWorkspaceMembership && hasActiveWorkspaceSub;
 
   const receiptId = editingReceiptId ?? routeId ?? null;
   const isEditingSaved = Boolean(receiptId);
@@ -208,6 +217,22 @@ export default function EditReceiptScreen() {
         ...locationFields,
         items,
       });
+      if (saveScope === 'workspace') {
+        await saveReceiptToWorkspace(
+          {
+            id: receipt.id,
+            storeName: draft.storeName,
+            date: draft.date,
+            subtotal: totals.subtotal,
+            tax: totals.tax,
+            total: totals.total,
+            imageUri: imageUri ?? '',
+            ...locationFields,
+            items,
+          },
+          'workspace'
+        );
+      }
       await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
       void savePriceRecords(
         items.filter((item) => (item.lineKind ?? 'merchandise') === 'merchandise'),
@@ -251,6 +276,15 @@ export default function EditReceiptScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {!isEditingSaved && <ReceiptScanWarnings warnings={bannerWarnings} draft={draft} />}
+
+        {!isEditingSaved ? (
+          <DataScopePicker
+            scope={saveScope}
+            workspaceName={currentWorkspace?.name}
+            workspaceAvailable={workspaceScopeAvailable}
+            onChange={setSaveScope}
+          />
+        ) : null}
 
         <View style={styles.storeRow}>
           <StoreBrandAvatar store={draft.storeName} size={44} />

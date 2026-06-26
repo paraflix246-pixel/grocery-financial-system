@@ -26,6 +26,8 @@ import {
   setOpenLastListPreference,
 } from '@/src/utils/listNavigationPrefs';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
+import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -75,6 +77,10 @@ export default function SettingsScreen() {
   const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const downgradeToFree = useSubscriptionStore((s) => s.downgradeToFree);
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
+  const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
+  const hasWorkspace = useWorkspaceStore((s) => s.isCurrentMember && Boolean(s.currentWorkspaceId));
+  const setActiveScope = useWorkspaceStore((s) => s.setActiveScope);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -173,6 +179,26 @@ export default function SettingsScreen() {
             placeholderTextColor={SmartCartColors.textMuted}
             autoCapitalize="words"
           />
+        </View>
+
+        <Text style={styles.sectionTitle}>My household</Text>
+        <View style={styles.card}>
+          <WorkspaceScopeSwitcher
+            scope={activeScope}
+            workspaceName={currentWorkspace?.name}
+            hasWorkspace={hasWorkspace}
+            onScopeChange={(scope) => void setActiveScope(scope)}
+            onManageHousehold={() => router.push('/family_plans' as never)}
+          />
+          <Text style={styles.fieldHint}>
+            Personal and household data stay separate. Family members join free — one payer funds the workspace.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/family_plans' as never)}>
+            <Text style={styles.menuLabel}>Create, join, or invite</Text>
+            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={16} tintColor={SmartCartColors.textMuted} />
+          </Pressable>
         </View>
 
         <Text style={styles.sectionTitle}>Notifications</Text>
