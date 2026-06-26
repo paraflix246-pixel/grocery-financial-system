@@ -127,7 +127,7 @@ export default function BudgetSettingsScreen() {
         </View>
 
         {!forecastUnlocked ? (
-          <ProUpgradeBanner featureName={getFeatureLabel('budget_forecasting')} requiredTier="household" />
+          <ProUpgradeBanner featureName={getFeatureLabel('budget_forecasting')} />
         ) : (
           <View style={styles.forecastCard}>
             <Text style={styles.forecastTitle}>Smart budget forecast</Text>

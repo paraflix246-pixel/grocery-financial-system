@@ -30,20 +30,23 @@ type SubscriptionStore = SubscriptionState & {
   loaded: boolean;
   loadSubscription: () => Promise<void>;
   upgradeToPro: (plan: SubscriptionPlan) => Promise<void>;
-  upgradeToHousehold: (plan: SubscriptionPlan) => Promise<void>;
   downgradeToFree: () => Promise<void>;
-  /** Pro or Household — unlocks Pro-tier features. */
+  /** Pro or legacy Household — unlocks paid features. */
   isPro: () => boolean;
-  isHousehold: () => boolean;
 };
 
 async function persist(state: SubscriptionState): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+/** Map legacy household tier to pro for storage and feature access. */
 function normalizeTier(tier: string | undefined): SubscriptionTier {
-  if (tier === 'pro' || tier === 'household') return tier;
+  if (tier === 'household' || tier === 'pro') return 'pro';
   return 'free';
+}
+
+function normalizeState(state: SubscriptionState): SubscriptionState {
+  return { ...state, tier: normalizeTier(state.tier) };
 }
 
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -54,25 +57,28 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     try {
       const providerState = await loadSubscriptionFromProvider();
       if (providerState) {
-        if (isSubscriptionExpired(providerState)) {
+        const normalized = normalizeState(providerState);
+        if (isSubscriptionExpired(normalized)) {
           await persist(DEFAULT_STATE);
           set({ ...DEFAULT_STATE, loaded: true });
           return;
         }
-        await persist(providerState);
-        set({ ...providerState, loaded: true });
+        await persist(normalized);
+        set({ ...normalized, loaded: true });
         return;
       }
 
       const raw = await AsyncStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as SubscriptionState;
-        const tier = normalizeTier(parsed.tier);
-        const state = { ...parsed, tier };
+        const state = normalizeState(parsed);
         if (isSubscriptionExpired(state)) {
           await persist(DEFAULT_STATE);
           set({ ...DEFAULT_STATE, loaded: true });
           return;
+        }
+        if (state.tier !== parsed.tier) {
+          await persist(state);
         }
         set({ ...state, loaded: true });
         return;
@@ -84,21 +90,13 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   },
 
   upgradeToPro: async (plan) => {
-    const result = await purchaseSubscription(plan, 'pro');
+    const result = await purchaseSubscription(plan);
     if (!result.success) {
       throw new Error(result.error ?? 'Purchase failed');
     }
-    await persist(result.state);
-    set({ ...result.state, loaded: true });
-  },
-
-  upgradeToHousehold: async (plan) => {
-    const result = await purchaseSubscription(plan, 'household');
-    if (!result.success) {
-      throw new Error(result.error ?? 'Purchase failed');
-    }
-    await persist(result.state);
-    set({ ...result.state, loaded: true });
+    const normalized = normalizeState(result.state);
+    await persist(normalized);
+    set({ ...normalized, loaded: true });
   },
 
   downgradeToFree: async () => {
@@ -110,6 +108,4 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     const tier = get().tier;
     return tier === 'pro' || tier === 'household';
   },
-
-  isHousehold: () => get().tier === 'household',
 }));

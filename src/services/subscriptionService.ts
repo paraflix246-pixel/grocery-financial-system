@@ -15,7 +15,8 @@ const DEFAULT_STATE: SubscriptionState = {
 };
 
 const ENTITLEMENT_PRO = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_PRO?.trim() || 'pro';
-const ENTITLEMENT_HOUSEHOLD =
+/** Legacy RevenueCat household entitlement — mapped to Pro tier for feature access. */
+const ENTITLEMENT_HOUSEHOLD_LEGACY =
   process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_HOUSEHOLD?.trim() || 'household';
 const OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING?.trim() || 'default';
 
@@ -82,22 +83,16 @@ function planFromProductId(productId: string): SubscriptionPlan {
 }
 
 function mapCustomerInfoToState(info: CustomerInfo): SubscriptionState | null {
-  const householdEnt = info.entitlements.active[ENTITLEMENT_HOUSEHOLD];
-  if (householdEnt?.isActive) {
-    return {
-      tier: 'household',
-      plan: planFromProductId(householdEnt.productIdentifier),
-      expiresAt: householdEnt.expirationDate ?? null,
-      mockPurchaseToken: null,
-    };
-  }
-
+  const legacyHouseholdEnt = info.entitlements.active[ENTITLEMENT_HOUSEHOLD_LEGACY];
   const proEnt = info.entitlements.active[ENTITLEMENT_PRO];
-  if (proEnt?.isActive) {
+  const activeEnt =
+    (proEnt?.isActive ? proEnt : null) ?? (legacyHouseholdEnt?.isActive ? legacyHouseholdEnt : null);
+
+  if (activeEnt) {
     return {
       tier: 'pro',
-      plan: planFromProductId(proEnt.productIdentifier),
-      expiresAt: proEnt.expirationDate ?? null,
+      plan: planFromProductId(activeEnt.productIdentifier),
+      expiresAt: activeEnt.expirationDate ?? null,
       mockPurchaseToken: null,
     };
   }
@@ -105,14 +100,14 @@ function mapCustomerInfoToState(info: CustomerInfo): SubscriptionState | null {
   return null;
 }
 
-function buildMockPaidState(plan: SubscriptionPlan, tier: Exclude<SubscriptionTier, 'free'>): SubscriptionState {
+function buildMockPaidState(plan: SubscriptionPlan): SubscriptionState {
   const expires = new Date();
   expires.setMonth(expires.getMonth() + (plan === 'yearly' ? 12 : 1));
   return {
-    tier,
+    tier: 'pro',
     plan,
     expiresAt: expires.toISOString(),
-    mockPurchaseToken: `mock_${tier}_${Date.now()}`,
+    mockPurchaseToken: `mock_pro_${Date.now()}`,
   };
 }
 
@@ -132,7 +127,6 @@ async function ensureRevenueCatConfigured(): Promise<PurchasesModule> {
 
 async function findPackage(
   Purchases: PurchasesModule,
-  tier: Exclude<SubscriptionTier, 'free'>,
   plan: SubscriptionPlan
 ): Promise<PurchasesPackage> {
   const offerings = await Purchases.getOfferings();
@@ -143,13 +137,12 @@ async function findPackage(
 
   const PACKAGE_TYPE = getPackageTypeEnum();
   const targetType = plan === 'yearly' ? PACKAGE_TYPE?.ANNUAL : PACKAGE_TYPE?.MONTHLY;
-  const tierNeedle = tier === 'household' ? 'household' : 'pro';
 
   const tierMatch = offering.availablePackages.find((pkg) => {
     const id = pkg.identifier.toLowerCase();
     const productId = pkg.product.identifier.toLowerCase();
-    const matchesTier = id.includes(tierNeedle) || productId.includes(tierNeedle);
-    if (!matchesTier) return false;
+    const matchesPro = id.includes('pro') || productId.includes('pro');
+    if (!matchesPro) return false;
     return targetType == null || pkg.packageType === targetType;
   });
   if (tierMatch) return tierMatch;
@@ -159,7 +152,7 @@ async function findPackage(
   );
   if (planMatch) return planMatch;
 
-  throw new Error(`No ${tier} ${plan} package found in RevenueCat offering "${offering.identifier}".`);
+  throw new Error(`No pro ${plan} package found in RevenueCat offering "${offering.identifier}".`);
 }
 
 /** Initialize RevenueCat on native when API keys are present. Safe to call multiple times. */
@@ -181,12 +174,9 @@ export async function loadSubscriptionFromProvider(): Promise<SubscriptionState 
   }
 }
 
-export async function purchaseSubscription(
-  plan: SubscriptionPlan,
-  tier: Exclude<SubscriptionTier, 'free'> = 'pro'
-): Promise<PurchaseResult> {
+export async function purchaseSubscription(plan: SubscriptionPlan): Promise<PurchaseResult> {
   if (isSubscriptionMockMode()) {
-    const state = buildMockPaidState(plan, tier);
+    const state = buildMockPaidState(plan);
     return { success: true, state };
   }
 
@@ -203,7 +193,7 @@ export async function purchaseSubscription(
 
   try {
     const Purchases = await ensureRevenueCatConfigured();
-    const pkg = await findPackage(Purchases, tier, plan);
+    const pkg = await findPackage(Purchases, plan);
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     const state = mapCustomerInfoToState(customerInfo);
     if (!state) {

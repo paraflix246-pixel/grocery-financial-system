@@ -14,7 +14,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import {
-  householdMonthlyLabel,
   proMonthlyLabel,
 } from '@/src/constants/proPricing';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
@@ -80,7 +79,7 @@ const SHARE_STEPS = [
 
 const SYNC_STEP = {
   title: 'Stay in sync automatically',
-  body: 'With Household, everyone sees list updates without copying and pasting each time.',
+  body: 'With Pro, everyone sees list updates without copying and pasting each time.',
   icon: { ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' },
 } as const satisfies { title: string; body: string; icon: StepIconName };
 
@@ -132,10 +131,9 @@ function StepRow({ step, title, body, icon, accent, locked }: StepRowProps) {
 export default function FamilyPlansScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { unlocked, tier, requestAccess } = useFeatureGate('family_plans');
+  const { unlocked, requestAccess } = useFeatureGate('family_plans');
   const { unlocked: syncUnlocked, requestAccess: requestSyncAccess } = useFeatureGate('multi_user_sync');
-  const isHousehold = tier === 'household';
-  const isPro = unlocked && !isHousehold;
+  const hasLiveSync = syncUnlocked;
 
   const [familyCode, setFamilyCode] = useState('');
   const [importText, setImportText] = useState('');
@@ -198,7 +196,7 @@ export default function FamilyPlansScreen() {
         successMessage: synced
           ? 'Your list is live for your household — invite link copied to the share sheet.'
           : isFamilySyncAvailable()
-            ? 'List shared via invite link. Upgrade to Household for automatic sync.'
+            ? 'List shared via invite link. Upgrade to Pro for automatic sync.'
             : 'List shared via invite link. Connect Supabase for live sync across devices.',
       });
       setLastExportAt(snapshot.exportedAt ?? null);
@@ -294,7 +292,7 @@ export default function FamilyPlansScreen() {
     });
   };
 
-  const heroAccent = isHousehold ? GREEN_DARK : unlocked ? GREEN : TEXT_MUTED;
+  const heroAccent = hasLiveSync ? GREEN_DARK : unlocked ? GREEN : TEXT_MUTED;
 
   return (
     <View style={styles.container}>
@@ -312,14 +310,14 @@ export default function FamilyPlansScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}
         showsVerticalScrollIndicator={false}>
-        {isHousehold ? (
+        {unlocked ? (
           <LinearGradient
             colors={['rgba(22,163,74,0.4)', 'rgba(22,163,74,0.14)', 'rgba(15,15,15,0)']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroGradient}>
             <TierBadge
-              label="Household"
+              label="Pro"
               accent={GOLD}
               accentBg="rgba(22,163,74,0.22)"
               accentBorder="rgba(234,179,8,0.45)"
@@ -329,19 +327,6 @@ export default function FamilyPlansScreen() {
               Share shopping lists with family or roommates and keep everyone in sync — no more duplicate trips to the store.
             </Text>
           </LinearGradient>
-        ) : unlocked ? (
-          <View style={[styles.heroCard, styles.heroCardPro]}>
-            <TierBadge
-              label="Pro"
-              accent={GREEN}
-              accentBg="rgba(34,197,94,0.12)"
-              accentBorder="rgba(34,197,94,0.35)"
-            />
-            <Text style={styles.heroTitle}>Share lists with your family</Text>
-            <Text style={styles.heroSubtitle}>
-              Send your grocery list to your spouse or kids. They can add it to their phone in seconds.
-            </Text>
-          </View>
         ) : (
           <View style={[styles.heroCard, styles.heroCardFree]}>
             <TierBadge
@@ -352,16 +337,10 @@ export default function FamilyPlansScreen() {
             />
             <Text style={[styles.heroTitle, styles.heroTitleMuted]}>Shop solo on Free</Text>
             <Text style={styles.heroSubtitle}>
-              Your basic grocery list works great for one person. Upgrade to Pro to share lists with your family.
+              Your basic grocery list works great for one person. Upgrade to Pro to share lists and sync with your family.
             </Text>
             <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall' as never)}>
               <Text style={styles.upgradeBtnText}>Upgrade to Pro — {proMonthlyLabel}</Text>
-            </Pressable>
-            <Pressable style={styles.householdLink} onPress={() => router.push('/paywall' as never)}>
-              <Text style={styles.householdLinkText}>
-                Need live sync for the whole house?{' '}
-                <Text style={styles.householdLinkAccent}>Household from {householdMonthlyLabel}</Text>
-              </Text>
             </Pressable>
           </View>
         )}
@@ -379,7 +358,7 @@ export default function FamilyPlansScreen() {
               locked={!unlocked}
             />
           ))}
-          {(isHousehold || isPro) && (
+          {unlocked && (
             <StepRow
               step={SHARE_STEPS.length + 1}
               title={SYNC_STEP.title}
@@ -395,7 +374,7 @@ export default function FamilyPlansScreen() {
           <View style={styles.sectionHeaderRow}>
             <SymbolView
               name={{ ios: 'key.fill', android: 'key', web: 'key' }}
-              tintColor={unlocked ? (isHousehold ? GREEN_DARK : GREEN) : TEXT_DIM}
+              tintColor={unlocked ? (hasLiveSync ? GREEN_DARK : GREEN) : TEXT_DIM}
               size={20}
             />
             <Text style={styles.sectionTitle}>Your family code</Text>
@@ -407,14 +386,14 @@ export default function FamilyPlansScreen() {
           </Text>
           <Pressable
             onPress={() => void (unlocked ? handleCopyCode() : requestAccess())}
-            style={[styles.codeDisplay, isHousehold && styles.codeDisplayHousehold, isPro && styles.codeDisplayPro, !unlocked && styles.codeDisplayLocked]}>
+            style={[styles.codeDisplay, hasLiveSync && styles.codeDisplayHousehold, unlocked && !hasLiveSync && styles.codeDisplayPro, !unlocked && styles.codeDisplayLocked]}>
             <Text style={[styles.codeValue, !unlocked && styles.codeValueLocked]}>
               {unlocked ? familyCode || '…' : '••••-••••'}
             </Text>
             {!unlocked ? <Text style={styles.codeTapHint}>Tap to unlock with Pro</Text> : null}
           </Pressable>
           <Pressable
-            style={[styles.primaryBtn, isHousehold && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
+            style={[styles.primaryBtn, hasLiveSync && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
             onPress={handleCopyCode}>
             <SymbolView
               name={{ ios: 'doc.on.doc.fill', android: 'content_copy', web: 'content_copy' }}
@@ -467,18 +446,18 @@ export default function FamilyPlansScreen() {
           <View
             style={[
               styles.sectionCard,
-              isHousehold ? styles.syncCardHousehold : styles.syncCardPro,
+              hasLiveSync ? styles.syncCardHousehold : styles.syncCardPro,
             ]}>
             <View style={styles.sectionHeaderRow}>
               <SymbolView
                 name={{ ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' }}
-                tintColor={isHousehold ? GREEN_DARK : TEXT_MUTED}
+                tintColor={hasLiveSync ? GREEN_DARK : TEXT_MUTED}
                 size={20}
               />
               <Text style={styles.sectionTitle}>Multi-user sync</Text>
-              {isHousehold && (
+              {hasLiveSync && (
                 <View style={styles.liveBadge}>
-                  <Text style={styles.liveBadgeText}>Household</Text>
+                  <Text style={styles.liveBadgeText}>Live</Text>
                 </View>
               )}
             </View>
@@ -511,10 +490,10 @@ export default function FamilyPlansScreen() {
             ) : (
               <>
                 <Text style={styles.sectionHint}>
-                  Upgrade to Household for automatic sync with family or roommates — everyone sees the same list.
+                  Upgrade to Pro for automatic sync with family or roommates — everyone sees the same list.
                 </Text>
                 <Pressable style={[styles.primaryBtn, styles.primaryBtnHousehold]} onPress={() => router.push('/paywall' as never)}>
-                  <Text style={styles.primaryBtnText}>Upgrade to Household — {householdMonthlyLabel}</Text>
+                  <Text style={styles.primaryBtnText}>Upgrade to Pro — {proMonthlyLabel}</Text>
                 </Pressable>
               </>
             )}
@@ -525,7 +504,7 @@ export default function FamilyPlansScreen() {
           <View style={styles.sectionHeaderRow}>
             <SymbolView
               name={{ ios: 'tray.and.arrow.down.fill', android: 'download', web: 'download' }}
-              tintColor={unlocked ? (isHousehold ? GREEN_DARK : GREEN) : TEXT_DIM}
+              tintColor={unlocked ? (hasLiveSync ? GREEN_DARK : GREEN) : TEXT_DIM}
               size={20}
             />
             <Text style={styles.sectionTitle}>Receive a shared list</Text>
@@ -543,7 +522,7 @@ export default function FamilyPlansScreen() {
             onChangeText={setImportText}
           />
           <Pressable
-            style={[styles.primaryBtn, isHousehold && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
+            style={[styles.primaryBtn, hasLiveSync && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
             onPress={handleImport}>
             <Text style={[styles.primaryBtnText, !unlocked && styles.primaryBtnTextMuted]}>
               {unlocked ? 'Add to my lists' : `Unlock with Pro — ${proMonthlyLabel}`}
@@ -555,9 +534,9 @@ export default function FamilyPlansScreen() {
           <View style={styles.planCompareCard}>
             <Text style={styles.planCompareTitle}>What you get with Pro</Text>
             <Text style={styles.planCompareItem}>• Family & shared lists — {proMonthlyLabel}</Text>
-            <Text style={styles.planCompareItem}>• Multi-user sync — {householdMonthlyLabel}</Text>
+            <Text style={styles.planCompareItem}>• Multi-user sync & CSV export — included</Text>
             <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall' as never)}>
-              <Text style={styles.upgradeBtnText}>Compare plans</Text>
+              <Text style={styles.upgradeBtnText}>Compare Free & Pro</Text>
             </Pressable>
           </View>
         )}

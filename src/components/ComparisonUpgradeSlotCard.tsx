@@ -14,7 +14,6 @@ const GRADIENT = ['#0F1F14', '#14532D', '#166534'] as const;
 type Props = {
   featureName: string;
   hook?: string;
-  requiredTier?: 'pro' | 'household';
   width?: number;
   compact?: boolean;
   flexWeight?: number;
@@ -23,19 +22,17 @@ type Props = {
 export function ComparisonUpgradeSlotCard({
   featureName,
   hook,
-  requiredTier = 'pro',
   width,
   compact = false,
   flexWeight,
 }: Props) {
   const router = useRouter();
-  const planName = requiredTier === 'household' ? 'Household' : 'Pro';
+  const planName = 'Pro';
   const subtitle = hook ?? PRO_UPGRADE_HOOK;
 
   const handlePress = () => {
     promptUpgrade({
       featureName,
-      requiredTier,
       onUpgrade: () => router.push('/paywall' as never),
     });
   };

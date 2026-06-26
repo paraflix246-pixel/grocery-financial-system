@@ -8,6 +8,7 @@ import {
 } from '@/src/constants/proPricing';
 import {
   TIER_LIMITS,
+  effectiveSubscriptionTier,
   filterReceiptRowsByCutoffDate,
   filterRowsByCutoffDate,
   getTierLimits,
@@ -24,17 +25,22 @@ describe('TIER_LIMITS', () => {
     assert.equal(TIER_LIMITS.free.maxStores, 1);
   });
 
-  it('removes caps on pro and household', () => {
+  it('removes caps on pro', () => {
     assert.equal(TIER_LIMITS.pro.receiptsPerMonth, null);
     assert.equal(TIER_LIMITS.pro.pantryMaxItems, null);
     assert.equal(TIER_LIMITS.household.pantryMaxItems, null);
   });
 
-  it('grants household-only features on household tier only', () => {
-    assert.equal(TIER_LIMITS.pro.csvExport, false);
-    assert.equal(TIER_LIMITS.household.csvExport, true);
-    assert.equal(TIER_LIMITS.pro.cheapestBasket, false);
-    assert.equal(TIER_LIMITS.household.cheapestBasket, true);
+  it('grants all paid features on pro tier', () => {
+    assert.equal(TIER_LIMITS.pro.csvExport, true);
+    assert.equal(TIER_LIMITS.pro.cheapestBasket, true);
+    assert.equal(TIER_LIMITS.pro.multiUserSync, true);
+    assert.equal(TIER_LIMITS.pro.budgetForecasting, true);
+  });
+
+  it('maps legacy household tier to pro limits', () => {
+    assert.equal(effectiveSubscriptionTier('household'), 'pro');
+    assert.deepEqual(getTierLimits('household'), getTierLimits('pro'));
   });
 });
 
@@ -45,17 +51,14 @@ describe('tierAllowsFeature', () => {
     assert.equal(tierAllowsFeature('community_pricing', getTierLimits('free')), false);
   });
 
-  it('unlocks pro features on pro tier', () => {
+  it('unlocks all features on pro tier', () => {
     const pro = getTierLimits('pro');
     assert.equal(tierAllowsFeature('insights_pro', pro), true);
     assert.equal(tierAllowsFeature('inflation_tracker', pro), true);
-    assert.equal(tierAllowsFeature('export_advanced', pro), false);
-  });
-
-  it('unlocks household features on household tier', () => {
-    const household = getTierLimits('household');
-    assert.equal(tierAllowsFeature('export_advanced', household), true);
-    assert.equal(tierAllowsFeature('budget_forecasting', household), true);
+    assert.equal(tierAllowsFeature('export_advanced', pro), true);
+    assert.equal(tierAllowsFeature('multi_user_sync', pro), true);
+    assert.equal(tierAllowsFeature('budget_forecasting', pro), true);
+    assert.equal(tierAllowsFeature('cheapest_basket', pro), true);
   });
 });
 

@@ -13,7 +13,6 @@ import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/s
 type Props = {
   featureName?: string;
   hook?: string;
-  requiredTier?: 'pro' | 'household';
   variant?: 'default' | 'compact';
   /** Single-line copy for compact variant (e.g. home screen). */
   message?: string;
@@ -22,12 +21,11 @@ type Props = {
 export function ProUpgradeBanner({
   featureName,
   hook,
-  requiredTier = 'pro',
   variant = 'default',
   message,
 }: Props) {
   const router = useRouter();
-  const planName = requiredTier === 'household' ? 'Household' : 'Pro';
+  const planName = 'Pro';
   const isCompact = variant === 'compact';
 
   return (

@@ -12,7 +12,7 @@ export { buildReceiptExportCsv, buildReceiptExportJson } from '@/src/services/re
 
 export async function exportAllReceipts(format: ReceiptExportFormat): Promise<string> {
   if (!canAccessFeature('export_advanced')) {
-    throw new Error('CSV export requires a Household subscription');
+    throw new Error('CSV export requires a Pro subscription');
   }
   const receipts = await getReceipts();
   return format === 'csv' ? buildReceiptExportCsv(receipts) : buildReceiptExportJson(receipts);
@@ -20,7 +20,7 @@ export async function exportAllReceipts(format: ReceiptExportFormat): Promise<st
 
 export async function shareReceiptExport(format: ReceiptExportFormat): Promise<void> {
   if (!canAccessFeature('export_advanced')) {
-    throw new Error('CSV export requires a Household subscription');
+    throw new Error('CSV export requires a Pro subscription');
   }
   const receipts = await getReceipts();
   await shareReceiptPayload(format, receipts);
@@ -31,7 +31,7 @@ export async function shareSingleReceiptExport(
   format: ReceiptExportFormat
 ): Promise<void> {
   if (!canAccessFeature('export_advanced')) {
-    throw new Error('CSV export requires a Household subscription');
+    throw new Error('CSV export requires a Pro subscription');
   }
   await shareReceiptPayload(format, [receipt]);
 }

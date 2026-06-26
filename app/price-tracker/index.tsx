@@ -339,7 +339,7 @@ export default function PriceTrackerIndexScreen() {
       ) : activeTab === 'watchlist' ? (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
           {!cheapestUnlocked && (
-            <ProUpgradeBanner featureName={getFeatureLabel('cheapest_basket')} requiredTier="household" />
+            <ProUpgradeBanner featureName={getFeatureLabel('cheapest_basket')} />
           )}
           <PriceTrackerInsightsSections {...insightsProps} sections={['bestPrice']} showingStarterSample={showingStarterItems} />
           {watchlistSection}

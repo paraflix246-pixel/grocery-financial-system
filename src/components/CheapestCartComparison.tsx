@@ -137,7 +137,6 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
     subscriptionTier === 'free'
       ? 'Go Pro for more & cheaper cart comparisons across every store'
       : undefined;
-  const upgradeTier = subscriptionTier === 'free' ? 'pro' : 'household';
 
   const useSideBySide = showUpgradeSlot && screenWidth >= COMPACT_ROW_MIN_WIDTH;
   const rowGap = useSideBySide ? HOME_COMPARISON_SLOT_GAP_COMPACT : HOME_COMPARISON_SLOT_GAP;
@@ -165,7 +164,6 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
       <ComparisonUpgradeSlotCard
         featureName={upgradeFeatureName}
         hook={upgradeHook}
-        requiredTier={upgradeTier}
         compact
         flexWeight={HOME_COMPARISON_UPGRADE_FLEX}
       />
@@ -173,7 +171,6 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
       <ComparisonUpgradeSlotCard
         featureName={upgradeFeatureName}
         hook={upgradeHook}
-        requiredTier={upgradeTier}
         compact
         width={carouselSlotWidth}
       />

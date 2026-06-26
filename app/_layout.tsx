@@ -24,6 +24,7 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useListStore } from '@/src/store/useListStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { initializeSubscriptionProvider } from '@/src/services/subscriptionService';
+import { canAccessFeature } from '@/src/services/featureGateService';
 import { startFamilyRealtimeSync } from '@/src/services/familySyncService';
 
 export { ErrorBoundary };
@@ -138,12 +139,13 @@ function ensureAppInitialized(): Promise<void> {
 
 function FamilyRealtimeBootstrap() {
   const tier = useSubscriptionStore((s) => s.tier);
+  const syncUnlocked = canAccessFeature('multi_user_sync');
   useEffect(() => {
-    if (tier !== 'household') return;
+    if (!syncUnlocked) return;
     void startFamilyRealtimeSync().catch((error) => {
       console.warn('[familySync] realtime start failed:', error);
     });
-  }, [tier]);
+  }, [tier, syncUnlocked]);
   return null;
 }
 

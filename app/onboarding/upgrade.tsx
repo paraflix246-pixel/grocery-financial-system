@@ -15,19 +15,16 @@ import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 import {
   COMMIT_NOTE,
   CONTINUE_FREE_LABEL,
-  HOUSEHOLD_UPSELL_ACCENT,
-  HOUSEHOLD_UPSELL_PREFIX,
   ONBOARDING_UPGRADE_HEADLINE,
+  PRO_BADGE_LABEL,
   PRO_CTA_LABEL,
   PRO_PLAN_FEATURES,
   PRO_UPGRADE_HOOK,
-  householdMonthlyLabel,
   proMonthlyLabel,
 } from '@/src/constants/proPricing';
 
 const BG = '#0F0F0F';
 const GREEN = '#22C55E';
-const PURPLE = '#7C3AED';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_MUTED = 'rgba(255,255,255,0.52)';
 const CARD_BG = 'rgba(255,255,255,0.05)';
@@ -46,17 +43,11 @@ export default function UpgradeScreen() {
   async function handleUpgradePro() {
     setUpgrading(true);
     try {
-      // Stub: payment flow not yet implemented
       await completeOnboarding();
       router.replace('/paywall' as never);
     } finally {
       setUpgrading(false);
     }
-  }
-
-  async function handleViewHousehold() {
-    await completeOnboarding();
-    router.replace('/paywall' as never);
   }
 
   return (
@@ -78,9 +69,9 @@ export default function UpgradeScreen() {
 
         <View style={styles.proCard}>
           <View style={styles.proBadge}>
-            <Text style={styles.proBadgeText}>Pro — {proMonthlyLabel}</Text>
+            <Text style={styles.proBadgeText}>Pro — {proMonthlyLabel} · {PRO_BADGE_LABEL}</Text>
           </View>
-          <Text style={styles.proCardLead}>Everything you need to shop smarter and spend less:</Text>
+          <Text style={styles.proCardLead}>Everything you need to shop smarter as a family:</Text>
           {PRO_PLAN_FEATURES.map((benefit) => (
             <View key={benefit} style={styles.benefitRow}>
               <View style={styles.checkCircle}>
@@ -112,20 +103,6 @@ export default function UpgradeScreen() {
           accessibilityLabel={CONTINUE_FREE_LABEL}
         >
           <Text style={styles.freeBtnText}>{CONTINUE_FREE_LABEL}</Text>
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.householdLink, pressed && styles.householdLinkPressed]}
-          onPress={handleViewHousehold}
-          accessibilityRole="button"
-          accessibilityLabel="Learn about Household plan"
-        >
-          <Text style={styles.householdLinkText}>
-            {HOUSEHOLD_UPSELL_PREFIX}{' '}
-            <Text style={styles.householdLinkAccent}>
-              {HOUSEHOLD_UPSELL_ACCENT} {householdMonthlyLabel}
-            </Text>
-          </Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -271,24 +248,6 @@ const styles = StyleSheet.create({
   freeBtnText: {
     color: TEXT_PRIMARY,
     fontSize: 16,
-    fontWeight: '600',
-  },
-  householdLink: {
-    marginTop: 20,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  householdLinkPressed: {
-    opacity: 0.8,
-  },
-  householdLinkText: {
-    color: TEXT_MUTED,
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 19,
-  },
-  householdLinkAccent: {
-    color: PURPLE,
     fontWeight: '600',
   },
 });

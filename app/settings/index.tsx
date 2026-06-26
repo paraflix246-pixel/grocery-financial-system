@@ -82,7 +82,6 @@ export default function SettingsScreen() {
   const [devTierSwitching, setDevTierSwitching] = useState(false);
   const tier = useSubscriptionStore((s) => s.tier);
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
-  const upgradeToHousehold = useSubscriptionStore((s) => s.upgradeToHousehold);
   const downgradeToFree = useSubscriptionStore((s) => s.downgradeToFree);
 
   const load = useCallback(async () => {
@@ -119,10 +118,8 @@ export default function SettingsScreen() {
     try {
       if (target === 'free') {
         await downgradeToFree();
-      } else if (target === 'pro') {
-        await upgradeToPro('monthly');
       } else {
-        await upgradeToHousehold('monthly');
+        await upgradeToPro('monthly');
       }
     } finally {
       setDevTierSwitching(false);
@@ -289,20 +286,20 @@ export default function SettingsScreen() {
             <View style={styles.card}>
               <Text style={styles.fieldLabel}>Subscription tier</Text>
               <Text style={styles.fieldHint}>
-                Current: {tier === 'free' ? 'Free' : tier === 'pro' ? 'Pro' : 'Household'}
+                Current: {tier === 'free' ? 'Free' : 'Pro'}
               </Text>
               <View style={styles.tierToggle}>
-                {(['free', 'pro', 'household'] as const).map((option) => (
+                {(['free', 'pro'] as const).map((option) => (
                   <Pressable
                     key={option}
                     style={[styles.tierBtn, tier === option && styles.tierBtnActive]}
                     onPress={() => handleDevTier(option)}
                     disabled={devTierSwitching}
                     accessibilityRole="button"
-                    accessibilityLabel={`Set ${option === 'free' ? 'Free' : option === 'pro' ? 'Pro' : 'Household'}`}
+                    accessibilityLabel={`Set ${option === 'free' ? 'Free' : 'Pro'}`}
                   >
                     <Text style={[styles.tierBtnText, tier === option && styles.tierBtnTextActive]}>
-                      {option === 'free' ? 'Free' : option === 'pro' ? 'Pro' : 'Household'}
+                      {option === 'free' ? 'Free' : 'Pro'}
                     </Text>
                   </Pressable>
                 ))}

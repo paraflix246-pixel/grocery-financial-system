@@ -61,28 +61,25 @@ const PRO_LIMITS: TierLimitConfig = {
   familyLists: true,
   spendingBreakdowns: true,
   inflationDashboard: true,
-  multiUserSync: false,
-  budgetForecasting: false,
-  cheapestBasket: false,
-  csvExport: false,
-};
-
-const HOUSEHOLD_LIMITS: TierLimitConfig = {
-  ...PRO_LIMITS,
   multiUserSync: true,
   budgetForecasting: true,
   cheapestBasket: true,
   csvExport: true,
 };
 
+/** Legacy household tier uses the same limits as Pro. */
 export const TIER_LIMITS: Record<SubscriptionTier, TierLimitConfig> = {
   free: FREE_LIMITS,
   pro: PRO_LIMITS,
-  household: HOUSEHOLD_LIMITS,
+  household: PRO_LIMITS,
 };
 
+export function effectiveSubscriptionTier(tier: SubscriptionTier): 'free' | 'pro' {
+  return tier === 'free' ? 'free' : 'pro';
+}
+
 export function getTierLimits(tier: SubscriptionTier): TierLimitConfig {
-  return TIER_LIMITS[tier];
+  return TIER_LIMITS[effectiveSubscriptionTier(tier)];
 }
 
 export function tierAllowsFeature(feature: TierGatedFeature, limits: TierLimitConfig): boolean {

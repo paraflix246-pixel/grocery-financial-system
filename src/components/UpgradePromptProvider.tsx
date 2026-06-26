@@ -39,7 +39,6 @@ export function UpgradePromptProvider({ children }: Props) {
       <UpgradePromptModal
         visible={prompt != null}
         featureName={prompt?.featureName ?? ''}
-        requiredTier={prompt?.requiredTier ?? 'pro'}
         onUpgrade={handleUpgrade}
         onDismiss={dismiss}
       />

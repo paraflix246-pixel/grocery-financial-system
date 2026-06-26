@@ -120,7 +120,7 @@ export default function ListShareScreen() {
           ? 'Your list is syncing live with your household.'
           : syncUnlocked
             ? 'List shared — tap Sync now on Family Plans if needed.'
-            : 'Invite link ready. Upgrade to Household for live sync.',
+            : 'Invite link ready. Upgrade to Pro for live sync.',
       });
     } catch {
       showInfoAlert('Share failed', 'Could not share your list. Try again.');
@@ -243,9 +243,9 @@ export default function ListShareScreen() {
             Live sync requires Supabase. You can still share lists via invite link and JSON export.
           </Text>
         ) : syncUnlocked ? (
-          <Text style={[styles.hint, styles.hintLive]}>Household sync is on — edits push automatically.</Text>
+          <Text style={[styles.hint, styles.hintLive]}>Live sync is on — edits push automatically.</Text>
         ) : (
-          <Text style={styles.hint}>Pro shares lists manually. Household unlocks real-time sync.</Text>
+          <Text style={styles.hint}>Upgrade to Pro for real-time sync with family or roommates.</Text>
         )}
       </ScrollView>
     </View>

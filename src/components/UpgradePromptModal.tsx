@@ -6,21 +6,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppBottomSheetModal } from '@/src/components/AppBottomSheetModal';
 import {
   COMMIT_NOTE,
-  HOUSEHOLD_CTA_LABEL,
-  HOUSEHOLD_PLAN_FEATURES,
   PRO_CTA_LABEL,
   PRO_FEATURE_LABELS,
   PRO_PLAN_FEATURES,
   PRO_UPGRADE_HOOK,
-  householdMonthlyLabel,
   proMonthlyLabel,
 } from '@/src/constants/proPricing';
 import { SmartCartRadius } from '@/src/theme/smartCart';
 
 const BG = '#0F0F0F';
 const GREEN = '#22C55E';
-const GREEN_DARK = '#16A34A';
-const PURPLE = '#7C3AED';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_MUTED = 'rgba(255,255,255,0.55)';
 const TEXT_DIM = 'rgba(255,255,255,0.38)';
@@ -30,7 +25,6 @@ const CARD_BORDER = 'rgba(255,255,255,0.1)';
 type Props = {
   visible: boolean;
   featureName: string;
-  requiredTier: 'pro' | 'household';
   onUpgrade: () => void;
   onDismiss: () => void;
 };
@@ -69,7 +63,7 @@ const FEATURE_BENEFITS: Record<string, readonly string[]> = {
   [PRO_FEATURE_LABELS.export_advanced]: [
     'Download tax-ready spending logs in one tap',
     'Keep a clean record for reimbursements or taxes',
-    HOUSEHOLD_PLAN_FEATURES[0],
+    PRO_PLAN_FEATURES[4],
   ],
   [PRO_FEATURE_LABELS.multi_user_sync]: [
     'Lists update on every family phone automatically',
@@ -79,7 +73,7 @@ const FEATURE_BENEFITS: Record<string, readonly string[]> = {
   [PRO_FEATURE_LABELS.budget_forecasting]: [
     'See your grocery spend before month-end surprises',
     'Plan ahead instead of guessing at the register',
-    HOUSEHOLD_PLAN_FEATURES[0],
+    PRO_PLAN_FEATURES[5],
   ],
   [PRO_FEATURE_LABELS.cheapest_basket]: [
     'Get the lowest total across your usual stores',
@@ -93,18 +87,9 @@ const FEATURE_BENEFITS: Record<string, readonly string[]> = {
   ],
 };
 
-function getBenefits(featureName: string, requiredTier: 'pro' | 'household'): string[] {
+function getBenefits(featureName: string): string[] {
   const mapped = FEATURE_BENEFITS[featureName];
   if (mapped) return [...mapped].slice(0, 3);
-
-  if (requiredTier === 'household') {
-    return [
-      featureName,
-      HOUSEHOLD_PLAN_FEATURES[0],
-      HOUSEHOLD_PLAN_FEATURES[1],
-    ].slice(0, 3);
-  }
-
   return [featureName, PRO_PLAN_FEATURES[2], PRO_PLAN_FEATURES[6]].slice(0, 3);
 }
 
@@ -131,16 +116,11 @@ function BenefitRow({ text, accent }: BenefitRowProps) {
 export function UpgradePromptModal({
   visible,
   featureName,
-  requiredTier,
   onUpgrade,
   onDismiss,
 }: Props) {
-  const isHousehold = requiredTier === 'household';
-  const planName = isHousehold ? 'Household' : 'Pro';
-  const accent = isHousehold ? PURPLE : GREEN;
-  const priceLabel = isHousehold ? householdMonthlyLabel : proMonthlyLabel;
-  const ctaLabel = isHousehold ? HOUSEHOLD_CTA_LABEL : PRO_CTA_LABEL;
-  const benefits = useMemo(() => getBenefits(featureName, requiredTier), [featureName, requiredTier]);
+  const accent = GREEN;
+  const benefits = useMemo(() => getBenefits(featureName), [featureName]);
 
   return (
     <AppBottomSheetModal
@@ -152,16 +132,12 @@ export function UpgradePromptModal({
       footer={
         <View style={styles.footerCol}>
           <Pressable
-            style={({ pressed }) => [
-              styles.upgradeBtn,
-              isHousehold && styles.upgradeBtnHousehold,
-              pressed && styles.btnPressed,
-            ]}
+            style={({ pressed }) => [styles.upgradeBtn, pressed && styles.btnPressed]}
             accessibilityRole="button"
-            accessibilityLabel={ctaLabel}
+            accessibilityLabel={PRO_CTA_LABEL}
             onPress={onUpgrade}>
             <Text style={styles.upgradeText}>
-              {ctaLabel} — {priceLabel}
+              {PRO_CTA_LABEL} — {proMonthlyLabel}
             </Text>
           </Pressable>
           <Text style={styles.commitNote}>{COMMIT_NOTE}</Text>
@@ -182,12 +158,12 @@ export function UpgradePromptModal({
       </View>
 
       <LinearGradient
-        colors={isHousehold ? ['rgba(124,58,237,0.22)', 'rgba(15,15,15,0)'] : ['rgba(34,197,94,0.2)', 'rgba(15,15,15,0)']}
+        colors={['rgba(34,197,94,0.2)', 'rgba(15,15,15,0)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.heroCard}>
         <View style={[styles.iconWrap, { backgroundColor: `${accent}18`, borderColor: `${accent}44` }]}>
-          <Text style={styles.heroEmoji}>{isHousehold ? '👨‍👩‍👧‍👦' : '🌿'}</Text>
+          <Text style={styles.heroEmoji}>👨‍👩‍👧‍👦</Text>
         </View>
 
         <View style={[styles.tierBadge, { backgroundColor: `${accent}1A`, borderColor: `${accent}55` }]}>
@@ -197,7 +173,7 @@ export function UpgradePromptModal({
             size={11}
           />
           <Text style={[styles.tierBadgeText, { color: accent }]}>
-            {planName} — {priceLabel}
+            Pro — {proMonthlyLabel}
           </Text>
         </View>
 
@@ -365,9 +341,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
-  },
-  upgradeBtnHousehold: {
-    backgroundColor: GREEN_DARK,
   },
   upgradeText: {
     fontSize: 16,

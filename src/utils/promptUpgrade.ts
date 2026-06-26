@@ -24,7 +24,7 @@ export function promptUpgradeFallback({
   requiredTier = 'pro',
   onUpgrade,
 }: PromptUpgradeOptions): void {
-  const planName = requiredTier === 'household' ? 'Household' : 'Pro';
+  const planName = 'Pro';
   const title = `Upgrade to ${planName}`;
   const message = `${featureName} is included with ${planName}. ${PRO_UPGRADE_HOOK}`;
 
