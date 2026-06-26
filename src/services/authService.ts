@@ -1,35 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
 import { generateId } from '@/src/utils/id';
+import { getAppUrl, getAuthRedirectUrl } from '@/src/utils/appOrigin';
 import { syncUserProfile } from '@/src/services/admin/adminApiService';
 import { getAppSettings, updateAppSettings } from '@/src/services/storageService';
 import { supabase } from '@/src/services/supabaseClient';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 
-/** Production web origin — apex domain; www.pennypantry.xyz should redirect here. */
-const DEFAULT_APP_URL = 'https://pennypantry.xyz';
+export { getAuthRedirectUrl } from '@/src/utils/appOrigin';
 
 WebBrowser.maybeCompleteAuthSession();
-
-/** OAuth / password-reset redirect target — never use localhost on native. */
-export function getAuthRedirectUrl(path: string): string {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.location?.origin) {
-      return `${window.location.origin}${path}`;
-    }
-    const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
-    return appUrl ? `${appUrl.replace(/\/$/, '')}${path}` : `${DEFAULT_APP_URL}${path}`;
-  }
-
-  const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
-  if (appUrl) {
-    return `${appUrl.replace(/\/$/, '')}${path}`;
-  }
-  return Linking.createURL(path);
-}
 
 const GUEST_USER_ID_KEY = '@smartcart_community_user_id_v1';
 const AUTH_USER_KEY = '@smartcart_auth_user_v1';
@@ -223,8 +205,8 @@ export async function checkSignInHint(email: string): Promise<SignInHintResult> 
 }
 
 function resolveAuthApiUrl(path: string): string | null {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${path}`;
+  if (Platform.OS === 'web') {
+    return getAppUrl(path);
   }
   const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
   return appUrl ? `${appUrl.replace(/\/$/, '')}${path}` : null;

@@ -1,11 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 
+import { getAppUrl } from '@/src/utils/appOrigin';
 import {
   getSupabaseAdmin,
   isSupabaseAdminConfigured,
 } from '@/src/services/stripe/stripeSupabase.server';
-
-const DEFAULT_APP_URL = 'https://pennypantry.xyz';
 const OAUTH_PROVIDERS = new Set([
   'google',
   'apple',
@@ -39,8 +38,7 @@ function isValidEmail(email: string): boolean {
 }
 
 export function getPasswordResetRedirectUrl(): string {
-  const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || DEFAULT_APP_URL;
-  return `${appUrl}/onboarding/reset-password`;
+  return getAppUrl('/onboarding/reset-password');
 }
 
 /** Providers linked to the Supabase auth user (identities + app_metadata). */

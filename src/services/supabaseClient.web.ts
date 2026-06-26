@@ -8,6 +8,7 @@ let _client: SupabaseClient | null = null;
 if (supabaseUrl && supabaseAnonKey) {
   _client = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
+      flowType: 'pkce',
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
