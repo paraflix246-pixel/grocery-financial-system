@@ -1,10 +1,12 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 import { Text } from '@/components/Themed';
 import { BackButton } from '@/src/components/BackButton';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+import { getSession, getStoredUser, signOut } from '@/src/services/authService';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
 type Props = {
@@ -15,6 +17,35 @@ type Props = {
 
 export function AppHeader({ notificationCount = 0, onNotificationPress, showBack = true }: Props) {
   const router = useRouter();
+  const [showLogout, setShowLogout] = useState(false);
+
+  const refreshAuth = useCallback(async () => {
+    const stored = await getStoredUser();
+    const session = await getSession();
+    setShowLogout(!stored?.isGuest && Boolean(session?.user));
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshAuth();
+    }, [refreshAuth]),
+  );
+
+  const handleLogoutPress = () => {
+    Alert.alert('Log out?', 'You will need to sign in again to access your account.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log out',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            await signOut();
+            router.replace('/onboarding/signin');
+          })();
+        },
+      },
+    ]);
+  };
 
   return (
     <View style={styles.row}>
@@ -32,21 +63,40 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
       />
 
       <View style={styles.rightSlot}>
-        <Pressable
-          style={styles.iconBtn}
-          accessibilityLabel="Notifications"
-          onPress={onNotificationPress ?? (() => router.push('/price-tracker?tab=alerts' as never))}>
-          <SymbolView
-            name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
-            tintColor={SmartCartColors.text}
-            size={22}
-          />
-          {notificationCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
-            </View>
-          )}
-        </Pressable>
+        <View style={styles.rightActions}>
+          {showLogout ? (
+            <Pressable
+              style={styles.iconBtn}
+              accessibilityLabel="Log out"
+              accessibilityRole="button"
+              onPress={handleLogoutPress}>
+              <SymbolView
+                name={{
+                  ios: 'rectangle.portrait.and.arrow.right',
+                  android: 'logout',
+                  web: 'logout',
+                }}
+                tintColor={SmartCartColors.textMuted}
+                size={22}
+              />
+            </Pressable>
+          ) : null}
+          <Pressable
+            style={styles.iconBtn}
+            accessibilityLabel="Notifications"
+            onPress={onNotificationPress ?? (() => router.push('/price-tracker?tab=alerts' as never))}>
+            <SymbolView
+              name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
+              tintColor={SmartCartColors.text}
+              size={22}
+            />
+            {notificationCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -69,6 +119,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'center',
     marginLeft: 'auto',
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   iconBtn: {
     width: 40,
