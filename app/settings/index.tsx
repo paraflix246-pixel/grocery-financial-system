@@ -31,7 +31,7 @@ import {
   setKrogerPricingZipCode,
 } from '@/src/utils/regionPreference';
 import { getKrogerStatus } from '@/src/services/kroger/krogerClient';
-import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
+import { DeleteAccountSheet, type AccountActionMode } from '@/src/components/settings/DeleteAccountSheet';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -78,7 +78,7 @@ export default function SettingsScreen() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [devResetting, setDevResetting] = useState(false);
   const [devTierSwitching, setDevTierSwitching] = useState(false);
-  const [deleteSheetVisible, setDeleteSheetVisible] = useState(false);
+  const [accountSheetMode, setAccountSheetMode] = useState<AccountActionMode | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const tier = useSubscriptionStore((s) => s.tier);
   const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
@@ -194,24 +194,24 @@ export default function SettingsScreen() {
           />
         </View>
 
-        <Text style={styles.sectionTitle}>Account</Text>
-        <View style={styles.card}>
-          <Text style={styles.fieldHint}>
-            {isGuest
-              ? 'Remove all receipts, lists, and preferences stored on this device.'
-              : 'Permanently delete your cloud account and clear local app data.'}
-          </Text>
-          <Pressable
-            style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
-            onPress={() => setDeleteSheetVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel={isGuest ? 'Clear all local data' : 'Delete account'}
-          >
-            <Text style={styles.dangerBtnText}>
-              {isGuest ? 'Clear all local data' : 'Delete account'}
-            </Text>
-          </Pressable>
-        </View>
+        {!isGuest && (
+          <>
+            <Text style={styles.sectionTitle}>Account</Text>
+            <View style={styles.card}>
+              <Text style={styles.fieldHint}>
+                Permanently delete your cloud account and clear local app data.
+              </Text>
+              <Pressable
+                style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
+                onPress={() => setAccountSheetMode('delete-account')}
+                accessibilityRole="button"
+                accessibilityLabel="Delete account"
+              >
+                <Text style={styles.dangerBtnText}>Delete account</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>Notifications</Text>
         <View style={styles.card}>
@@ -448,11 +448,27 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </View>
+
+        <Text style={styles.sectionTitle}>Local data</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldHint}>
+            Remove all receipts, lists, and preferences stored on this device.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
+            onPress={() => setAccountSheetMode('clear-local-data')}
+            accessibilityRole="button"
+            accessibilityLabel="Clear all local data"
+          >
+            <Text style={styles.dangerBtnText}>Clear all local data</Text>
+          </Pressable>
+        </View>
       </ScrollView>
 
       <DeleteAccountSheet
-        visible={deleteSheetVisible}
-        onClose={() => setDeleteSheetVisible(false)}
+        visible={accountSheetMode !== null}
+        mode={accountSheetMode ?? 'clear-local-data'}
+        onClose={() => setAccountSheetMode(null)}
       />
     </View>
   );

@@ -11,6 +11,7 @@ import {
 import { Text } from '@/components/Themed';
 import { AppBottomSheetModal } from '@/src/components/AppBottomSheetModal';
 import {
+  clearAllLocalData,
   clearGuestLocalData,
   deleteAccount,
   isDeleteConfirmationValid,
@@ -18,12 +19,15 @@ import {
 } from '@/src/services/accountDeleteService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
+export type AccountActionMode = 'delete-account' | 'clear-local-data';
+
 type Props = {
   visible: boolean;
+  mode: AccountActionMode;
   onClose: () => void;
 };
 
-export function DeleteAccountSheet({ visible, onClose }: Props) {
+export function DeleteAccountSheet({ visible, mode, onClose }: Props) {
   const router = useRouter();
   const [signedIn, setSignedIn] = useState<boolean | null>(null);
   const [confirmText, setConfirmText] = useState('');
@@ -43,7 +47,8 @@ export function DeleteAccountSheet({ visible, onClose }: Props) {
   }, [visible, loadAccountState]);
 
   const isGuest = signedIn === false;
-  const title = isGuest ? 'Clear all local data?' : 'Delete account?';
+  const isClearLocal = mode === 'clear-local-data';
+  const title = isClearLocal ? 'Clear all local data?' : 'Delete account?';
   const canConfirm = isDeleteConfirmationValid(confirmText) && !busy;
 
   const handleConfirm = async () => {
@@ -51,8 +56,12 @@ export function DeleteAccountSheet({ visible, onClose }: Props) {
     setBusy(true);
     setError(null);
     try {
-      if (isGuest) {
-        await clearGuestLocalData();
+      if (isClearLocal) {
+        if (isGuest) {
+          await clearGuestLocalData();
+        } else {
+          await clearAllLocalData();
+        }
       } else {
         await deleteAccount();
       }
@@ -81,12 +90,12 @@ export function DeleteAccountSheet({ visible, onClose }: Props) {
         onPress={handleConfirm}
         disabled={!canConfirm}
         accessibilityRole="button"
-        accessibilityLabel={isGuest ? 'Clear all local data' : 'Delete account'}
+        accessibilityLabel={isClearLocal ? 'Clear all local data' : 'Delete account'}
       >
         {busy ? (
           <ActivityIndicator color="#fff" size="small" />
         ) : (
-          <Text style={styles.confirmText}>{isGuest ? 'Clear data' : 'Delete account'}</Text>
+          <Text style={styles.confirmText}>{isClearLocal ? 'Clear data' : 'Delete account'}</Text>
         )}
       </Pressable>
     </View>
@@ -100,8 +109,10 @@ export function DeleteAccountSheet({ visible, onClose }: Props) {
       ) : (
         <>
           <Text style={styles.body}>
-            {isGuest
-              ? 'This permanently removes receipts, lists, pantry items, and preferences stored on this device. Guest data is not synced to the cloud and cannot be recovered.'
+            {isClearLocal
+              ? isGuest
+                ? 'This permanently removes receipts, lists, pantry items, and preferences stored on this device. Guest data is not synced to the cloud and cannot be recovered.'
+                : 'This permanently removes receipts, lists, pantry items, and preferences stored on this device. Your cloud account and subscription are not deleted.'
               : 'This permanently deletes your cloud account and associated subscription records. Receipts, lists, and other data on this device will be cleared. Some local data may remain until you uninstall the app.'}
           </Text>
           <Text style={styles.body}>
