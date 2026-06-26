@@ -10,6 +10,10 @@ export default function PrivacyScreen() {
       title="Privacy Policy"
       lastUpdated="June 26, 2026"
       relatedPage={{ label: 'Terms of Service', href: '/terms' }}
+      footerLinks={[
+        { label: 'Copyright & DMCA', href: '/copyright' },
+        { label: 'Privacy Requests', href: '/privacy-request' },
+      ]}
     >
       <LegalSection heading="Introduction">
         Penny Pantry (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;) is a grocery finance app
@@ -196,11 +200,14 @@ export default function PrivacyScreen() {
         billing through the methods above. See Guest mode for how guest data is handled.{'\n\n'}
         Depending on where you live, you may have the right to access, correct, delete, or export
         your personal data, and to object to or restrict certain processing. To exercise these
-        rights, contact us at the email below. We will respond within a reasonable time as required
-        by applicable law.{'\n\n'}
-        To delete your account and associated cloud data, email privacy@pennypantry.xyz from the
-        address tied to your account. We do not currently offer in-app account deletion. Local data
-        on your device can be removed by deleting items in the app or uninstalling the app.
+        rights, contact us at the email below or visit our Privacy Requests page. We will respond
+        within a reasonable time as required by applicable law.{'\n\n'}
+        To delete your account and associated cloud data when signed in, use Settings → Account →
+        Delete account in the app. You can also email privacy@pennypantry.xyz from the address tied
+        to your account. Deleting your account permanently removes your Supabase authentication
+        record and linked cloud subscription data. Local data on your device is cleared as part of
+        in-app deletion; some data may remain until you uninstall the app. Guest users can clear
+        local data via Settings → Account → Clear all local data.
       </LegalSection>
 
       <LegalSection heading="International users">

@@ -8,19 +8,27 @@ const PURPLE = '#7C3AED';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_MUTED = 'rgba(255,255,255,0.52)';
 
+export type LegalHref = '/privacy' | '/terms' | '/copyright' | '/privacy-request';
+
 type RelatedPage = {
   label: string;
-  href: '/privacy' | '/terms';
+  href: LegalHref;
+};
+
+type FooterLink = {
+  label: string;
+  href: LegalHref;
 };
 
 type Props = {
   title: string;
   lastUpdated: string;
   relatedPage?: RelatedPage;
+  footerLinks?: FooterLink[];
   children: ReactNode;
 };
 
-export function LegalPageLayout({ title, lastUpdated, relatedPage, children }: Props) {
+export function LegalPageLayout({ title, lastUpdated, relatedPage, footerLinks, children }: Props) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -41,16 +49,31 @@ export function LegalPageLayout({ title, lastUpdated, relatedPage, children }: P
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.updated}>Last updated: {lastUpdated}</Text>
         {children}
-        {relatedPage ? (
-          <View style={styles.relatedRow}>
-            <Text style={styles.relatedText}>See also: </Text>
-            <Pressable
-              onPress={() => router.push(relatedPage.href)}
-              accessibilityRole="link"
-              accessibilityLabel={relatedPage.label}
-            >
-              <Text style={styles.relatedLink}>{relatedPage.label}</Text>
-            </Pressable>
+        {relatedPage || footerLinks?.length ? (
+          <View style={styles.footerLinks}>
+            {relatedPage ? (
+              <View style={styles.relatedRow}>
+                <Text style={styles.relatedText}>See also: </Text>
+                <Pressable
+                  onPress={() => router.push(relatedPage.href)}
+                  accessibilityRole="link"
+                  accessibilityLabel={relatedPage.label}
+                >
+                  <Text style={styles.relatedLink}>{relatedPage.label}</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {footerLinks?.map((link) => (
+              <Pressable
+                key={link.href}
+                onPress={() => router.push(link.href)}
+                accessibilityRole="link"
+                accessibilityLabel={link.label}
+                style={styles.footerLinkRow}
+              >
+                <Text style={styles.relatedLink}>{link.label}</Text>
+              </Pressable>
+            ))}
           </View>
         ) : null}
       </ScrollView>
@@ -118,14 +141,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 24,
   },
-  relatedRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+  footerLinks: {
     marginTop: 8,
     paddingTop: 20,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.12)',
+    gap: 10,
+  },
+  relatedRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  footerLinkRow: {
+    alignSelf: 'flex-start',
   },
   relatedText: {
     color: TEXT_MUTED,

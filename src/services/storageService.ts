@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import { DB_NAME, MIGRATIONS, SCHEMA_VERSION } from '@/src/models/schema';
@@ -1892,4 +1893,32 @@ export async function upsertPantryItemFromReceipt(
 
 export async function initStorage(): Promise<void> {
   await ensureStorageReady();
+}
+
+/** Wipes SQLite / async-backed grocery data and resets the storage init state. */
+export async function wipeAllLocalData(): Promise<void> {
+  await AsyncStorage.multiRemove([NATIVE_ASYNC_STORAGE_KEY, WEB_ASYNC_STORAGE_KEY]);
+
+  const state = getDbInitState();
+  if (state.instance) {
+    try {
+      await state.instance.closeAsync();
+    } catch {
+      /* best-effort */
+    }
+  }
+  state.instance = null;
+  state.promise = null;
+  state.initialized = false;
+  state.generation += 1;
+  initPromise = null;
+  storageMode = 'pending';
+
+  try {
+    await SQLite.deleteDatabaseAsync(DB_NAME);
+  } catch {
+    /* database may not exist */
+  }
+
+  asyncBackend.configureAsyncStorageKey(NATIVE_ASYNC_STORAGE_KEY);
 }

@@ -10,17 +10,30 @@ export default function TermsScreen() {
       title="Terms of Service"
       lastUpdated="June 26, 2026"
       relatedPage={{ label: 'Privacy Policy', href: '/privacy' }}
+      footerLinks={[
+        { label: 'Copyright & DMCA', href: '/copyright' },
+        { label: 'Privacy Requests', href: '/privacy-request' },
+      ]}
     >
       <LegalSection heading="Agreement">
         These Terms of Service (&quot;Terms&quot;) govern your access to and use of Penny Pantry, a
-        grocery receipt scanning, price tracking, and budgeting application (&quot;the Service&quot;).
+        grocery receipt scanning, price tracking, and budgeting application (the &quot;Service&quot;).
         By creating an account, starting a trial, subscribing, or using the Service, you agree to
         these Terms and our Privacy Policy. If you do not agree, do not use the Service. Our Privacy
         Policy describes how we collect and use data; these Terms govern the legal relationship
         between you and Penny Pantry.
       </LegalSection>
 
-      <LegalSection heading="The service">
+      <LegalSection heading="Defined terms">
+        &quot;Service&quot; means the Penny Pantry application, website, APIs, and related features
+        we make available. &quot;Penny Pantry Parties&quot; means Penny Pantry and its owners,
+        affiliates, parent companies, subsidiaries, successors, assigns, officers, directors,
+        employees, contractors, licensors, vendors, service providers, and agents. References to
+        &quot;we,&quot; &quot;us,&quot; or &quot;our&quot; mean Penny Pantry Parties unless the
+        context requires otherwise.
+      </LegalSection>
+
+      <LegalSection heading="The Service">
         Penny Pantry helps you scan grocery receipts, track spending, compare prices across stores,
         manage shopping lists and pantry inventory, set price alerts, and optionally share lists
         with family members. Some features require an internet connection. Receipt scanning,
@@ -35,14 +48,21 @@ export default function TermsScreen() {
         may use guest mode without an account; guest data is stored only on that device and is not
         synced or recoverable if you lose the device. You must be at least 13 years old (or the
         minimum age in your jurisdiction) to create an account. Notify us promptly if you suspect
-        unauthorized access to your account.
+        unauthorized access to your account. Signed-in users may delete their account in Settings;
+        see our Privacy Policy and Privacy Requests page for details.
       </LegalSection>
 
       <LegalSection heading="Acceptable use">
         You agree not to:{'\n'}
         • Misuse the Service or attempt to access systems, accounts, or data without authorization{'\n'}
-        • Submit false, misleading, or fraudulent price or receipt data{'\n'}
-        • Scrape, reverse engineer, or overload our services or third-party integrations{'\n'}
+        • Submit false, misleading, or fraudulent price, receipt, or community-pricing data{'\n'}
+        • Scrape, crawl, harvest, or systematically extract data from the Service or its APIs without
+        our prior written consent{'\n'}
+        • Reverse engineer, decompile, disassemble, or otherwise attempt to derive source code,
+        underlying ideas, or algorithms of the Service except where prohibited by applicable law{'\n'}
+        • Circumvent, disable, or interfere with plan limits, rate limits, access controls, or
+        security measures{'\n'}
+        • Overload, disrupt, or interfere with the Service or third-party integrations{'\n'}
         • Use the Service for any unlawful purpose or in violation of applicable store or platform
         policies{'\n'}
         • Harass other users or interfere with family-sharing features{'\n\n'}
@@ -117,6 +137,13 @@ export default function TermsScreen() {
         lawful authority.
       </LegalSection>
 
+      <LegalSection heading="Copyright and DMCA">
+        We respect intellectual property rights. If you believe content on the Service infringes
+        your copyright, follow the process in our Copyright &amp; DMCA Policy (available in the app
+        and at /copyright). We may remove infringing material and terminate repeat infringers as
+        described in that policy.
+      </LegalSection>
+
       <LegalSection heading="No professional advice">
         Penny Pantry is a grocery tracking and budgeting tool for informational purposes only.
         Nothing in the Service — including spending summaries, price comparisons, savings estimates,
@@ -136,11 +163,19 @@ export default function TermsScreen() {
         on them.
       </LegalSection>
 
+      <LegalSection heading="Assumption of risk">
+        You acknowledge and assume all risks associated with your use of the Service, including
+        risks arising from: (a) OCR and automated receipt parsing errors; (b) AI-assisted or
+        rule-based data interpretation; (c) inaccurate, incomplete, outdated, or estimated
+        third-party and community prices; (d) software bugs, defects, and service interruptions;
+        (e) changes to retailer pricing, promotions, inventory, or store policies; and (f) reliance
+        on any output of the Service. You use the Service at your own risk.
+      </LegalSection>
+
       <LegalSection heading="No fiduciary relationship">
         Your use of the Service does not create any fiduciary, advisory, agency, partnership, or
-        joint-venture relationship between you and Penny Pantry. We owe you no duty of care beyond
-        providing the Service as described in these Terms. We have no obligation to act in your best
-        financial or personal interest.
+        joint-venture relationship between you and Penny Pantry. We have no obligation to act in
+        your best financial or personal interest.
       </LegalSection>
 
       <LegalSection heading="OCR and receipt scanning">
@@ -148,8 +183,8 @@ export default function TermsScreen() {
         may include errors in store names, item names, quantities, prices, dates, or totals. OCR
         quality depends on image clarity, receipt format, and third-party processing. You must
         review and correct scanned receipts before relying on them for budgeting, alerts, price
-        tracking, or community contributions. We are not responsible for decisions made based on
-        inaccurate scan results.
+        tracking, or community contributions. Penny Pantry Parties are not responsible for decisions
+        made based on inaccurate scan results.
       </LegalSection>
 
       <LegalSection heading="AI and automated parsing">
@@ -192,36 +227,60 @@ export default function TermsScreen() {
         use of beta or experimental features is at your own risk.
       </LegalSection>
 
+      <LegalSection heading="Electronic communications">
+        By creating an account or using the Service, you consent to receive communications from us
+        electronically, including emails, in-app notices, and push notifications where enabled.
+        You agree that electronic communications satisfy any legal requirement that such
+        communications be in writing. You may opt out of non-essential marketing emails where
+        offered; transactional, legal, and service-related notices may still be sent.
+      </LegalSection>
+
+      <LegalSection heading="Export control and sanctions">
+        You represent that you are not located in, under the control of, or a national or resident
+        of any country or region subject to comprehensive U.S. embargo or sanctions, and that you
+        are not listed on any U.S. government restricted-party list. You agree not to use or
+        export the Service in violation of applicable export control or sanctions laws.
+      </LegalSection>
+
+      <LegalSection heading="Reservation of rights">
+        All rights not expressly granted to you in these Terms are reserved by Penny Pantry Parties.
+        No license or right is granted by implication, estoppel, or otherwise.
+      </LegalSection>
+
       <LegalSection heading="Disclaimer of warranties">
         THE SERVICE AND ALL CONTENT, DATA, OCR RESULTS, AI OUTPUTS, PRICE COMPARISONS, SAVINGS
         ESTIMATES, AND COMMUNITY PRICING ARE PROVIDED &quot;AS IS&quot; AND &quot;AS AVAILABLE,&quot;
         WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, OR STATUTORY. TO THE FULLEST
-        EXTENT PERMITTED BY LAW, WE DISCLAIM ALL WARRANTIES, INCLUDING IMPLIED WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, QUIET ENJOYMENT, ACCURACY, AND
-        NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED, ERROR-FREE,
-        SECURE, FREE OF VIRUSES OR HARMFUL COMPONENTS, OR THAT ANY DATA, OUTPUT, OR ESTIMATE WILL BE
-        ACCURATE, COMPLETE, RELIABLE, CURRENT, OR SUITABLE FOR ANY PARTICULAR PURPOSE.
+        EXTENT PERMITTED BY LAW, PENNY PANTRY PARTIES DISCLAIM ALL WARRANTIES, INCLUDING IMPLIED
+        WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, QUIET ENJOYMENT,
+        ACCURACY, AND NON-INFRINGEMENT. WE DO NOT WARRANT THAT THE SERVICE WILL BE UNINTERRUPTED,
+        ERROR-FREE, SECURE, FREE OF VIRUSES OR HARMFUL COMPONENTS, OR THAT ANY DATA, OUTPUT, OR
+        ESTIMATE WILL BE ACCURATE, COMPLETE, RELIABLE, CURRENT, OR SUITABLE FOR ANY PARTICULAR
+        PURPOSE.
       </LegalSection>
 
       <LegalSection heading="Limitation of liability">
-        TO THE FULLEST EXTENT PERMITTED BY LAW, PENNY PANTRY AND ITS OPERATORS, AFFILIATES,
-        OFFICERS, DIRECTORS, EMPLOYEES, AGENTS, LICENSORS, AND SUPPLIERS ARE NOT LIABLE FOR ANY
+        TO THE FULLEST EXTENT PERMITTED BY LAW, PENNY PANTRY PARTIES ARE NOT LIABLE FOR ANY
         INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, EXEMPLARY, OR PUNITIVE DAMAGES, OR FOR LOSS OF
         PROFITS, REVENUE, DATA, GOODWILL, BUSINESS OPPORTUNITY, LOST SAVINGS, PURCHASING LOSSES, OR
         OTHER INTANGIBLE LOSSES, ARISING FROM OR RELATED TO YOUR USE OF (OR INABILITY TO USE) THE
         SERVICE, EVEN IF WE HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.{'\n\n'}
-        OUR TOTAL AGGREGATE LIABILITY FOR ANY AND ALL CLAIMS ARISING OUT OF OR RELATING TO THESE
-        TERMS OR THE SERVICE IS LIMITED TO THE GREATER OF (A) THE AMOUNT YOU PAID US FOR THE SERVICE
-        IN THE TWELVE (12) MONTHS BEFORE THE EVENT GIVING RISE TO THE CLAIM, OR (B) ONE HUNDRED U.S.
-        DOLLARS ($100).{'\n\n'}
+        OUR MAXIMUM AGGREGATE LIABILITY SHALL NEVER EXCEED THE GREATER OF (A) THE TOTAL AMOUNT PAID
+        BY YOU TO PENNY PANTRY DURING THE TWELVE (12) MONTHS PRECEDING THE EVENT GIVING RISE TO THE
+        CLAIM, OR (B) ONE HUNDRED U.S. DOLLARS (US $100).{'\n\n'}
         SOME JURISDICTIONS DO NOT ALLOW THE EXCLUSION OR LIMITATION OF CERTAIN DAMAGES; IN THOSE
         CASES, OUR LIABILITY IS LIMITED TO THE MAXIMUM EXTENT PERMITTED BY LAW.
       </LegalSection>
 
+      <LegalSection heading="Limitation period">
+        TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, ANY CLAIM OR CAUSE OF ACTION ARISING OUT
+        OF OR RELATED TO THESE TERMS OR THE SERVICE MUST BE FILED WITHIN ONE (1) YEAR AFTER SUCH
+        CLAIM OR CAUSE OF ACTION AROSE, OR BE PERMANENTLY BARRED.
+      </LegalSection>
+
       <LegalSection heading="Indemnification">
-        You agree to defend, indemnify, and hold harmless Penny Pantry and its operators, affiliates,
-        officers, directors, employees, agents, and service providers from and against any claims,
-        demands, damages, losses, liabilities, costs, and expenses (including reasonable
+        You agree to defend, indemnify, and hold harmless Penny Pantry Parties from and against any
+        claims, demands, damages, losses, liabilities, costs, and expenses (including reasonable
         attorneys&apos; fees) arising out of or related to: (a) your use or misuse of the Service;
         (b) your violation of these Terms or applicable law; (c) your violation of any third-party
         right; (d) User Content or data you submit, including inaccurate, misleading, or fraudulent
@@ -305,19 +364,21 @@ export default function TermsScreen() {
 
       <LegalSection heading="Termination">
         You may stop using the Service at any time. You may cancel paid subscriptions through the
-        billing methods above. We may suspend or terminate your access immediately, with or without
-        notice, if you breach these Terms, misuse the Service, submit fraudulent or abusive data, or
-        if required by law. We may also modify or discontinue the Service or features with reasonable
-        notice where practicable. Upon termination, your right to use the Service ends immediately.
+        billing methods above. Signed-in users may delete their account in Settings. We may suspend
+        or terminate your access immediately, with or without notice, if you breach these Terms,
+        misuse the Service, submit fraudulent or abusive data, or if required by law. We may also
+        modify or discontinue the Service or features with reasonable notice where practicable. Upon
+        termination, your right to use the Service ends immediately.
       </LegalSection>
 
       <LegalSection heading="Survival">
         The following sections survive termination or expiration of these Terms or your account:
-        User content and contributions (license grant), No professional advice, No reliance, No
-        fiduciary relationship, OCR and receipt scanning, AI and automated parsing, Price
-        comparisons and savings estimates, Third-party services, Disclaimer of warranties,
-        Limitation of liability, Indemnification, Dispute resolution and arbitration, Governing law
-        and venue, and any other provisions that by their nature should survive.
+        User content and contributions (license grant), No professional advice, No reliance,
+        Assumption of risk, No fiduciary relationship, OCR and receipt scanning, AI and automated
+        parsing, Price comparisons and savings estimates, Third-party services, Disclaimer of
+        warranties, Limitation of liability, Limitation period, Indemnification, Dispute resolution
+        and arbitration, Governing law and venue, and any other provisions intended by their nature
+        to survive termination.
       </LegalSection>
 
       <LegalSection heading="Changes to these Terms">

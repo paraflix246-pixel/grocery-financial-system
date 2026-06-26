@@ -19,7 +19,7 @@ import {
   type SubscriptionTier,
 } from '@/src/store/useSubscriptionStore';
 import { refreshScheduledNotifications } from '@/src/services/notificationService';
-import { signOut, getSession } from '@/src/services/authService';
+import { signOut, getSession, getStoredUser } from '@/src/services/authService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import {
   getOpenLastListPreference,
@@ -33,6 +33,7 @@ import {
   setKrogerPricingZipCode,
 } from '@/src/utils/regionPreference';
 import { getKrogerStatus } from '@/src/services/kroger/krogerClient';
+import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -80,6 +81,8 @@ export default function SettingsScreen() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [devResetting, setDevResetting] = useState(false);
   const [devTierSwitching, setDevTierSwitching] = useState(false);
+  const [deleteSheetVisible, setDeleteSheetVisible] = useState(false);
+  const [isGuest, setIsGuest] = useState(false);
   const tier = useSubscriptionStore((s) => s.tier);
   const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
@@ -106,6 +109,9 @@ export default function SettingsScreen() {
       setNotifyPriceAlerts(s.notifyPriceAlerts);
       setNotifyBudgetAlerts(s.notifyBudgetAlerts);
     }
+    const storedUser = await getStoredUser();
+    const session = await getSession();
+    setIsGuest(Boolean(storedUser?.isGuest || !session?.user));
     setLoading(false);
   }, [loadSettings]);
 
@@ -192,6 +198,25 @@ export default function SettingsScreen() {
             placeholderTextColor={SmartCartColors.textMuted}
             autoCapitalize="words"
           />
+        </View>
+
+        <Text style={styles.sectionTitle}>Account</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldHint}>
+            {isGuest
+              ? 'Remove all receipts, lists, and preferences stored on this device.'
+              : 'Permanently delete your cloud account and clear local app data.'}
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
+            onPress={() => setDeleteSheetVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={isGuest ? 'Clear all local data' : 'Delete account'}
+          >
+            <Text style={styles.dangerBtnText}>
+              {isGuest ? 'Clear all local data' : 'Delete account'}
+            </Text>
+          </Pressable>
         </View>
 
         <Text style={styles.sectionTitle}>Notifications</Text>
@@ -369,6 +394,52 @@ export default function SettingsScreen() {
               size={16}
             />
           </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/copyright')}
+            accessibilityRole="link"
+            accessibilityLabel="Copyright and DMCA Policy"
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'c.circle.fill', android: 'copyright', web: 'copyright' }}
+                tintColor={SmartCartColors.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>Copyright &amp; DMCA</Text>
+              <Text style={styles.menuSub}>Report copyright infringement</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/privacy-request')}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Requests"
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
+                tintColor={SmartCartColors.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>Privacy Requests</Text>
+              <Text style={styles.menuSub}>Access, delete, or export your data</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
         </View>
 
         <Text style={styles.sectionTitle}>Preferences</Text>
@@ -394,6 +465,11 @@ export default function SettingsScreen() {
           ))}
         </View>
       </ScrollView>
+
+      <DeleteAccountSheet
+        visible={deleteSheetVisible}
+        onClose={() => setDeleteSheetVisible(false)}
+      />
     </View>
   );
 }
@@ -480,4 +556,14 @@ const styles = StyleSheet.create({
   tierBtnActive: { backgroundColor: SmartCartColors.primary },
   tierBtnText: { fontSize: 13, fontWeight: '600', color: SmartCartColors.textSecondary },
   tierBtnTextActive: { color: '#fff' },
+  dangerBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1,
+    borderColor: SmartCartColors.danger,
+    alignItems: 'center',
+  },
+  dangerBtnPressed: { backgroundColor: `${SmartCartColors.danger}12` },
+  dangerBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.danger },
 });
