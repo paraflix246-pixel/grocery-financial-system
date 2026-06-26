@@ -15,10 +15,7 @@ import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { fetchMarketplaceDeals } from '@/src/services/marketplace/marketplaceClient';
 import type { MarketplaceDeal } from '@/src/services/marketplace/marketplaceTypes';
-import {
-  getEffectiveKrogerZipCode,
-  getKrogerLocationIdOverride,
-} from '@/src/utils/regionPreference';
+import { getEffectiveKrogerZipCode } from '@/src/utils/regionPreference';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
 function sourceBadgeLabel(source: MarketplaceDeal['source']): string | null {
@@ -40,11 +37,8 @@ export default function MarketplaceScreen() {
     setError(null);
 
     try {
-      const [zipCode, locationId] = await Promise.all([
-        getEffectiveKrogerZipCode(),
-        getKrogerLocationIdOverride(),
-      ]);
-      const result = await fetchMarketplaceDeals({ zipCode, locationId, limit: 12 });
+      const zipCode = await getEffectiveKrogerZipCode();
+      const result = await fetchMarketplaceDeals({ zipCode, limit: 12 });
       setDeals(result.deals);
       setStatusMessage(result.statusMessage);
       if (result.error && result.deals.length === 0) {

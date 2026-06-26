@@ -27,9 +27,7 @@ import {
 } from '@/src/utils/listNavigationPrefs';
 import {
   getEffectiveKrogerZipCode,
-  getKrogerLocationIdOverride,
   getKrogerPricingZipCode,
-  setKrogerLocationIdOverride,
   setKrogerPricingZipCode,
 } from '@/src/utils/regionPreference';
 import { getKrogerStatus } from '@/src/services/kroger/krogerClient';
@@ -74,7 +72,6 @@ export default function SettingsScreen() {
   const [notifyBudgetAlerts, setNotifyBudgetAlerts] = useState(true);
   const [openLastList, setOpenLastList] = useState(true);
   const [krogerZipCode, setKrogerZipCode] = useState('');
-  const [krogerLocationId, setKrogerLocationId] = useState('');
   const [krogerConfigured, setKrogerConfigured] = useState<boolean | null>(null);
   const [effectiveKrogerZip, setEffectiveKrogerZip] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -92,14 +89,12 @@ export default function SettingsScreen() {
     setLoading(true);
     const openLast = await getOpenLastListPreference();
     setOpenLastList(openLast);
-    const [savedZip, savedLocationId, effectiveZip, krogerStatus] = await Promise.all([
+    const [savedZip, effectiveZip, krogerStatus] = await Promise.all([
       getKrogerPricingZipCode(),
-      getKrogerLocationIdOverride(),
       getEffectiveKrogerZipCode(),
       getKrogerStatus(),
     ]);
     setKrogerZipCode(savedZip ?? '');
-    setKrogerLocationId(savedLocationId ?? '');
     setEffectiveKrogerZip(effectiveZip);
     setKrogerConfigured(krogerStatus.configured);
     await loadSettings();
@@ -157,7 +152,6 @@ export default function SettingsScreen() {
       await refreshScheduledNotifications();
       await setOpenLastListPreference(openLastList);
       await setKrogerPricingZipCode(krogerZipCode.trim() || null);
-      await setKrogerLocationIdOverride(krogerLocationId.trim() || null);
       setEffectiveKrogerZip(await getEffectiveKrogerZipCode());
       setSaveMessage('Saved');
     } catch {
@@ -274,7 +268,7 @@ export default function SettingsScreen() {
             </Text>
           </View>
           <Text style={styles.fieldHint}>
-            Live Kroger prices use your ZIP to find the nearest store when no location ID is set.
+            Live Kroger prices use your ZIP to find the nearest store.
           </Text>
           <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>ZIP / postal code</Text>
           <TextInput
@@ -285,16 +279,6 @@ export default function SettingsScreen() {
             placeholderTextColor={SmartCartColors.textMuted}
             keyboardType="numbers-and-punctuation"
             autoCapitalize="characters"
-          />
-          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>Location ID (optional)</Text>
-          <Text style={styles.fieldHint}>Override nearest-store lookup with a specific Kroger location ID.</Text>
-          <TextInput
-            style={styles.input}
-            value={krogerLocationId}
-            onChangeText={setKrogerLocationId}
-            placeholder="Kroger location ID"
-            placeholderTextColor={SmartCartColors.textMuted}
-            autoCapitalize="none"
           />
         </View>
 

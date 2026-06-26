@@ -1,22 +1,15 @@
 import { searchKrogerProducts } from '@/src/services/kroger/krogerClient';
 import type { ExternalPriceSource } from '@/src/services/externalPriceService';
-import {
-  getEffectiveKrogerZipCode,
-  getKrogerLocationIdOverride,
-} from '@/src/utils/regionPreference';
+import { getEffectiveKrogerZipCode } from '@/src/utils/regionPreference';
 
 export function createKrogerPriceProvider(): ExternalPriceSource {
   return {
     id: 'kroger',
     async getPricesForItem(itemName, _regionCode) {
-      const [zipCode, locationId] = await Promise.all([
-        getEffectiveKrogerZipCode(),
-        getKrogerLocationIdOverride(),
-      ]);
+      const zipCode = await getEffectiveKrogerZipCode();
       const result = await searchKrogerProducts({
         term: itemName,
         zipCode,
-        locationId,
         limit: 5,
       });
 

@@ -4,7 +4,6 @@ import { getReceipts } from '@/src/services/storageService';
 
 const PREFERRED_REGION_KEY = '@smartcart_preferred_region';
 const KROGER_PRICING_ZIP_KEY = '@smartcart_kroger_pricing_zip';
-const KROGER_LOCATION_ID_KEY = '@smartcart_kroger_location_id';
 
 function normalizeZipCode(value: string): string {
   return value.trim().replace(/\s+/g, '');
@@ -71,24 +70,6 @@ export async function setKrogerPricingZipCode(zipCode: string | null): Promise<v
     return;
   }
   await AsyncStorage.setItem(KROGER_PRICING_ZIP_KEY, zip.slice(0, 10));
-}
-
-export async function getKrogerLocationIdOverride(): Promise<string | null> {
-  try {
-    const value = await AsyncStorage.getItem(KROGER_LOCATION_ID_KEY);
-    return value?.trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-export async function setKrogerLocationIdOverride(locationId: string | null): Promise<void> {
-  const trimmed = locationId?.trim();
-  if (!trimmed) {
-    await AsyncStorage.removeItem(KROGER_LOCATION_ID_KEY);
-    return;
-  }
-  await AsyncStorage.setItem(KROGER_LOCATION_ID_KEY, trimmed);
 }
 
 /** User Kroger ZIP override, else receipt-derived postal prefix. */
