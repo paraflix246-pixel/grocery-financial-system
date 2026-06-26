@@ -25,12 +25,6 @@ import {
   getOpenLastListPreference,
   setOpenLastListPreference,
 } from '@/src/utils/listNavigationPrefs';
-import {
-  getEffectiveKrogerZipCode,
-  getKrogerPricingZipCode,
-  setKrogerPricingZipCode,
-} from '@/src/utils/regionPreference';
-import { getKrogerStatus } from '@/src/services/kroger/krogerClient';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
@@ -71,9 +65,6 @@ export default function SettingsScreen() {
   const [notifyPriceAlerts, setNotifyPriceAlerts] = useState(true);
   const [notifyBudgetAlerts, setNotifyBudgetAlerts] = useState(true);
   const [openLastList, setOpenLastList] = useState(true);
-  const [krogerZipCode, setKrogerZipCode] = useState('');
-  const [krogerConfigured, setKrogerConfigured] = useState<boolean | null>(null);
-  const [effectiveKrogerZip, setEffectiveKrogerZip] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [devResetting, setDevResetting] = useState(false);
@@ -89,14 +80,6 @@ export default function SettingsScreen() {
     setLoading(true);
     const openLast = await getOpenLastListPreference();
     setOpenLastList(openLast);
-    const [savedZip, effectiveZip, krogerStatus] = await Promise.all([
-      getKrogerPricingZipCode(),
-      getEffectiveKrogerZipCode(),
-      getKrogerStatus(),
-    ]);
-    setKrogerZipCode(savedZip ?? '');
-    setEffectiveKrogerZip(effectiveZip);
-    setKrogerConfigured(krogerStatus.configured);
     await loadSettings();
     const s = useSettingsStore.getState().settings;
     if (s) {
@@ -151,8 +134,6 @@ export default function SettingsScreen() {
       });
       await refreshScheduledNotifications();
       await setOpenLastListPreference(openLastList);
-      await setKrogerPricingZipCode(krogerZipCode.trim() || null);
-      setEffectiveKrogerZip(await getEffectiveKrogerZipCode());
       setSaveMessage('Saved');
     } catch {
       setSaveMessage('Could not save');
@@ -234,33 +215,6 @@ export default function SettingsScreen() {
               thumbColor="#fff"
             />
           </View>
-        </View>
-
-        <Text style={styles.sectionTitle}>Kroger pricing</Text>
-        <View style={styles.card}>
-          <View style={styles.statusRow}>
-            <Text style={styles.fieldLabel}>Kroger API</Text>
-            <Text
-              style={[
-                styles.statusBadge,
-                krogerConfigured ? styles.statusConnected : styles.statusDisconnected,
-              ]}>
-              {krogerConfigured == null ? 'Checking…' : krogerConfigured ? 'Connected' : 'Not configured'}
-            </Text>
-          </View>
-          <Text style={styles.fieldHint}>
-            Live Kroger prices use your ZIP to find the nearest store.
-          </Text>
-          <Text style={[styles.fieldLabel, styles.fieldLabelSpaced]}>ZIP / postal code</Text>
-          <TextInput
-            style={styles.input}
-            value={krogerZipCode}
-            onChangeText={setKrogerZipCode}
-            placeholder={effectiveKrogerZip ? `Using ${effectiveKrogerZip} from receipts` : 'e.g. 45202'}
-            placeholderTextColor={SmartCartColors.textMuted}
-            keyboardType="numbers-and-punctuation"
-            autoCapitalize="characters"
-          />
         </View>
 
         <Text style={styles.sectionTitle}>Receipt scanning</Text>
@@ -479,12 +433,7 @@ const styles = StyleSheet.create({
     ...SmartCartShadow.card,
   },
   fieldLabel: { fontSize: 14, fontWeight: '600', color: SmartCartColors.text },
-  fieldLabelSpaced: { marginTop: 14 },
   fieldHint: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2, marginBottom: 10 },
-  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  statusBadge: { fontSize: 12, fontWeight: '700', paddingHorizontal: 10, paddingVertical: 4, borderRadius: SmartCartRadius.pill },
-  statusConnected: { color: SmartCartColors.primaryMid, backgroundColor: `${SmartCartColors.primaryMid}18` },
-  statusDisconnected: { color: SmartCartColors.textSecondary, backgroundColor: SmartCartColors.background },
   input: {
     borderWidth: 1,
     borderColor: SmartCartColors.border,
