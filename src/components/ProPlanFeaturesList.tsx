@@ -2,15 +2,21 @@ import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from
 import { SymbolView } from 'expo-symbols';
 
 import { Text } from '@/components/Themed';
-import { PRO_PLAN_FEATURE_GROUPS, PRO_PLAN_FEATURES } from '@/src/constants/proPricing';
+import {
+  PRO_CARD_FRAMING,
+  PRO_PLAN_FEATURE_DETAILS,
+  PRO_PLAN_FEATURE_GROUPS,
+  PRO_PLAN_FEATURES,
+} from '@/src/constants/proPricing';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
-type Variant = 'full' | 'grouped';
+type Variant = 'full' | 'grouped' | 'premium';
 
 type Props = {
   variant?: Variant;
   accentColor?: string;
   mutedColor?: string;
+  framingText?: string;
   style?: StyleProp<ViewStyle>;
   featureTextStyle?: StyleProp<TextStyle>;
   secondaryTextStyle?: StyleProp<TextStyle>;
@@ -54,14 +60,64 @@ function CheckRow({
   );
 }
 
+function PremiumFeatureRow({
+  upgradeLabel,
+  text,
+  freeLimit,
+  accentColor,
+  mutedColor,
+  textStyle,
+}: {
+  upgradeLabel: string;
+  text: string;
+  freeLimit?: string;
+  accentColor: string;
+  mutedColor: string;
+  textStyle?: StyleProp<TextStyle>;
+}) {
+  return (
+    <View style={styles.premiumRow}>
+      <View style={[styles.upgradeBadge, { borderColor: `${accentColor}55`, backgroundColor: `${accentColor}18` }]}>
+        <Text style={[styles.upgradeBadgeText, { color: accentColor }]}>{upgradeLabel}</Text>
+      </View>
+      <View style={styles.premiumTextCol}>
+        <Text style={[styles.premiumFeatureText, textStyle]}>{text}</Text>
+        {freeLimit ? (
+          <Text style={[styles.freeLimitText, { color: mutedColor }]}>Free: {freeLimit}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 export function ProPlanFeaturesList({
   variant = 'full',
   accentColor = SmartCartColors.primary,
   mutedColor = SmartCartColors.textMuted,
+  framingText = PRO_CARD_FRAMING,
   style,
   featureTextStyle,
   secondaryTextStyle,
 }: Props) {
+  if (variant === 'premium') {
+    return (
+      <View style={[styles.list, style]}>
+        <Text style={[styles.framingText, { color: mutedColor }]}>{framingText}</Text>
+        {PRO_PLAN_FEATURE_DETAILS.map((feature) => (
+          <PremiumFeatureRow
+            key={feature.text}
+            upgradeLabel={feature.upgradeLabel}
+            text={feature.text}
+            freeLimit={feature.freeLimit}
+            accentColor={accentColor}
+            mutedColor={mutedColor}
+            textStyle={featureTextStyle}
+          />
+        ))}
+      </View>
+    );
+  }
+
   if (variant === 'grouped') {
     return (
       <View style={[styles.list, style]}>
@@ -95,6 +151,12 @@ export function ProPlanFeaturesList({
 
 const styles = StyleSheet.create({
   list: { gap: 10, paddingRight: 4 },
+  framingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginBottom: 2,
+  },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -116,6 +178,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     opacity: 0.85,
+  },
+  premiumRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    width: '100%',
+  },
+  upgradeBadge: {
+    flexShrink: 0,
+    marginTop: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    minWidth: 72,
+    alignItems: 'center',
+  },
+  upgradeBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  premiumTextCol: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  premiumFeatureText: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+    color: '#FFFFFF',
+  },
+  freeLimitText: {
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '500',
   },
   group: { gap: 8, marginBottom: 6 },
   groupTitle: { fontSize: 13, fontWeight: '700', letterSpacing: 0.2, marginBottom: 2 },
