@@ -3,6 +3,8 @@ import React, { type ReactNode } from 'react';
 import { Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+
 const BG = '#0F0F0F';
 const PURPLE = '#7C3AED';
 const TEXT_PRIMARY = '#FFFFFF';
@@ -42,10 +44,7 @@ export function LegalPageLayout({ title, lastUpdated, relatedPage, footerLinks, 
         ]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.logoRow}>
-          <Text style={styles.logoEmoji}>🛒</Text>
-          <Text style={styles.logoName}>Penny Pantry</Text>
-        </View>
+        <PennyPantryLogo variant="inline" size={24} nameColor={PURPLE} style={styles.logoRow} />
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.updated}>Last updated: {lastUpdated}</Text>
         {children}
@@ -100,20 +99,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     marginBottom: 24,
-  },
-  logoEmoji: {
-    fontSize: 24,
-  },
-  logoName: {
-    color: PURPLE,
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
   title: {
     color: TEXT_PRIMARY,

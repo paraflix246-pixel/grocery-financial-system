@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { forgotPassword } from '@/src/services/authService';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 
 const BG = '#0F0F0F';
 const PURPLE = '#7C3AED';
@@ -71,10 +72,7 @@ export default function ForgotPasswordScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Logo */}
-        <View style={styles.logoRow}>
-          <Text style={styles.logoEmoji}>🛒</Text>
-          <Text style={styles.logoName}>Penny Pantry</Text>
-        </View>
+        <PennyPantryLogo variant="inline" size={28} nameColor={PURPLE} nameSize={24} style={styles.logoRow} />
 
         <Text style={styles.heading}>Reset your password</Text>
         <Text style={styles.subheading}>
@@ -162,20 +160,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
     marginBottom: 40,
-  },
-  logoEmoji: {
-    fontSize: 28,
-  },
-  logoName: {
-    color: PURPLE,
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
   heading: {
     color: TEXT_PRIMARY,

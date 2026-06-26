@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { AppHeader } from '@/src/components/AppHeader';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
@@ -208,8 +209,7 @@ export default function MoreScreen() {
       ))}
 
       <View style={styles.footer}>
-        <Text style={styles.footerLeaf}>🌿</Text>
-        <Text style={styles.footerBrand}>Penny Pantry</Text>
+        <PennyPantryLogo variant="inline" size={28} nameSize={18} style={styles.footerLogo} />
         <Text style={styles.footerVersion}>Grocery Financial System</Text>
       </View>
     </ScrollView>
@@ -281,7 +281,6 @@ const styles = StyleSheet.create({
   proPillText: { fontSize: 9, fontWeight: '800', color: '#fff' },
   menuSub: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },
   footer: { alignItems: 'center', marginTop: 24 },
-  footerLeaf: { fontSize: 28 },
-  footerBrand: { fontSize: 18, fontWeight: '800', color: SmartCartColors.primaryDark, marginTop: 4 },
+  footerLogo: { marginBottom: 4 },
   footerVersion: { fontSize: 12, color: SmartCartColors.textMuted, marginTop: 4 },
 });

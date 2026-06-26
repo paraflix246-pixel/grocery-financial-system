@@ -10,6 +10,7 @@ import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-c
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { BackButton } from '@/src/components/BackButton';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { DevConnectionBanner } from '@/src/components/DevConnectionBanner';
 import { StorageSlowBanner } from '@/src/components/StorageSlowBanner';
 import { GlobalErrorBoundary, ErrorBoundary } from '@/src/components/GlobalErrorBoundary';
@@ -234,6 +235,7 @@ export default function RootLayout() {
       <GlobalErrorBoundary>
         <GestureHandlerRootView style={[styles.root, styles.boot]}>
           <View style={styles.bootContent} accessibilityRole="progressbar" accessibilityLabel={BOOT_LABEL}>
+            <PennyPantryLogo variant="hero" size={72} style={styles.bootLogo} />
             <ActivityIndicator size="large" color={SmartCartColors.primary} />
             <Text style={styles.bootText}>{BOOT_LABEL}…</Text>
           </View>
@@ -294,6 +296,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
+  },
+  bootLogo: {
+    marginBottom: 8,
   },
   bootText: {
     fontSize: 15,

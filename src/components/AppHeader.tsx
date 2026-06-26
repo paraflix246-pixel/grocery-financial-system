@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 
 import { Text } from '@/components/Themed';
 import { BackButton } from '@/src/components/BackButton';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
 type Props = {
@@ -21,14 +22,14 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
         {showBack ? <BackButton /> : null}
       </View>
 
-      <View style={styles.logoRow}>
-        <SymbolView
-          name={{ ios: 'leaf.fill', android: 'eco', web: 'eco' }}
-          tintColor={SmartCartColors.primaryMid}
-          size={20}
-        />
-        <Text style={styles.logo}>Penny Pantry</Text>
-      </View>
+      <PennyPantryLogo
+        variant="inline"
+        size={22}
+        nameSize={20}
+        nameColor={SmartCartColors.primaryDark}
+        nameStyle={styles.logoName}
+        style={styles.logoRow}
+      />
 
       <View style={styles.rightSlot}>
         <Pressable
@@ -77,15 +78,10 @@ const styles = StyleSheet.create({
   },
   logoRow: {
     flex: 1,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
   },
-  logo: {
-    fontSize: 20,
+  logoName: {
     fontWeight: '800',
-    color: SmartCartColors.primaryDark,
     letterSpacing: -0.4,
   },
   badge: {

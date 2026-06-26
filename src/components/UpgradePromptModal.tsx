@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppBottomSheetModal } from '@/src/components/AppBottomSheetModal';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import {
   COMMIT_NOTE,
   PRO_CTA_LABEL,
@@ -151,10 +152,13 @@ export function UpgradePromptModal({
       }>
       <View style={styles.handle} />
 
-      <View style={styles.brandRow}>
-        <Text style={styles.brandEmoji}>🛒</Text>
-        <Text style={styles.brandName}>Penny Pantry</Text>
-      </View>
+      <PennyPantryLogo
+        variant="inline"
+        size={18}
+        nameSize={14}
+        nameColor={TEXT_MUTED}
+        style={styles.brandRow}
+      />
 
       <LinearGradient
         colors={['rgba(34,197,94,0.2)', 'rgba(15,15,15,0)']}
@@ -228,21 +232,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.18)',
     marginBottom: 4,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  brandEmoji: {
-    fontSize: 18,
-  },
-  brandName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: TEXT_MUTED,
-    letterSpacing: 0.2,
-  },
+  brandRow: {},
   heroCard: {
     borderRadius: SmartCartRadius.lg,
     padding: 20,

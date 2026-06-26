@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
 const { width: W } = Dimensions.get('window');
@@ -100,10 +101,7 @@ export default function OnboardingCarousel() {
       <StatusBar barStyle="light-content" backgroundColor={BG} />
 
       {/* Brand wordmark */}
-      <View style={styles.brandBar}>
-        <Text style={styles.brandEmoji}>🛒</Text>
-        <Text style={styles.brandName}>Penny Pantry</Text>
-      </View>
+      <PennyPantryLogo variant="inline" size={20} nameColor={PURPLE} style={styles.brandBar} />
 
       {/* Carousel */}
       <View
@@ -193,20 +191,7 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
   },
   brandBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 18,
-    gap: 8,
-  },
-  brandEmoji: {
-    fontSize: 20,
-  },
-  brandName: {
-    color: PURPLE,
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: 0.3,
   },
   carouselWrapper: {
     flex: 1,

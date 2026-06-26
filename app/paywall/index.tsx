@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Themed';
 
 import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { LegalFooter } from '@/src/components/legal/LegalFooter';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 
@@ -137,7 +138,7 @@ export default function PaywallScreen() {
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}>
         <View style={styles.hero}>
-          <Text style={styles.heroEmoji}>💰</Text>
+          <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
           <Text style={styles.heroTitle}>{PAYWALL_HEADLINE}</Text>
           <Text style={styles.heroSub}>{PAYWALL_SUBHEAD}</Text>
         </View>
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   content: { padding: 16, paddingBottom: 16 },
   hero: { alignItems: 'center', marginBottom: 24 },
-  heroEmoji: { fontSize: 44, marginBottom: 12 },
+  heroLogo: { marginBottom: 12 },
   heroTitle: {
     fontSize: 24,
     fontWeight: '800',

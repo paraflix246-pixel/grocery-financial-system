@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
+import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 import {
   COMMIT_NOTE,
@@ -65,7 +66,7 @@ export default function UpgradeScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          <Text style={styles.heroEmoji}>💰</Text>
+          <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
           <Text style={styles.heroTitle}>{ONBOARDING_UPGRADE_HEADLINE}</Text>
           <Text style={styles.heroSubtitle}>{PAYWALL_SUBHEAD}</Text>
         </View>
@@ -126,8 +127,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 28,
   },
-  heroEmoji: {
-    fontSize: 52,
+  heroLogo: {
     marginBottom: 16,
   },
   heroTitle: {
