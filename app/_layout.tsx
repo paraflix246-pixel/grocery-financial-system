@@ -14,6 +14,7 @@ import { DevConnectionBanner } from '@/src/components/DevConnectionBanner';
 import { StorageSlowBanner } from '@/src/components/StorageSlowBanner';
 import { GlobalErrorBoundary, ErrorBoundary } from '@/src/components/GlobalErrorBoundary';
 import { UpgradePromptProvider } from '@/src/components/UpgradePromptProvider';
+import { TrialReminderProvider } from '@/src/components/TrialReminderProvider';
 import { SmartCartColors } from '@/src/theme/smartCart';
 import { initStorage } from '@/src/services/storageService';
 import { bootstrapExternalPriceProviders } from '@/src/services/externalPriceBootstrap';
@@ -24,6 +25,7 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useListStore } from '@/src/store/useListStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { initializeSubscriptionProvider } from '@/src/services/subscriptionService';
+import { ensureTrialExpiredDowngrade } from '@/src/services/trialService';
 import { canAccessFeature } from '@/src/services/featureGateService';
 import { startFamilyRealtimeSync } from '@/src/services/familySyncService';
 
@@ -111,7 +113,16 @@ function ensureAppInitialized(): Promise<void> {
       }
     });
     await runInitStep('subscription provider', () => initializeSubscriptionProvider());
-    await runInitStep('subscription', () => useSubscriptionStore.getState().loadSubscription());
+    await runInitStep('subscription', async () => {
+      await useSubscriptionStore.getState().loadSubscription();
+      const { tier, subscriptionSource } = useSubscriptionStore.getState();
+      const isPaidPro =
+        tier === 'pro' && subscriptionSource !== 'trial' && subscriptionSource !== 'free';
+      const downgraded = await ensureTrialExpiredDowngrade(isPaidPro);
+      if (downgraded) {
+        await useSubscriptionStore.getState().downgradeToFree();
+      }
+    });
     await runInitStep('lists', () => useListStore.getState().loadLists());
     await runInitStep('onboarding', async () => {
       // If a valid Supabase session exists, treat onboarding as complete regardless
@@ -236,10 +247,12 @@ export default function RootLayout() {
       <GestureHandlerRootView style={styles.root}>
         <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <UpgradePromptProvider>
-            <FamilyRealtimeBootstrap />
-            <DevConnectionBanner />
-            <StorageSlowBanner />
-            <RootLayoutNav />
+            <TrialReminderProvider>
+              <FamilyRealtimeBootstrap />
+              <DevConnectionBanner />
+              <StorageSlowBanner />
+              <RootLayoutNav />
+            </TrialReminderProvider>
           </UpgradePromptProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>

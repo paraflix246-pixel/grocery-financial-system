@@ -12,7 +12,9 @@ import { Text } from '@/components/Themed';
 
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
+import { TrialBadge } from '@/src/components/TrialReminderProvider';
 import { proMonthlyLabel } from '@/src/constants/proPricing';
+import { computeTrialStatus } from '@/src/services/trialService';
 
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 
@@ -28,7 +30,8 @@ export default function SubscriptionsScreen() {
 
   const router = useRouter();
 
-  const { tier, plan, expiresAt, loaded, loadSubscription, downgradeToFree } = useSubscriptionStore();
+  const { tier, plan, expiresAt, loaded, loadSubscription, downgradeToFree, subscriptionSource, trialStartedAt, isPro } =
+    useSubscriptionStore();
 
 
 
@@ -62,17 +65,21 @@ export default function SubscriptionsScreen() {
 
 
 
-  const isPaid = tier === 'pro' || tier === 'household';
+  const isPaid = isPro();
+  const isTrial = subscriptionSource === 'trial';
+  const trialStatus = computeTrialStatus(trialStartedAt);
 
   const billingMode = getSubscriptionBillingMode();
 
-  const planLabel = isPaid ? 'Penny Pantry Pro' : 'Penny Pantry Free';
+  const planLabel = isTrial
+    ? 'Penny Pantry Pro (Trial)'
+    : isPaid
+      ? 'Penny Pantry Pro'
+      : 'Penny Pantry Free';
 
-
-
-  const billingStatusLabel =
-
-    billingMode === 'revenuecat'
+  const billingStatusLabel = isTrial
+    ? `7-day Pro trial · ${trialStatus.daysRemaining} ${trialStatus.daysRemaining === 1 ? 'day' : 'days'} left`
+    : billingMode === 'revenuecat'
 
       ? `${plan === 'yearly' ? 'Annual' : 'Monthly'} · billed via App Store / Play Store`
 
@@ -135,6 +142,12 @@ export default function SubscriptionsScreen() {
           />
 
           <Text style={styles.statusTitle}>{planLabel}</Text>
+
+          {isTrial ? (
+            <View style={styles.trialBadgeWrap}>
+              <TrialBadge />
+            </View>
+          ) : null}
 
           <Text style={styles.statusSub}>
 
@@ -265,6 +278,8 @@ const styles = StyleSheet.create({
   statusCardPro: { borderColor: SmartCartColors.accentPurple, backgroundColor: '#FAF5FF' },
 
   statusTitle: { fontSize: 22, fontWeight: '800', color: SmartCartColors.text, marginTop: 12 },
+
+  trialBadgeWrap: { marginTop: 10 },
 
   statusSub: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4, textAlign: 'center' },
 

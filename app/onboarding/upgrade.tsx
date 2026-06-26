@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBudgetStore } from '@/src/store/useBudgetStore';
+import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 import {
@@ -22,7 +23,6 @@ import {
   PRO_CTA_LABEL,
   PRO_CTA_SUBTEXT,
   PRO_PLAN_LEAD,
-  proMonthlyLabel,
 } from '@/src/constants/proPricing';
 
 const BG = '#0F0F0F';
@@ -35,6 +35,7 @@ export default function UpgradeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
+  const startProTrial = useSubscriptionStore((s) => s.startProTrial);
   const [upgrading, setUpgrading] = useState(false);
 
   async function handleStartFree() {
@@ -42,11 +43,12 @@ export default function UpgradeScreen() {
     router.replace('/(tabs)');
   }
 
-  async function handleUpgradePro() {
+  async function handleStartTrial() {
     setUpgrading(true);
     try {
+      await startProTrial();
       await completeOnboarding();
-      router.replace('/paywall' as never);
+      router.replace('/(tabs)');
     } finally {
       setUpgrading(false);
     }
@@ -70,7 +72,7 @@ export default function UpgradeScreen() {
 
         <View style={styles.proCard}>
           <Text style={styles.proBadgeText}>
-            Pro — {proMonthlyLabel} · {PRO_BADGE_LABEL}
+            Pro · {PRO_BADGE_LABEL}
           </Text>
           <ProPlanFeaturesList
             variant="full"
@@ -84,13 +86,13 @@ export default function UpgradeScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.upgradeBtn, pressed && styles.upgradeBtnPressed]}
-          onPress={handleUpgradePro}
+          onPress={handleStartTrial}
           disabled={upgrading}
           accessibilityRole="button"
           accessibilityLabel={PRO_CTA_LABEL}
         >
           <Text style={styles.upgradeBtnText}>
-            {upgrading ? 'Loading...' : `${PRO_CTA_LABEL} — ${proMonthlyLabel}`}
+            {upgrading ? 'Starting trial...' : PRO_CTA_LABEL}
           </Text>
         </Pressable>
 

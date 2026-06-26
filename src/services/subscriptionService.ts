@@ -12,6 +12,8 @@ const DEFAULT_STATE: SubscriptionState = {
   plan: null,
   expiresAt: null,
   mockPurchaseToken: null,
+  subscriptionSource: 'free',
+  trialStartedAt: null,
 };
 
 const ENTITLEMENT_PRO = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_PRO?.trim() || 'pro';
@@ -94,6 +96,8 @@ function mapCustomerInfoToState(info: CustomerInfo): SubscriptionState | null {
       plan: planFromProductId(activeEnt.productIdentifier),
       expiresAt: activeEnt.expirationDate ?? null,
       mockPurchaseToken: null,
+      subscriptionSource: 'paid',
+      trialStartedAt: null,
     };
   }
 
@@ -108,6 +112,8 @@ function buildMockPaidState(plan: SubscriptionPlan): SubscriptionState {
     plan,
     expiresAt: expires.toISOString(),
     mockPurchaseToken: `mock_pro_${Date.now()}`,
+    subscriptionSource: 'mock',
+    trialStartedAt: null,
   };
 }
 

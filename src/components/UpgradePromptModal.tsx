@@ -7,10 +7,10 @@ import { AppBottomSheetModal } from '@/src/components/AppBottomSheetModal';
 import {
   COMMIT_NOTE,
   PRO_CTA_LABEL,
+  PRO_CTA_SUBTEXT,
   PRO_FEATURE_LABELS,
   PRO_PLAN_FEATURES,
   PRO_UPGRADE_HOOK,
-  proMonthlyLabel,
 } from '@/src/constants/proPricing';
 import { SmartCartRadius } from '@/src/theme/smartCart';
 
@@ -136,10 +136,9 @@ export function UpgradePromptModal({
             accessibilityRole="button"
             accessibilityLabel={PRO_CTA_LABEL}
             onPress={onUpgrade}>
-            <Text style={styles.upgradeText}>
-              {PRO_CTA_LABEL} — {proMonthlyLabel}
-            </Text>
+            <Text style={styles.upgradeText}>{PRO_CTA_LABEL}</Text>
           </Pressable>
+          <Text style={styles.trialSubtext}>{PRO_CTA_SUBTEXT}</Text>
           <Text style={styles.commitNote}>{COMMIT_NOTE}</Text>
           <Pressable
             style={({ pressed }) => [styles.dismissBtn, pressed && styles.btnPressed]}
@@ -172,9 +171,7 @@ export function UpgradePromptModal({
             tintColor={accent}
             size={11}
           />
-          <Text style={[styles.tierBadgeText, { color: accent }]}>
-            Pro — {proMonthlyLabel}
-          </Text>
+          <Text style={[styles.tierBadgeText, { color: accent }]}>Pro trial available</Text>
         </View>
 
         <Text style={styles.title}>{featureName}</Text>
@@ -347,6 +344,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
     letterSpacing: 0.1,
+  },
+  trialSubtext: {
+    fontSize: 12,
+    color: TEXT_DIM,
+    textAlign: 'center',
+    marginBottom: 2,
   },
   commitNote: {
     fontSize: 12,

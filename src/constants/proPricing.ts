@@ -8,9 +8,14 @@ export const PAYWALL_HEADLINE = 'Save money every time you shop.';
 export const PAYWALL_SUBHEAD =
   'Track prices, catch drops, and see where your money actually goes.';
 
-export const PRO_CTA_LABEL = 'Start saving with Pro';
+export const PRO_CTA_LABEL = 'Start 7-Day Pro Trial';
 
-export const PRO_CTA_SUBTEXT = 'Smarter grocery spending starts here.';
+export const PRO_CTA_SUBTEXT = 'Full Pro access for 7 days. No payment required.';
+
+export const PRO_SUBSCRIBE_LABEL = 'Subscribe to Pro';
+
+export const TRIAL_BADGE_LABEL = (daysRemaining: number) =>
+  `Pro trial — ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left`;
 
 export const PRO_BADGE_LABEL = 'Best for families';
 

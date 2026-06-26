@@ -23,6 +23,7 @@ import {
   PRO_CTA_SUBTEXT,
   PRO_MONTHLY_PRICE,
   PRO_PLAN_LEAD,
+  PRO_SUBSCRIBE_LABEL,
   PRO_YEARLY_PRICE,
   PRO_YEARLY_PRICE_PER_MONTH,
   YEARLY_SAVINGS_PERCENT,
@@ -78,12 +79,10 @@ function getProPeriod(billing: 'monthly' | 'yearly'): string {
   return billing === 'yearly' ? '/mo billed yearly' : '/month';
 }
 
-function getCtaLabel(billing: 'monthly' | 'yearly', upgrading: boolean): string {
+function getSubscribeLabel(billing: 'monthly' | 'yearly', upgrading: boolean): string {
   if (upgrading) return 'Processing...';
-
   const price = billing === 'yearly' ? proYearlyLabel : `${PRO_MONTHLY_PRICE}/month`;
-
-  return `${PRO_CTA_LABEL} — ${price}`;
+  return `${PRO_SUBSCRIBE_LABEL} — ${price}`;
 }
 
 export default function PaywallScreen() {
@@ -92,10 +91,25 @@ export default function PaywallScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= WIDE_LAYOUT_MIN_WIDTH;
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
+  const startProTrial = useSubscriptionStore((s) => s.startProTrial);
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
   const [selectedPro, setSelectedPro] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
   const billingMode = getSubscriptionBillingMode();
+
+  const handleStartTrial = async () => {
+    setStartingTrial(true);
+    try {
+      await startProTrial();
+      router.replace('/(tabs)' as never);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not start trial.';
+      console.warn('[paywall] trial start failed:', message);
+    } finally {
+      setStartingTrial(false);
+    }
+  };
 
   const handleUpgrade = async () => {
     if (!selectedPro) return;
@@ -207,13 +221,26 @@ export default function PaywallScreen() {
         </View>
 
         <Pressable
-          style={[styles.upgradeBtn, upgrading && styles.upgradeBtnDisabled]}
-          disabled={upgrading || !selectedPro}
-          onPress={handleUpgrade}>
-          <Text style={styles.upgradeBtnText}>{getCtaLabel(billing, upgrading)}</Text>
+          style={[styles.upgradeBtn, startingTrial && styles.upgradeBtnDisabled]}
+          disabled={startingTrial || upgrading}
+          onPress={handleStartTrial}
+          accessibilityRole="button"
+          accessibilityLabel={PRO_CTA_LABEL}>
+          <Text style={styles.upgradeBtnText}>
+            {startingTrial ? 'Starting trial...' : PRO_CTA_LABEL}
+          </Text>
         </Pressable>
 
         <Text style={styles.ctaSubtext}>{PRO_CTA_SUBTEXT}</Text>
+
+        <Pressable
+          style={[styles.subscribeBtn, (upgrading || startingTrial) && styles.upgradeBtnDisabled]}
+          disabled={upgrading || startingTrial || !selectedPro}
+          onPress={handleUpgrade}
+          accessibilityRole="button"
+          accessibilityLabel={PRO_SUBSCRIBE_LABEL}>
+          <Text style={styles.subscribeBtnText}>{getSubscribeLabel(billing, upgrading)}</Text>
+        </Pressable>
 
         <Pressable style={styles.freeLink} onPress={() => router.back()}>
           <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL}</Text>
@@ -335,6 +362,15 @@ const styles = StyleSheet.create({
   },
   upgradeBtnDisabled: { opacity: 0.7 },
   upgradeBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
+  subscribeBtn: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  subscribeBtnText: { fontSize: 15, fontWeight: '700', color: TEXT_PRIMARY },
   ctaSubtext: {
     fontSize: 13,
     color: TEXT_MUTED,

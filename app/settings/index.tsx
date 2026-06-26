@@ -81,6 +81,7 @@ export default function SettingsScreen() {
   const [devResetting, setDevResetting] = useState(false);
   const [devTierSwitching, setDevTierSwitching] = useState(false);
   const tier = useSubscriptionStore((s) => s.tier);
+  const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const downgradeToFree = useSubscriptionStore((s) => s.downgradeToFree);
 
@@ -287,6 +288,7 @@ export default function SettingsScreen() {
               <Text style={styles.fieldLabel}>Subscription tier</Text>
               <Text style={styles.fieldHint}>
                 Current: {tier === 'free' ? 'Free' : 'Pro'}
+                {subscriptionSource === 'trial' ? ' (trial)' : ''}
               </Text>
               <View style={styles.tierToggle}>
                 {(['free', 'pro'] as const).map((option) => (

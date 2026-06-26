@@ -27,7 +27,7 @@ export {
 };
 
 export function getCurrentTierLimits(): TierLimitConfig {
-  return getTierLimits(useSubscriptionStore.getState().tier);
+  return getTierLimits(useSubscriptionStore.getState().getEffectiveTier());
 }
 
 export class ScanLimitError extends Error {

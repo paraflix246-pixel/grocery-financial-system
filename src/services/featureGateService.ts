@@ -29,9 +29,10 @@ export function getRequiredTier(_feature: GatedFeature): Exclude<SubscriptionTie
 
 /** Check whether the current subscription unlocks a feature. */
 export function canAccessFeature(feature: GatedFeature): boolean {
-  return tierAllowsFeature(feature, getTierLimits(useSubscriptionStore.getState().tier));
+  const effectiveTier = useSubscriptionStore.getState().getEffectiveTier();
+  return tierAllowsFeature(feature, getTierLimits(effectiveTier));
 }
 
 export function getSubscriptionTier(): SubscriptionTier {
-  return useSubscriptionStore.getState().tier;
+  return useSubscriptionStore.getState().getEffectiveTier();
 }
