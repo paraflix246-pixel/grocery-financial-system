@@ -58,7 +58,7 @@ export const PRO_PLAN_FEATURES = [
   'Cheapest cart across stores',
   'Export spending data',
   'Unlimited pantry tracking',
-  'Ad-free experience',
+  'Ad-free experience (when ads are shown on Free)',
 ] as const;
 
 export const PRO_PLAN_FEATURE_GROUPS = [

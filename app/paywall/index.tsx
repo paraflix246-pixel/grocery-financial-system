@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Themed';
 
 import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { LegalFooter } from '@/src/components/legal/LegalFooter';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 
 import {
@@ -262,6 +263,8 @@ export default function PaywallScreen() {
                 ? 'Web billing is not configured yet. Add Stripe env vars on Vercel or use mock mode locally.'
                 : 'In-app purchases are not configured yet. Set RevenueCat API keys for native builds.'}
         </Text>
+
+        <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor="#7C3AED" />
       </ScrollView>
     </View>
   );
