@@ -63,6 +63,7 @@
     "build:web": "expo export -p web",
     "test": "tsx --test src/utils/*.test.ts src/services/**/*.test.ts src/models/*.test.ts src/components/**/*.test.ts src/hooks/*.test.ts",
     "typecheck": "tsc --noEmit",
+    "test:email": "node scripts/test-resend-email.mjs",
     "validate:receipt": "tsx scripts/test-deepread-receipt.ts",
     "validate:receipt-paddle": "tsx scripts/diag-receipt-pipeline.ts",
     "build:android:apk": "eas build --platform android --profile preview"

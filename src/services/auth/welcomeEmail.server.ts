@@ -93,9 +93,24 @@ async function sendViaResend(to: string, html: string): Promise<void> {
   }
 }
 
+function logWelcomeEvent(
+  outcome: 'skipped' | 'sent' | 'failed',
+  detail: Record<string, unknown>
+): void {
+  const line = `[auth/welcome] ${outcome}: ${JSON.stringify(detail)}`;
+  if (outcome === 'sent') {
+    console.info(line);
+  } else {
+    console.warn(line);
+  }
+}
+
 export async function handleWelcomeEmailRequest(request: Request): Promise<Response> {
   if (!isSupabaseAdminConfigured()) {
-    console.warn('[auth/welcome] skipped: SUPABASE_SERVICE_ROLE_KEY not configured');
+    logWelcomeEvent('skipped', {
+      reason: 'supabase_admin_not_configured',
+      hint: 'Set SUPABASE_SERVICE_ROLE_KEY on Vercel (Supabase Dashboard → Project Settings → API → service_role).',
+    });
     return Response.json({ error: 'Welcome email is not configured on the server.' }, { status: 503 });
   }
 
@@ -105,12 +120,14 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
   }
 
   if (user.user_metadata?.welcome_email_sent === true) {
-    console.info('[auth/welcome] skipped: already_sent', { userId: user.id, email: user.email });
+    logWelcomeEvent('skipped', { reason: 'already_sent', userId: user.id, email: user.email });
     return Response.json({ success: true, skipped: true, reason: 'already_sent' });
   }
 
   if (!isWelcomeEmailConfigured()) {
-    console.warn('[auth/welcome] skipped: RESEND_API_KEY not configured', {
+    logWelcomeEvent('skipped', {
+      reason: 'resend_not_configured',
+      hint: 'Set RESEND_API_KEY on Vercel.',
       userId: user.id,
       email: user.email,
     });
@@ -120,10 +137,18 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
   const displayName = extractDisplayName(user.user_metadata);
   const html = buildWelcomeEmailHtml(displayName, getAppUrl());
 
+  const from = getWelcomeFromEmail();
   try {
     await sendViaResend(user.email, html);
   } catch (error) {
-    console.warn('[auth/welcome] send failed:', { userId: user.id, email: user.email, error });
+    const message = error instanceof Error ? error.message : String(error);
+    logWelcomeEvent('failed', {
+      reason: 'resend_send_error',
+      userId: user.id,
+      email: user.email,
+      from,
+      error: message,
+    });
     return Response.json({ error: 'Could not send welcome email.' }, { status: 502 });
   }
 
@@ -143,6 +168,6 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
     console.warn('[auth/welcome] metadata update error:', error);
   }
 
-  console.info('[auth/welcome] sent', { userId: user.id, email: user.email });
+  logWelcomeEvent('sent', { userId: user.id, email: user.email, from });
   return Response.json({ success: true, sent: true });
 }
