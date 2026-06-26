@@ -2,7 +2,10 @@ import React, { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import {
+  OnboardingColors,
+  OnboardingSlideAccent,
+} from '@/src/theme/onboardingTheme';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -11,13 +14,14 @@ export type FeatureSlideData = {
   icon: SymbolName;
   titleParts: [string, string];
   subtitle: string;
+  accent: OnboardingSlideAccent;
 };
 
 export function OnboardingFeatureSlide({ slide }: { slide: FeatureSlideData }) {
   return (
     <View style={styles.container}>
-      <View style={styles.iconCircle}>
-        <SymbolView name={slide.icon} size={44} tintColor={OnboardingColors.green} />
+      <View style={[styles.iconCircle, { backgroundColor: slide.accent.iconBg }]}>
+        <SymbolView name={slide.icon} size={44} tintColor={slide.accent.iconTint} />
       </View>
       <Text style={styles.title}>
         {slide.titleParts[0]}
@@ -42,7 +46,6 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: '#F0FDF4',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 36,
