@@ -225,21 +225,20 @@ Code integration is complete (`react-native-purchases`, `src/services/subscripti
 
 | Product ID | Tier | Billing | App Store Connect type | Play Console type |
 |------------|------|---------|------------------------|-------------------|
-| `pro_monthly` | Pro | Monthly | Auto-renewable subscription | Subscription |
-| `pro_yearly` | Pro | Annual | Auto-renewable subscription | Subscription |
-| `household_monthly` | Household | Monthly | Auto-renewable subscription | Subscription |
-| `household_yearly` | Household | Annual | Auto-renewable subscription | Subscription |
+| `pro_monthly` | Pro ($3.99/mo) | Monthly | Auto-renewable subscription | Subscription |
+| `pro_yearly` | Pro ($39.99/yr) | Annual | Auto-renewable subscription | Subscription |
+
+Pro includes all paid features (family sync, spend forecast, cheapest basket, CSV export). Legacy Household subscribers are mapped to Pro in code.
 
 ### RevenueCat dashboard mapping
 
 | RevenueCat entity | Identifier | Notes |
 |-------------------|------------|-------|
 | Entitlement (Pro) | `pro` | Override with `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_PRO` |
-| Entitlement (Household) | `household` | Override with `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_HOUSEHOLD` |
 | Offering | `default` | Override with `EXPO_PUBLIC_REVENUECAT_OFFERING` |
-| Packages | monthly + annual per tier | Product/package identifiers should include `pro` or `household` and `month`/`year`/`annual` so `findPackage()` can match |
+| Packages | monthly + annual | Product/package identifiers should include `pro` and `month`/`year`/`annual` so `findPackage()` can match |
 
-Package matching logic (`subscriptionService.ts`): offerings → `default` offering → packages whose identifier or product ID contains `pro`/`household` and maps to monthly vs annual via RevenueCat `PACKAGE_TYPE`.
+Package matching logic (`subscriptionService.ts`): offerings → `default` offering → packages whose identifier or product ID contains `pro` and maps to monthly vs annual via RevenueCat `PACKAGE_TYPE`. Legacy `household` entitlements still grant Pro access for existing subscribers.
 
 ### Environment variables (never commit)
 
