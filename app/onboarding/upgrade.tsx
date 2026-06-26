@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBudgetStore } from '@/src/store/useBudgetStore';
+import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 import {
   COMMIT_NOTE,
@@ -18,7 +19,6 @@ import {
   ONBOARDING_UPGRADE_HEADLINE,
   PRO_BADGE_LABEL,
   PRO_CTA_LABEL,
-  PRO_PLAN_FEATURES,
   PRO_UPGRADE_HOOK,
   proMonthlyLabel,
 } from '@/src/constants/proPricing';
@@ -72,14 +72,12 @@ export default function UpgradeScreen() {
             <Text style={styles.proBadgeText}>Pro — {proMonthlyLabel} · {PRO_BADGE_LABEL}</Text>
           </View>
           <Text style={styles.proCardLead}>Everything you need to shop smarter as a family:</Text>
-          {PRO_PLAN_FEATURES.map((benefit) => (
-            <View key={benefit} style={styles.benefitRow}>
-              <View style={styles.checkCircle}>
-                <Text style={styles.checkMark}>✓</Text>
-              </View>
-              <Text style={styles.benefitText}>{benefit}</Text>
-            </View>
-          ))}
+          <ProPlanFeaturesList
+            accentColor={GREEN}
+            mutedColor={TEXT_MUTED}
+            featureTextStyle={styles.benefitText}
+            secondaryTextStyle={styles.benefitTextSecondary}
+          />
         </View>
 
         <Pressable
@@ -157,7 +155,7 @@ const styles = StyleSheet.create({
     backgroundColor: CARD_BG,
     borderRadius: 20,
     padding: 24,
-    gap: 14,
+    gap: 10,
     borderWidth: 1,
     borderColor: 'rgba(34,197,94,0.25)',
     marginBottom: 28,
@@ -184,32 +182,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  benefitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  checkCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(34,197,94,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
-  },
-  checkMark: {
-    color: GREEN,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   benefitText: {
     color: TEXT_PRIMARY,
     fontSize: 15,
     fontWeight: '500',
     flex: 1,
     lineHeight: 21,
+  },
+  benefitTextSecondary: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    fontWeight: '400',
   },
   upgradeBtn: {
     backgroundColor: GREEN,

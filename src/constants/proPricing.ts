@@ -51,6 +51,34 @@ export const PRO_PLAN_FEATURES = [
   'Track your whole pantry — no item limits',
 ] as const;
 
+/** Short headlines for paywall cards — full list stays in PRO_PLAN_FEATURES. */
+export const PRO_PLAN_HEADLINE_FEATURES = [
+  'Unlimited receipts & full price history',
+  'Instant sale alerts on your staples',
+  'Compare prices & find the cheapest basket',
+  'Sync with family or roommates in real time',
+  'Spend forecasts, exports & unlimited pantry',
+] as const;
+
+export const PRO_PLAN_FEATURE_GROUPS = [
+  {
+    title: 'Receipts & prices',
+    items: [PRO_PLAN_FEATURES[0], PRO_PLAN_FEATURES[1], PRO_PLAN_FEATURES[2]],
+  },
+  {
+    title: 'Stores & savings',
+    items: [PRO_PLAN_FEATURES[3], PRO_PLAN_FEATURES[6]],
+  },
+  {
+    title: 'Family & budget',
+    items: [PRO_PLAN_FEATURES[4], PRO_PLAN_FEATURES[5]],
+  },
+  {
+    title: 'Export & pantry',
+    items: [PRO_PLAN_FEATURES[7], PRO_PLAN_FEATURES[8]],
+  },
+] as const;
+
 export const PRO_UPGRADE_HOOK =
   'Know about price drops and inflation before you fill your cart — not after you check out.';
 
