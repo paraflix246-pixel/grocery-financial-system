@@ -8,17 +8,13 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+import { LanguagePicker } from '@/src/components/settings/AppearanceSettings';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
 const SHOW_APPLE = Platform.OS === 'ios' || Platform.OS === 'web';
-
-const BENEFITS = [
-  { icon: '↘', label: 'Track spending and spot savings' },
-  { icon: '⇄', label: 'Compare prices across stores' },
-  { icon: '☑', label: 'Build smarter shopping lists' },
-] as const;
 
 type OnboardingSignupSlideProps = {
   loading: boolean;
@@ -37,6 +33,14 @@ export function OnboardingSignupSlide({
   onApple,
   onSignIn,
 }: OnboardingSignupSlideProps) {
+  const { t } = useTranslation();
+
+  const benefits = [
+    t('onboarding.signup.benefit1'),
+    t('onboarding.signup.benefit2'),
+    t('onboarding.signup.benefit3'),
+  ] as const;
+
   return (
     <ScrollView
       style={styles.scroll}
@@ -45,24 +49,27 @@ export function OnboardingSignupSlide({
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.content}>
+        <View style={styles.langRow}>
+          <LanguagePicker compact />
+        </View>
+
         <View style={styles.hero}>
           <PennyPantryLogo variant="hero" size={72} style={styles.logo} />
           <Text style={styles.headline}>
-            Save money on{'\n'}
-            <Text style={styles.headlineAccent}>every shop</Text>
+            {t('onboarding.signup.headline')}
+            {'\n'}
+            <Text style={styles.headlineAccent}>{t('onboarding.signup.headlineAccent')}</Text>
           </Text>
-          <Text style={styles.subheadline}>
-            Smart grocery budgeting, price comparison, and lists — all in one place.
-          </Text>
+          <Text style={styles.subheadline}>{t('onboarding.signup.subheadline')}</Text>
         </View>
 
         <View style={styles.benefits}>
-          {BENEFITS.map((item) => (
-            <View key={item.label} style={styles.benefitRow}>
+          {benefits.map((label) => (
+            <View key={label} style={styles.benefitRow}>
               <View style={styles.benefitIcon}>
-                <Text style={styles.benefitIconText}>{item.icon}</Text>
+                <Text style={styles.benefitIconText}>✓</Text>
               </View>
-              <Text style={styles.benefitLabel}>{item.label}</Text>
+              <Text style={styles.benefitLabel}>{label}</Text>
             </View>
           ))}
         </View>
@@ -83,9 +90,9 @@ export function OnboardingSignupSlide({
             onPress={onEmailSignup}
             disabled={loading}
             accessibilityRole="button"
-            accessibilityLabel="Sign up with Email"
+            accessibilityLabel={t('onboarding.signup.emailSignup')}
           >
-            <Text style={styles.primaryBtnText}>Sign up with Email</Text>
+            <Text style={styles.primaryBtnText}>{t('onboarding.signup.emailSignup')}</Text>
           </Pressable>
 
           <Pressable
@@ -97,14 +104,14 @@ export function OnboardingSignupSlide({
             onPress={onGoogle}
             disabled={loading}
             accessibilityRole="button"
-            accessibilityLabel="Continue with Google"
+            accessibilityLabel={t('onboarding.signup.google')}
           >
             {loading ? (
               <ActivityIndicator color={OnboardingColors.text} />
             ) : (
               <>
                 <Text style={styles.googleG}>G</Text>
-                <Text style={styles.outlineBtnText}>Continue with Google</Text>
+                <Text style={styles.outlineBtnText}>{t('onboarding.signup.google')}</Text>
               </>
             )}
           </Pressable>
@@ -119,10 +126,10 @@ export function OnboardingSignupSlide({
               onPress={onApple}
               disabled={loading}
               accessibilityRole="button"
-              accessibilityLabel="Continue with Apple"
+              accessibilityLabel={t('onboarding.signup.apple')}
             >
               <Text style={styles.appleGlyph}>{'\uF8FF'}</Text>
-              <Text style={styles.outlineBtnText}>Continue with Apple</Text>
+              <Text style={styles.outlineBtnText}>{t('onboarding.signup.apple')}</Text>
             </Pressable>
           ) : null}
 
@@ -130,10 +137,11 @@ export function OnboardingSignupSlide({
             onPress={onSignIn}
             style={styles.loginLinkBtn}
             accessibilityRole="button"
-            accessibilityLabel="Log in"
+            accessibilityLabel={t('onboarding.signup.login')}
           >
             <Text style={styles.loginLinkText}>
-              Already have an account? <Text style={styles.loginLinkHighlight}>Log in</Text>
+              {t('onboarding.signup.hasAccount')}{' '}
+              <Text style={styles.loginLinkHighlight}>{t('onboarding.signup.login')}</Text>
             </Text>
           </Pressable>
         </View>
@@ -157,6 +165,11 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
+  },
+  langRow: {
+    width: '100%',
+    alignItems: 'flex-end',
+    marginBottom: 8,
   },
   hero: {
     alignItems: 'center',

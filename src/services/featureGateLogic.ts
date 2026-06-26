@@ -9,7 +9,8 @@ export type PersonalGatedFeature =
   | 'price_drop_alerts'
   | 'export_advanced'
   | 'budget_forecasting'
-  | 'cheapest_basket';
+  | 'cheapest_basket'
+  | 'custom_themes';
 
 export type GatedFeature = PersonalGatedFeature | WorkspaceGatedFeature;
 

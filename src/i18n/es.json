@@ -1,0 +1,268 @@
+{
+  "common": {
+    "save": "Guardar",
+    "saved": "Guardado",
+    "saveFailed": "No se pudo guardar",
+    "next": "Siguiente",
+    "skip": "Omitir",
+    "or": "o",
+    "processing": "Procesando...",
+    "loading": "Cargando Penny Pantry",
+    "pro": "Pro",
+    "free": "Gratis",
+    "monthly": "Mensual",
+    "yearly": "Anual",
+    "yearlySave": "Anual (ahorra {{percent}}%)",
+    "cancel": "Cancelar",
+    "continue": "Continuar",
+    "selected": "Seleccionado",
+    "selectPlan": "Elegir plan",
+    "english": "English",
+    "spanish": "Español",
+    "language": "Idioma"
+  },
+  "tabs": {
+    "home": "Inicio",
+    "receipts": "Recibos",
+    "scan": "Escanear",
+    "lists": "Listas",
+    "more": "Más"
+  },
+  "home": {
+    "greetingMorning": "Buenos días",
+    "greetingAfternoon": "Buenas tardes",
+    "greetingEvening": "Buenas noches"
+  },
+  "onboarding": {
+    "slides": {
+      "save": {
+        "title1": "Ahorra dinero",
+        "title2": "en cada compra",
+        "subtitle": "Controla tus gastos y ahorra más cada día."
+      },
+      "compare": {
+        "title1": "Compara precios",
+        "title2": "en tiempo real",
+        "subtitle": "Encuentra las mejores ofertas antes de comprar."
+      },
+      "lists": {
+        "title1": "Crea listas",
+        "title2": "más inteligentes",
+        "subtitle": "Organiza, sugiere y mantente al día."
+      }
+    },
+    "signup": {
+      "headline": "Ahorra dinero en",
+      "headlineAccent": "cada compra",
+      "subheadline": "Presupuesto inteligente, comparación de precios y listas — todo en un solo lugar.",
+      "benefit1": "Controla gastos y detecta ahorros",
+      "benefit2": "Compara precios entre tiendas",
+      "benefit3": "Crea listas de compras más inteligentes",
+      "emailSignup": "Registrarse con correo",
+      "google": "Continuar con Google",
+      "apple": "Continuar con Apple",
+      "hasAccount": "¿Ya tienes cuenta?",
+      "login": "Iniciar sesión"
+    },
+    "skipA11y": "Omitir introducción",
+    "nextA11y": "Siguiente diapositiva",
+    "goToSlide": "Ir a la diapositiva {{n}}"
+  },
+  "auth": {
+    "signin": {
+      "heading": "Bienvenido de nuevo",
+      "subheading": "Inicia sesión en tu cuenta.",
+      "email": "Correo",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Tu contraseña",
+      "forgotPassword": "¿Olvidaste tu contraseña?",
+      "rememberMe": "Recordarme",
+      "submit": "Iniciar sesión",
+      "google": "Continuar con Google",
+      "guest": "Continuar como invitado",
+      "newHere": "¿Eres nuevo?",
+      "createAccount": "Crear cuenta",
+      "errorEmail": "Introduce tu correo electrónico.",
+      "errorPassword": "Introduce tu contraseña.",
+      "errorGeneric": "No se pudo iniciar sesión. Verifica tus credenciales."
+    },
+    "signup": {
+      "heading": "Crea tu cuenta",
+      "subheading": "Empieza a ahorrar en cada compra.",
+      "name": "Nombre",
+      "namePlaceholder": "Tu nombre",
+      "email": "Correo",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "password": "Contraseña",
+      "passwordPlaceholder": "Al menos 6 caracteres",
+      "submit": "Continuar",
+      "google": "Continuar con Google",
+      "guest": "Continuar como invitado",
+      "termsPrefix": "Al continuar aceptas nuestros",
+      "terms": "Términos",
+      "and": "y",
+      "privacy": "Política de privacidad",
+      "hasAccount": "¿Ya tienes cuenta?",
+      "signIn": "Iniciar sesión",
+      "errorEmail": "Introduce un correo válido.",
+      "errorPassword": "La contraseña debe tener al menos 6 caracteres.",
+      "errorGeneric": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "forgotPassword": {
+      "heading": "Restablecer contraseña",
+      "subheading": "Introduce tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+      "email": "Correo",
+      "emailPlaceholder": "tu@ejemplo.com",
+      "submit": "Enviar enlace",
+      "successTitle": "Revisa tu correo",
+      "successBody": "Enviamos un enlace a {{email}}. Puede tardar un minuto en llegar.",
+      "backToSignIn": "Volver a iniciar sesión",
+      "errorEmail": "Introduce un correo válido.",
+      "errorGeneric": "Algo salió mal. Inténtalo de nuevo."
+    }
+  },
+  "paywall": {
+    "title": "Elige tu plan",
+    "headline": "Ahorra en cada compra.",
+    "subhead": "Sigue precios, detecta bajadas y ve a dónde va tu dinero.",
+    "proBadge": "Más popular",
+    "proShimmer": "Pro",
+    "outcomeTitle": "Lo que Pro desbloquea",
+    "outcomeSubtitle": "Convierte recibos en ahorros reales — sin adivinar.",
+    "outcomes": {
+      "save": {
+        "title": "Deja de pagar de más",
+        "body": "Compara precios entre tiendas y arma el carrito más barato."
+      },
+      "track": {
+        "title": "Conoce tu gasto real",
+        "body": "Historial completo de precios y resumen mensual de gastos."
+      },
+      "alerts": {
+        "title": "Detecta ofertas automáticamente",
+        "body": "Alertas inteligentes cuando bajan los productos que sigues."
+      }
+    },
+    "proLead": "Todo lo Gratis, más:",
+    "freePlan": "Gratis",
+    "proPlan": "Pro",
+    "forever": "para siempre",
+    "perMonth": "/mes",
+    "perMonthBilledYearly": "/mes facturado anual",
+    "billedAnnually": "{{price}} facturado anualmente",
+    "startTrial": "Prueba Pro 7 días",
+    "startingTrial": "Iniciando prueba...",
+    "trialSubtext": "Acceso Pro completo 7 días. Sin pago.",
+    "subscribePro": "Suscribirse a Pro",
+    "subscribeProPrice": "Suscribirse a Pro — {{price}}",
+    "commitNote": "Cancela cuando quieras — sin contratos.",
+    "continueFree": "Continuar con Gratis",
+    "familySection": "¿Compartes con tu hogar?",
+    "familyTitle": "Espacio familiar",
+    "familySubtitle": "Una suscripción para tu hogar. Invita miembros gratis.",
+    "familySubscribe": "Suscribirse a Familiar",
+    "familyJoin": "Crear o unirse a un hogar",
+    "billingDisclaimer": {
+      "stripe": "Pago seguro con Stripe. Administra o cancela en ajustes de suscripción.",
+      "revenuecat": "Las suscripciones se facturan en App Store o Google Play. Adminístralas en ajustes del dispositivo.",
+      "mock": "Facturación simulada — sin pago real. La suscripción se guarda localmente.",
+      "webUnconfigured": "Facturación web no configurada. Añade variables Stripe en Vercel o usa modo simulado.",
+      "nativeUnconfigured": "Compras in-app no configuradas. Configura las claves de RevenueCat."
+    },
+    "features": {
+      "free": {
+        "scans": "{{count}} escaneos de recibos/mes",
+        "list": "Lista básica de compras",
+        "history": "Historial de {{days}} días",
+        "alerts": "Alertas de precio manual",
+        "stores": "Seguimiento de {{count}} tiendas",
+        "pantry": "Despensa hasta {{count}} artículos"
+      },
+      "pro": {
+        "unlimitedScans": "Escaneos de recibos ilimitados",
+        "fullHistory": "Historial completo de precios",
+        "smartAlerts": "Alertas inteligentes de ofertas",
+        "multiStore": "Comparación multi-tienda",
+        "spendingOverview": "Resumen mensual de gastos",
+        "cheapestCart": "Carrito más barato entre tiendas",
+        "export": "Exportar datos de gastos",
+        "unlimitedPantry": "Despensa ilimitada",
+        "adFree": "Sin anuncios (cuando Free los muestra)",
+        "customThemes": "Temas y colores personalizados"
+      },
+      "groups": {
+        "receiptsPrices": "Recibos y precios",
+        "storesSavings": "Tiendas y ahorros",
+        "budget": "Presupuesto",
+        "exportPantry": "Exportar y despensa",
+        "experience": "Experiencia"
+      }
+    }
+  },
+  "settings": {
+    "title": "Ajustes",
+    "profile": "Perfil",
+    "displayName": "Nombre visible",
+    "displayNameHint": "Se usa en el saludo de la pantalla de inicio",
+    "displayNamePlaceholder": "Tu nombre",
+    "household": "Mi hogar",
+    "householdHint": "Los datos personales y del hogar están separados. La familia se une gratis — un pagador financia el espacio.",
+    "householdManage": "Crear, unirse o invitar",
+    "notifications": "Notificaciones",
+    "priceAlerts": "Alertas de precio",
+    "priceAlertsHint": "Avisar cuando bajen los precios",
+    "budgetAlerts": "Alertas de presupuesto",
+    "budgetAlertsHint": "Avisar al acercarse al límite semanal",
+    "openLastList": "Abrir última lista",
+    "openLastListHint": "Retomar la lista que viste por última vez",
+    "scanning": "Escaneo de recibos",
+    "scanningInfo": "Los recibos se escanean automáticamente. Suele tardar 15–45 segundos; los largos hasta 2 minutos. Cada escaneo se revisa antes de guardarse.",
+    "appearance": "Apariencia",
+    "theme": "Tema",
+    "themeHint": "Personaliza Penny Pantry con temas Pro",
+    "themeLocked": "Mejora a Pro para desbloquear temas",
+    "themeLockedBtn": "Desbloquear con Pro",
+    "languageHint": "Cambia el idioma en toda la app",
+    "preferences": "Preferencias",
+    "budget": "Presupuesto",
+    "budgetSub": "Límites semanales y por categoría",
+    "stores": "Tiendas",
+    "storesSub": "Explora tiendas de tus recibos",
+    "trackAlerts": "Seguimiento y alertas",
+    "trackAlertsSub": "Sigue productos y fija alertas de precio",
+    "legal": "Legal",
+    "account": "Cuenta",
+    "signedIn": "Sesión iniciada con tu cuenta Penny Pantry.",
+    "logout": "Cerrar sesión",
+    "deleteGuestHint": "Elimina recibos, listas y preferencias de este dispositivo.",
+    "deleteAccountHint": "Elimina permanentemente tu cuenta en la nube y borra datos locales.",
+    "deleteAccount": "Eliminar cuenta",
+    "devTier": "Nivel de suscripción",
+    "devCurrent": "Actual: {{tier}}{{trial}}",
+    "devTrial": " (prueba)",
+    "devReset": "Reiniciar introducción"
+  },
+  "themes": {
+    "pennyGreen": {
+      "name": "Penny Green",
+      "description": "Look clásico — blanco limpio con acentos verdes frescos."
+    },
+    "midnightSlate": {
+      "name": "Midnight Slate",
+      "description": "Azul marino oscuro con acentos teal — sensación premium."
+    },
+    "sunriseCoral": {
+      "name": "Sunrise Coral",
+      "description": "Tonos crema cálidos con acento coral vibrante."
+    },
+    "oceanBlue": {
+      "name": "Ocean Blue",
+      "description": "Blancos frescos con azul profundo de océano."
+    },
+    "lavenderPro": {
+      "name": "Lavender Pro",
+      "description": "Paleta púrpura suave con acentos violeta."
+    }
+  }
+}

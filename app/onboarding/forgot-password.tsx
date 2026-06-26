@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
@@ -23,6 +24,7 @@ function isValidEmail(value: string) {
 }
 
 export default function ForgotPasswordScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -35,7 +37,7 @@ export default function ForgotPasswordScreen() {
   async function handleSend() {
     setError(null);
     if (!isValidEmail(email)) {
-      setError('Please enter a valid email address.');
+      setError(t('auth.forgotPassword.errorEmail'));
       return;
     }
     setLoading(true);
@@ -43,7 +45,7 @@ export default function ForgotPasswordScreen() {
       await forgotPassword(email);
       setSent(true);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      setError(e instanceof Error ? e.message : t('auth.forgotPassword.errorGeneric'));
     } finally {
       setLoading(false);
     }
@@ -69,19 +71,15 @@ export default function ForgotPasswordScreen() {
       >
         <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
 
-        <Text style={styles.heading}>Reset your password</Text>
-        <Text style={styles.subheading}>
-          Enter your email and we'll send you a link to reset your password.
-        </Text>
+        <Text style={styles.heading}>{t('auth.forgotPassword.heading')}</Text>
+        <Text style={styles.subheading}>{t('auth.forgotPassword.subheading')}</Text>
 
         {sent ? (
           <View style={styles.successBox}>
             <Text style={styles.successIcon}>✉️</Text>
-            <Text style={styles.successTitle}>Check your email</Text>
+            <Text style={styles.successTitle}>{t('auth.forgotPassword.successTitle')}</Text>
             <Text style={styles.successText}>
-              We sent a reset link to{' '}
-              <Text style={styles.successEmail}>{email.trim()}</Text>. It may take a minute to
-              arrive.
+              {t('auth.forgotPassword.successBody', { email: email.trim() })}
             </Text>
           </View>
         ) : (
@@ -93,10 +91,10 @@ export default function ForgotPasswordScreen() {
             ) : null}
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
+              <Text style={styles.label}>{t('auth.forgotPassword.email')}</Text>
               <TextInput
                 style={[styles.input, emailFocused && styles.inputFocused]}
-                placeholder="you@example.com"
+                placeholder={t('auth.forgotPassword.emailPlaceholder')}
                 placeholderTextColor={OnboardingColors.textLight}
                 keyboardType="email-address"
                 autoCapitalize="none"
@@ -121,12 +119,12 @@ export default function ForgotPasswordScreen() {
               onPress={handleSend}
               disabled={loading || !email.trim()}
               accessibilityRole="button"
-              accessibilityLabel="Send reset link"
+              accessibilityLabel={t('auth.forgotPassword.submit')}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.ctaBtnText}>Send reset link</Text>
+                <Text style={styles.ctaBtnText}>{t('auth.forgotPassword.submit')}</Text>
               )}
             </Pressable>
           </>
@@ -138,7 +136,7 @@ export default function ForgotPasswordScreen() {
           accessibilityRole="button"
         >
           <Text style={styles.backLinkText}>
-            ← <Text style={styles.backLinkHighlight}>Back to sign in</Text>
+            ← <Text style={styles.backLinkHighlight}>{t('auth.forgotPassword.backToSignIn')}</Text>
           </Text>
         </Pressable>
       </ScrollView>

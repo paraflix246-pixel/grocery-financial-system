@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
+import { I18nextProvider } from 'react-i18next';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { BackButton } from '@/src/components/BackButton';
@@ -17,6 +18,8 @@ import { GlobalErrorBoundary, ErrorBoundary } from '@/src/components/GlobalError
 import { UpgradePromptProvider } from '@/src/components/UpgradePromptProvider';
 import { TrialReminderProvider } from '@/src/components/TrialReminderProvider';
 import { SmartCartColors } from '@/src/theme/smartCart';
+import { AppThemeProvider, loadStoredThemeId } from '@/src/theme/AppThemeProvider';
+import { initI18n, i18n } from '@/src/i18n';
 import { initStorage } from '@/src/services/storageService';
 import { bootstrapExternalPriceProviders } from '@/src/services/externalPriceBootstrap';
 import { syncUserProfile } from '@/src/services/admin/adminApiService';
@@ -47,8 +50,6 @@ const INIT_STEP_TIMEOUT_MS = __DEV__ ? 12_000 : 8_000;
 const INIT_STORAGE_TIMEOUT_MS = 12_000;
 const INIT_TOTAL_TIMEOUT_MS = 15_000;
 const FONT_LOAD_TIMEOUT_MS = Platform.OS === 'web' ? 2_000 : 8_000;
-const BOOT_LABEL = 'Loading Penny Pantry';
-
 type AppInitState = {
   promise: Promise<void> | null;
   initialized: boolean;
@@ -111,6 +112,10 @@ function ensureAppInitialized(): Promise<void> {
 
   const initWork = (async () => {
     await waitForWebFirstPaint();
+    await runInitStep('i18n', initI18n);
+    await runInitStep('theme', async () => {
+      await loadStoredThemeId();
+    });
     await runInitStep('storage', initStorage, INIT_STORAGE_TIMEOUT_MS);
     await runInitStep('price providers', bootstrapExternalPriceProviders);
     await runInitStep('budget settings', () => useBudgetStore.getState().loadSettings());
@@ -175,10 +180,12 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
   const [fontsTimedOut, setFontsTimedOut] = useState(Platform.OS === 'web');
+  const [localeReady, setLocaleReady] = useState(false);
   const onboardingComplete = useBudgetStore((s) => s.onboardingComplete);
   const onboardingReady = useBudgetStore((s) => s.onboardingReady);
   const fontsReady =
     Platform.OS === 'web' || loaded || fontsTimedOut || Boolean(fontError);
+  const bootReady = fontsReady && localeReady;
   const router = useRouter();
   const segments = useSegments();
   const isPublicRoute =
@@ -207,16 +214,20 @@ export default function RootLayout() {
     if (!moduleInitStarted) {
       moduleInitStarted = true;
     }
-    ensureAppInitialized().catch((initError) => {
-      console.error('App initialization failed:', initError);
-    });
+    ensureAppInitialized()
+      .then(() => initI18n())
+      .then(() => setLocaleReady(true))
+      .catch((initError) => {
+        console.error('App initialization failed:', initError);
+        setLocaleReady(true);
+      });
   }, []);
 
   useEffect(() => {
-    if (fontsReady) {
+    if (bootReady) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsReady]);
+  }, [bootReady]);
 
   // Redirect deep links to onboarding once boot has resolved onboarding state.
   useEffect(() => {
@@ -243,14 +254,14 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
-  if (!fontsReady) {
+  if (!bootReady) {
     return (
       <GlobalErrorBoundary>
         <GestureHandlerRootView style={[styles.root, styles.boot]}>
-          <View style={styles.bootContent} accessibilityRole="progressbar" accessibilityLabel={BOOT_LABEL}>
+          <View style={styles.bootContent} accessibilityRole="progressbar" accessibilityLabel="Loading">
             <PennyPantryLogo variant="hero" size={72} style={styles.bootLogo} />
             <ActivityIndicator size="large" color={SmartCartColors.primary} />
-            <Text style={styles.bootText}>{BOOT_LABEL}…</Text>
+            <Text style={styles.bootText}>Loading Penny Pantry…</Text>
           </View>
         </GestureHandlerRootView>
       </GlobalErrorBoundary>
@@ -259,19 +270,23 @@ export default function RootLayout() {
 
   return (
     <GlobalErrorBoundary>
-      <GestureHandlerRootView style={styles.root}>
-        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-          <UpgradePromptProvider>
-            <TrialReminderProvider>
-              <FamilyRealtimeBootstrap />
-              <AuthSessionGuard />
-              <DevConnectionBanner />
-              <StorageSlowBanner />
-              <RootLayoutNav />
-            </TrialReminderProvider>
-          </UpgradePromptProvider>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
+      <I18nextProvider i18n={i18n}>
+        <AppThemeProvider>
+          <GestureHandlerRootView style={styles.root}>
+            <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+              <UpgradePromptProvider>
+                <TrialReminderProvider>
+                  <FamilyRealtimeBootstrap />
+                  <AuthSessionGuard />
+                  <DevConnectionBanner />
+                  <StorageSlowBanner />
+                  <RootLayoutNav />
+                </TrialReminderProvider>
+              </UpgradePromptProvider>
+            </SafeAreaProvider>
+          </GestureHandlerRootView>
+        </AppThemeProvider>
+      </I18nextProvider>
     </GlobalErrorBoundary>
   );
 }

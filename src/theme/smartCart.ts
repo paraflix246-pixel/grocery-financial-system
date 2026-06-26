@@ -104,6 +104,18 @@ export function formatHomeGreeting(displayName?: string): string {
   return firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
 }
 
+export function formatHomeGreetingI18n(
+  displayName: string | undefined,
+  t: (key: string) => string
+): string {
+  const hour = new Date().getHours();
+  let timeGreeting = t('home.greetingMorning');
+  if (hour >= 12 && hour < 17) timeGreeting = t('home.greetingAfternoon');
+  else if (hour >= 17) timeGreeting = t('home.greetingEvening');
+  const firstName = getGreetingFirstName(displayName);
+  return firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
+}
+
 export function getStoreInitials(store: string): string {
   return store.slice(0, 1).toUpperCase();
 }

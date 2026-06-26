@@ -1,0 +1,268 @@
+{
+  "common": {
+    "save": "Save",
+    "saved": "Saved",
+    "saveFailed": "Could not save",
+    "next": "Next",
+    "skip": "Skip",
+    "or": "or",
+    "processing": "Processing...",
+    "loading": "Loading Penny Pantry",
+    "pro": "Pro",
+    "free": "Free",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "yearlySave": "Yearly (save {{percent}}%)",
+    "cancel": "Cancel",
+    "continue": "Continue",
+    "selected": "Selected",
+    "selectPlan": "Select plan",
+    "english": "English",
+    "spanish": "Español",
+    "language": "Language"
+  },
+  "tabs": {
+    "home": "Home",
+    "receipts": "Receipts",
+    "scan": "Scan",
+    "lists": "Lists",
+    "more": "More"
+  },
+  "home": {
+    "greetingMorning": "Good morning",
+    "greetingAfternoon": "Good afternoon",
+    "greetingEvening": "Good evening"
+  },
+  "onboarding": {
+    "slides": {
+      "save": {
+        "title1": "Save money",
+        "title2": "on every shop",
+        "subtitle": "Track spending and save more every day."
+      },
+      "compare": {
+        "title1": "Compare prices",
+        "title2": "in real time",
+        "subtitle": "Find the best deals across stores before you buy."
+      },
+      "lists": {
+        "title1": "Build smarter",
+        "title2": "shopping lists",
+        "subtitle": "Organize, suggest, and stay on track."
+      }
+    },
+    "signup": {
+      "headline": "Save money on",
+      "headlineAccent": "every shop",
+      "subheadline": "Smart grocery budgeting, price comparison, and lists — all in one place.",
+      "benefit1": "Track spending and spot savings",
+      "benefit2": "Compare prices across stores",
+      "benefit3": "Build smarter shopping lists",
+      "emailSignup": "Sign up with Email",
+      "google": "Continue with Google",
+      "apple": "Continue with Apple",
+      "hasAccount": "Already have an account?",
+      "login": "Log in"
+    },
+    "skipA11y": "Skip onboarding",
+    "nextA11y": "Next slide",
+    "goToSlide": "Go to slide {{n}}"
+  },
+  "auth": {
+    "signin": {
+      "heading": "Welcome back",
+      "subheading": "Sign in to your account.",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "Your password",
+      "forgotPassword": "Forgot password?",
+      "rememberMe": "Remember me",
+      "submit": "Sign in",
+      "google": "Continue with Google",
+      "guest": "Continue as Guest",
+      "newHere": "New here?",
+      "createAccount": "Create account",
+      "errorEmail": "Please enter your email address.",
+      "errorPassword": "Please enter your password.",
+      "errorGeneric": "Could not sign in. Please check your credentials."
+    },
+    "signup": {
+      "heading": "Create your account",
+      "subheading": "Start saving money on every shop.",
+      "name": "Name",
+      "namePlaceholder": "Your first name",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "password": "Password",
+      "passwordPlaceholder": "At least 6 characters",
+      "submit": "Continue",
+      "google": "Continue with Google",
+      "guest": "Continue as Guest",
+      "termsPrefix": "By continuing you agree to our",
+      "terms": "Terms",
+      "and": "and",
+      "privacy": "Privacy Policy",
+      "hasAccount": "Already have an account?",
+      "signIn": "Sign in",
+      "errorEmail": "Please enter a valid email address.",
+      "errorPassword": "Password must be at least 6 characters.",
+      "errorGeneric": "Something went wrong. Please try again."
+    },
+    "forgotPassword": {
+      "heading": "Reset your password",
+      "subheading": "Enter your email and we'll send you a link to reset your password.",
+      "email": "Email",
+      "emailPlaceholder": "you@example.com",
+      "submit": "Send reset link",
+      "successTitle": "Check your email",
+      "successBody": "We sent a reset link to {{email}}. It may take a minute to arrive.",
+      "backToSignIn": "Back to sign in",
+      "errorEmail": "Please enter a valid email address.",
+      "errorGeneric": "Something went wrong. Please try again."
+    }
+  },
+  "paywall": {
+    "title": "Choose your plan",
+    "headline": "Save money every time you shop.",
+    "subhead": "Track prices, catch drops, and see where your money actually goes.",
+    "proBadge": "Most popular",
+    "proShimmer": "Pro",
+    "outcomeTitle": "What Pro unlocks for you",
+    "outcomeSubtitle": "Turn receipts into real savings — not guesswork.",
+    "outcomes": {
+      "save": {
+        "title": "Stop overpaying",
+        "body": "Compare prices across stores and build the cheapest cart."
+      },
+      "track": {
+        "title": "Know your true spend",
+        "body": "Full price history and monthly spending breakdowns."
+      },
+      "alerts": {
+        "title": "Catch deals automatically",
+        "body": "Smart sale alerts when tracked items drop."
+      }
+    },
+    "proLead": "Everything Free, plus:",
+    "freePlan": "Free",
+    "proPlan": "Pro",
+    "forever": "forever",
+    "perMonth": "/month",
+    "perMonthBilledYearly": "/mo billed yearly",
+    "billedAnnually": "{{price}} billed annually",
+    "startTrial": "Start 7-Day Pro Trial",
+    "startingTrial": "Starting trial...",
+    "trialSubtext": "Full Pro access for 7 days. No payment required.",
+    "subscribePro": "Subscribe to Pro",
+    "subscribeProPrice": "Subscribe to Pro — {{price}}",
+    "commitNote": "Cancel anytime — no contracts.",
+    "continueFree": "Continue with Free",
+    "familySection": "Need household sharing?",
+    "familyTitle": "Family workspace",
+    "familySubtitle": "One subscription for your household. Invite members free.",
+    "familySubscribe": "Subscribe to Family",
+    "familyJoin": "Create or join a household",
+    "billingDisclaimer": {
+      "stripe": "Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.",
+      "revenuecat": "Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.",
+      "mock": "Dev mock billing — no payment processed. Subscription is stored locally on this device.",
+      "webUnconfigured": "Web billing is not configured yet. Add Stripe env vars on Vercel or use mock mode locally.",
+      "nativeUnconfigured": "In-app purchases are not configured yet. Set RevenueCat API keys for native builds."
+    },
+    "features": {
+      "free": {
+        "scans": "{{count}} receipt scans/month",
+        "list": "Basic grocery list",
+        "history": "{{days}}-day price history",
+        "alerts": "Manual price alerts",
+        "stores": "{{count}} store tracking",
+        "pantry": "Pantry up to {{count}} items"
+      },
+      "pro": {
+        "unlimitedScans": "Unlimited receipt scans",
+        "fullHistory": "Full price history (all purchases)",
+        "smartAlerts": "Smart sale alerts for tracked items",
+        "multiStore": "Multi-store price comparison",
+        "spendingOverview": "Monthly spending overview",
+        "cheapestCart": "Cheapest cart across stores",
+        "export": "Export spending data",
+        "unlimitedPantry": "Unlimited pantry tracking",
+        "adFree": "Ad-free experience (when ads are shown on Free)",
+        "customThemes": "Custom app themes & colors"
+      },
+      "groups": {
+        "receiptsPrices": "Receipts & prices",
+        "storesSavings": "Stores & savings",
+        "budget": "Budget",
+        "exportPantry": "Export & pantry",
+        "experience": "Experience"
+      }
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "displayName": "Display name",
+    "displayNameHint": "Used in your home screen greeting",
+    "displayNamePlaceholder": "Your name",
+    "household": "My household",
+    "householdHint": "Personal and household data stay separate. Family members join free — one payer funds the workspace.",
+    "householdManage": "Create, join, or invite",
+    "notifications": "Notifications",
+    "priceAlerts": "Price alerts",
+    "priceAlertsHint": "Notify when item prices drop",
+    "budgetAlerts": "Budget alerts",
+    "budgetAlertsHint": "Notify when approaching weekly limit",
+    "openLastList": "Open last list",
+    "openLastListHint": "Resume the shopping list you viewed last",
+    "scanning": "Receipt scanning",
+    "scanningInfo": "Receipts are scanned automatically. Scanning usually takes 15–45 seconds; long receipts can take up to 2 minutes. Every scan opens for review before it's saved.",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themeHint": "Personalize Penny Pantry with Pro themes",
+    "themeLocked": "Upgrade to Pro to unlock custom themes",
+    "themeLockedBtn": "Unlock with Pro",
+    "languageHint": "Changes the language across the app",
+    "preferences": "Preferences",
+    "budget": "Budget",
+    "budgetSub": "Weekly limits & category budgets",
+    "stores": "Stores",
+    "storesSub": "Browse stores from your receipts",
+    "trackAlerts": "Track & Alerts",
+    "trackAlertsSub": "Watch items and set target-price alerts",
+    "legal": "Legal",
+    "account": "Account",
+    "signedIn": "Signed in with your Penny Pantry account.",
+    "logout": "Log out",
+    "deleteGuestHint": "Remove all receipts, lists, and preferences stored on this device.",
+    "deleteAccountHint": "Permanently delete your cloud account and clear local app data.",
+    "deleteAccount": "Delete account",
+    "devTier": "Subscription tier",
+    "devCurrent": "Current: {{tier}}{{trial}}",
+    "devTrial": " (trial)",
+    "devReset": "Reset onboarding"
+  },
+  "themes": {
+    "pennyGreen": {
+      "name": "Penny Green",
+      "description": "Classic brand look — clean white with fresh green accents."
+    },
+    "midnightSlate": {
+      "name": "Midnight Slate",
+      "description": "Dark navy with teal highlights for a premium, focused feel."
+    },
+    "sunriseCoral": {
+      "name": "Sunrise Coral",
+      "description": "Warm cream tones with a vibrant coral accent."
+    },
+    "oceanBlue": {
+      "name": "Ocean Blue",
+      "description": "Cool, calm whites paired with deep ocean blue."
+    },
+    "lavenderPro": {
+      "name": "Lavender Pro",
+      "description": "Soft purple palette with rich violet accents."
+    }
+  }
+}

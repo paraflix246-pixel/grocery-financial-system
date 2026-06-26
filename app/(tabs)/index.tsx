@@ -7,6 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
@@ -51,12 +52,13 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
 import { PRO_MONTHLY_PRICE } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
-import { formatHomeGreeting, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { formatHomeGreetingI18n, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 import { formatCurrency } from '@/src/utils/priceParser';
 import type { RepurchaseCadence } from '@/src/utils/repurchaseCadence';
 
 export default function HomeScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -140,7 +142,7 @@ export default function HomeScreen() {
   const weeklySpend = homeInsight?.weeklySpend ?? 0;
   const underBudget = Math.max(weeklyBudget - weeklySpend, 0);
   const budgetPercentLabel = `${Math.round((homeInsight?.budgetPercent ?? 0) * 100)}% of weekly budget`;
-  const greetingText = formatHomeGreeting(displayName);
+  const greetingText = formatHomeGreetingI18n(displayName, t);
 
   return (
     <ScrollView

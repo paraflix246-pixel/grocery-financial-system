@@ -70,6 +70,7 @@ export const PRO_PLAN_FEATURES = [
   'Export spending data',
   'Unlimited pantry tracking',
   'Ad-free experience (when ads are shown on Free)',
+  'Custom app themes & colors',
 ] as const;
 
 export const FAMILY_PLAN_FEATURES = [
@@ -99,7 +100,7 @@ export const PRO_PLAN_FEATURE_GROUPS = [
   },
   {
     title: 'Experience',
-    items: [PRO_PLAN_FEATURES[8]],
+    items: [PRO_PLAN_FEATURES[8], PRO_PLAN_FEATURES[9]],
   },
 ] as const;
 
@@ -133,4 +134,5 @@ export const PRO_FEATURE_LABELS = {
   cheapest_basket: PRO_PLAN_FEATURES[5],
   api_access: PRO_PLAN_FEATURES[3],
   pantry_unlimited: UNLIMITED_PANTRY_LABEL,
+  custom_themes: PRO_PLAN_FEATURES[9],
 } as const;

@@ -11,8 +11,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Text } from '@/components/Themed';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
+import { Text } from '@/components/Themed';import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import {
   useSubscriptionStore,
@@ -26,42 +26,42 @@ import {
   setOpenLastListPreference,
 } from '@/src/utils/listNavigationPrefs';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
-import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';
-import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import { LanguagePicker, ThemePicker } from '@/src/components/settings/AppearanceSettings';
+import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
 type MenuItem = {
-  label: string;
-  subtitle: string;
+  labelKey: string;
+  subtitleKey: string;
   icon: SymbolName;
   route: string;
 };
 
 const MENU_ITEMS: MenuItem[] = [
   {
-    label: 'Budget',
-    subtitle: 'Weekly limits & category budgets',
+    labelKey: 'settings.budget',
+    subtitleKey: 'settings.budgetSub',
     icon: { ios: 'dollarsign.circle', android: 'payments', web: 'payments' },
     route: '/settings/budget',
   },
   {
-    label: 'Stores',
-    subtitle: 'Browse stores from your receipts',
+    labelKey: 'settings.stores',
+    subtitleKey: 'settings.storesSub',
     icon: { ios: 'storefront.fill', android: 'store', web: 'store' },
     route: '/stores',
   },
   {
-    label: 'Track & Alerts',
-    subtitle: 'Watch items and set target-price alerts',
+    labelKey: 'settings.trackAlerts',
+    subtitleKey: 'settings.trackAlertsSub',
     icon: { ios: 'bell.badge.fill', android: 'notifications_active', web: 'notifications_active' },
     route: '/price-tracker?tab=alerts',
   },
 ];
 
 export default function SettingsScreen() {
-  const router = useRouter();
-  const { settings, loadSettings, saveSettings } = useSettingsStore();
+  const { t } = useTranslation();
+  const router = useRouter();  const { settings, loadSettings, saveSettings } = useSettingsStore();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
   const [notifyPriceAlerts, setNotifyPriceAlerts] = useState(true);
@@ -148,10 +148,9 @@ export default function SettingsScreen() {
       });
       await refreshScheduledNotifications();
       await setOpenLastListPreference(openLastList);
-      setSaveMessage('Saved');
+      setSaveMessage(t('common.saved'));
     } catch {
-      setSaveMessage('Could not save');
-    } finally {
+      setSaveMessage(t('common.saveFailed'));    } finally {
       setSaving(false);
     }
   };
@@ -168,28 +167,27 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
-        <Text style={styles.headerTitle}>Settings</Text>
+        <Text style={styles.headerTitle}>{t('settings.title')}</Text>
         <Pressable onPress={handleSave} disabled={saving} hitSlop={8}>
-          <Text style={styles.saveLink}>{saving ? '...' : saveMessage ?? 'Save'}</Text>
+          <Text style={styles.saveLink}>{saving ? '...' : saveMessage ?? t('common.save')}</Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.sectionTitle}>Profile</Text>
+        <Text style={styles.sectionTitle}>{t('settings.profile')}</Text>
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Display name</Text>
-          <Text style={styles.fieldHint}>Used in your home screen greeting</Text>
+          <Text style={styles.fieldLabel}>{t('settings.displayName')}</Text>
+          <Text style={styles.fieldHint}>{t('settings.displayNameHint')}</Text>
           <TextInput
             style={styles.input}
             value={displayName}
             onChangeText={setDisplayName}
-            placeholder="Your name"
-            placeholderTextColor={SmartCartColors.textMuted}
+            placeholder={t('settings.displayNamePlaceholder')}            placeholderTextColor={SmartCartColors.textMuted}
             autoCapitalize="words"
           />
         </View>
 
-        <Text style={styles.sectionTitle}>My household</Text>
+        <Text style={styles.sectionTitle}>{t('settings.household')}</Text>
         <View style={styles.card}>
           <WorkspaceScopeSwitcher
             scope={activeScope}
@@ -198,24 +196,31 @@ export default function SettingsScreen() {
             onScopeChange={(scope) => void setActiveScope(scope)}
             onManageHousehold={() => router.push('/family_plans' as never)}
           />
-          <Text style={styles.fieldHint}>
-            Personal and household data stay separate. Family members join free — one payer funds the workspace.
-          </Text>
+          <Text style={styles.fieldHint}>{t('settings.householdHint')}</Text>
           <Pressable
             style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
             onPress={() => router.push('/family_plans' as never)}>
-            <Text style={styles.menuLabel}>Create, join, or invite</Text>
-            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={16} tintColor={SmartCartColors.textMuted} />
+            <Text style={styles.menuLabel}>{t('settings.householdManage')}</Text>            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={16} tintColor={SmartCartColors.textMuted} />
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Notifications</Text>
+        <Text style={styles.sectionTitle}>{t('settings.appearance')}</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldLabel}>{t('settings.theme')}</Text>
+          <Text style={styles.fieldHint}>{t('settings.themeHint')}</Text>
+          <ThemePicker />
+          <View style={styles.divider} />
+          <Text style={styles.fieldLabel}>{t('common.language')}</Text>
+          <Text style={styles.fieldHint}>{t('settings.languageHint')}</Text>
+          <LanguagePicker />
+        </View>
+
+        <Text style={styles.sectionTitle}>{t('settings.notifications')}</Text>
         <View style={styles.card}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>Price alerts</Text>
-              <Text style={styles.toggleHint}>Notify when item prices drop</Text>
-            </View>
+              <Text style={styles.toggleLabel}>{t('settings.priceAlerts')}</Text>
+              <Text style={styles.toggleHint}>{t('settings.priceAlertsHint')}</Text>            </View>
             <Switch
               value={notifyPriceAlerts}
               onValueChange={setNotifyPriceAlerts}
@@ -226,9 +231,8 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>Budget alerts</Text>
-              <Text style={styles.toggleHint}>Notify when approaching weekly limit</Text>
-            </View>
+              <Text style={styles.toggleLabel}>{t('settings.budgetAlerts')}</Text>
+              <Text style={styles.toggleHint}>{t('settings.budgetAlertsHint')}</Text>            </View>
             <Switch
               value={notifyBudgetAlerts}
               onValueChange={setNotifyBudgetAlerts}
@@ -239,9 +243,8 @@ export default function SettingsScreen() {
           <View style={styles.divider} />
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>Open last list</Text>
-              <Text style={styles.toggleHint}>Resume the shopping list you viewed last</Text>
-            </View>
+              <Text style={styles.toggleLabel}>{t('settings.openLastList')}</Text>
+              <Text style={styles.toggleHint}>{t('settings.openLastListHint')}</Text>            </View>
             <Switch
               value={openLastList}
               onValueChange={setOpenLastList}
@@ -251,24 +254,21 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Receipt scanning</Text>
+        <Text style={styles.sectionTitle}>{t('settings.scanning')}</Text>
         <View style={styles.card}>
-          <Text style={styles.infoText}>
-            Receipts are scanned automatically. Scanning usually takes 15–45 seconds;
-            long receipts can take up to 2 minutes. Every scan opens for review before it&apos;s saved.
-          </Text>
-        </View>
+          <Text style={styles.infoText}>{t('settings.scanningInfo')}</Text>        </View>
 
         {__DEV__ && (
           <>
             <Text style={styles.sectionTitle}>Developer</Text>
             <View style={styles.card}>
-              <Text style={styles.fieldLabel}>Subscription tier</Text>
+              <Text style={styles.fieldLabel}>{t('settings.devTier')}</Text>
               <Text style={styles.fieldHint}>
-                Current: {tier === 'free' ? 'Free' : 'Pro'}
-                {subscriptionSource === 'trial' ? ' (trial)' : ''}
-              </Text>
-              <View style={styles.tierToggle}>
+                {t('settings.devCurrent', {
+                  tier: tier === 'free' ? t('common.free') : t('common.pro'),
+                  trial: subscriptionSource === 'trial' ? t('settings.devTrial') : '',
+                })}
+              </Text>              <View style={styles.tierToggle}>
                 {(['free', 'pro'] as const).map((option) => (
                   <Pressable
                     key={option}
@@ -276,11 +276,10 @@ export default function SettingsScreen() {
                     onPress={() => handleDevTier(option)}
                     disabled={devTierSwitching}
                     accessibilityRole="button"
-                    accessibilityLabel={`Set ${option === 'free' ? 'Free' : 'Pro'}`}
+                    accessibilityLabel={`Set ${option === 'free' ? t('common.free') : t('common.pro')}`}
                   >
                     <Text style={[styles.tierBtnText, tier === option && styles.tierBtnTextActive]}>
-                      {option === 'free' ? 'Free' : 'Pro'}
-                    </Text>
+                      {option === 'free' ? t('common.free') : t('common.pro')}                    </Text>
                   </Pressable>
                 ))}
               </View>
@@ -292,8 +291,7 @@ export default function SettingsScreen() {
                 accessibilityLabel="Reset onboarding"
               >
                 <Text style={styles.devResetText}>
-                  {devResetting ? 'Resetting…' : 'Reset onboarding'}
-                </Text>
+                  {devResetting ? '…' : t('settings.devReset')}                </Text>
               </Pressable>
             </View>
           </>
@@ -395,20 +393,19 @@ export default function SettingsScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Preferences</Text>
+        <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
         <View style={styles.menu}>
           {MENU_ITEMS.map((item) => (
             <Pressable
-              key={item.label}
+              key={item.labelKey}
               style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
               onPress={() => router.push(item.route as never)}>
               <View style={styles.menuIcon}>
                 <SymbolView name={item.icon} tintColor={SmartCartColors.primary} size={20} />
               </View>
               <View style={styles.menuText}>
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                <Text style={styles.menuSub}>{item.subtitle}</Text>
-              </View>
+                <Text style={styles.menuLabel}>{t(item.labelKey)}</Text>
+                <Text style={styles.menuSub}>{t(item.subtitleKey)}</Text>              </View>
               <SymbolView
                 name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
                 tintColor={SmartCartColors.textMuted}
@@ -418,37 +415,31 @@ export default function SettingsScreen() {
           ))}
         </View>
 
-        <Text style={styles.sectionTitle}>Account</Text>
+        <Text style={styles.sectionTitle}>{t('settings.account')}</Text>
         <View style={styles.card}>
           {isSignedIn ? (
             <>
-              <Text style={styles.fieldHint}>
-                Signed in with your Penny Pantry account.
-              </Text>
+              <Text style={styles.fieldHint}>{t('settings.signedIn')}</Text>
               <Pressable
                 style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
                 onPress={() => void handleLogout()}
                 accessibilityRole="button"
-                accessibilityLabel="Log out"
+                accessibilityLabel={t('settings.logout')}
               >
-                <Text style={styles.logoutBtnText}>Log out</Text>
-              </Pressable>
+                <Text style={styles.logoutBtnText}>{t('settings.logout')}</Text>              </Pressable>
               <View style={styles.divider} />
             </>
           ) : null}
           <Text style={styles.fieldHint}>
-            {isGuest
-              ? 'Remove all receipts, lists, and preferences stored on this device.'
-              : 'Permanently delete your cloud account and clear local app data.'}
+            {isGuest ? t('settings.deleteGuestHint') : t('settings.deleteAccountHint')}
           </Text>
           <Pressable
             style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
             onPress={() => setAccountSheetVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel="Delete account"
+            accessibilityLabel={t('settings.deleteAccount')}
           >
-            <Text style={styles.dangerBtnText}>Delete account</Text>
-          </Pressable>
+            <Text style={styles.dangerBtnText}>{t('settings.deleteAccount')}</Text>          </Pressable>
         </View>
       </ScrollView>
 

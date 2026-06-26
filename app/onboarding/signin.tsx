@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, type Href } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
@@ -25,6 +26,7 @@ import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
 export default function SigninScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const insets = useSafeAreaInsets();
@@ -52,11 +54,11 @@ export default function SigninScreen() {
   async function handleSignIn() {
     setError(null);
     if (!email.trim()) {
-      setError('Please enter your email address.');
+      setError(t('auth.signin.errorEmail'));
       return;
     }
     if (!password) {
-      setError('Please enter your password.');
+      setError(t('auth.signin.errorPassword'));
       return;
     }
     setLoading(true);
@@ -71,7 +73,7 @@ export default function SigninScreen() {
         router.push('/onboarding/upgrade');
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not sign in. Please check your credentials.');
+      setError(e instanceof Error ? e.message : t('auth.signin.errorGeneric'));
     } finally {
       setLoading(false);
     }
@@ -129,8 +131,8 @@ export default function SigninScreen() {
         <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
 
         {/* Heading */}
-        <Text style={styles.heading}>Welcome back</Text>
-        <Text style={styles.subheading}>Sign in to your account.</Text>
+        <Text style={styles.heading}>{t('auth.signin.heading')}</Text>
+        <Text style={styles.subheading}>{t('auth.signin.subheading')}</Text>
 
         {/* Error */}
         {error ? (
@@ -141,10 +143,10 @@ export default function SigninScreen() {
 
         {/* Email input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t('auth.signin.email')}</Text>
           <TextInput
             style={[styles.input, emailFocused && styles.inputFocused]}
-            placeholder="you@example.com"
+            placeholder={t('auth.signin.emailPlaceholder')}
             placeholderTextColor={OnboardingColors.textLight}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -160,10 +162,10 @@ export default function SigninScreen() {
 
         {/* Password input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>{t('auth.signin.password')}</Text>
           <TextInput
             style={[styles.input, passwordFocused && styles.inputFocused]}
-            placeholder="Your password"
+            placeholder={t('auth.signin.passwordPlaceholder')}
             placeholderTextColor={OnboardingColors.textLight}
             secureTextEntry
             autoCapitalize="none"
@@ -180,7 +182,7 @@ export default function SigninScreen() {
 
         {/* Forgot password */}
         <Pressable style={styles.forgotLink} onPress={handleForgotPassword} accessibilityRole="button">
-          <Text style={styles.forgotText}>Forgot password?</Text>
+          <Text style={styles.forgotText}>{t('auth.signin.forgotPassword')}</Text>
         </Pressable>
 
         {/* Remember me */}
@@ -189,11 +191,11 @@ export default function SigninScreen() {
           onPress={() => setRememberMe((current) => !current)}
           accessibilityRole="checkbox"
           accessibilityState={{ checked: rememberMe }}
-          accessibilityLabel="Remember me">
+          accessibilityLabel={t('auth.signin.rememberMe')}>
           <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
             {rememberMe ? <Text style={styles.checkmark}>✓</Text> : null}
           </View>
-          <Text style={styles.rememberLabel}>Remember me</Text>
+          <Text style={styles.rememberLabel}>{t('auth.signin.rememberMe')}</Text>
         </Pressable>
 
         {/* Sign in button */}
@@ -206,12 +208,12 @@ export default function SigninScreen() {
           onPress={handleSignIn}
           disabled={loading || !email || !password}
           accessibilityRole="button"
-          accessibilityLabel="Sign in"
+          accessibilityLabel={t('auth.signin.submit')}
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.ctaBtnText}>Sign in</Text>
+            <Text style={styles.ctaBtnText}>{t('auth.signin.submit')}</Text>
           )}
         </Pressable>
 
@@ -225,16 +227,16 @@ export default function SigninScreen() {
           onPress={handleGoogleSignIn}
           disabled={loading}
           accessibilityRole="button"
-          accessibilityLabel="Continue with Google"
+          accessibilityLabel={t('auth.signin.google')}
         >
           <Text style={styles.googleBtnG}>G</Text>
-          <Text style={styles.googleBtnText}>Continue with Google</Text>
+          <Text style={styles.googleBtnText}>{t('auth.signin.google')}</Text>
         </Pressable>
 
         {/* Divider */}
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
+          <Text style={styles.dividerText}>{t('common.or')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -248,9 +250,9 @@ export default function SigninScreen() {
           onPress={handleGuest}
           disabled={loading}
           accessibilityRole="button"
-          accessibilityLabel="Continue as Guest"
+          accessibilityLabel={t('auth.signin.guest')}
         >
-          <Text style={styles.ghostBtnText}>Continue as Guest</Text>
+          <Text style={styles.ghostBtnText}>{t('auth.signin.guest')}</Text>
         </Pressable>
 
         {/* Create account link */}
@@ -260,8 +262,8 @@ export default function SigninScreen() {
           accessibilityRole="button"
         >
           <Text style={styles.createLinkText}>
-            New here?{' '}
-            <Text style={styles.createHighlight}>Create account</Text>
+            {t('auth.signin.newHere')}{' '}
+            <Text style={styles.createHighlight}>{t('auth.signin.createAccount')}</Text>
           </Text>
         </Pressable>
       </ScrollView>

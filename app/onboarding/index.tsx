@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -18,37 +19,15 @@ import {
   OnboardingFeatureSlide,
 } from '@/src/components/onboarding/OnboardingFeatureSlide';
 import { OnboardingSignupSlide } from '@/src/components/onboarding/OnboardingSignupSlide';
+import { LanguagePicker } from '@/src/components/settings/AppearanceSettings';
 import { signInWithApple, signInWithGoogle } from '@/src/services/authService';
 import { OnboardingColors, OnboardingSlideAccents } from '@/src/theme/onboardingTheme';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
 const SLIDE_COUNT = 4;
 
-const FEATURE_SLIDES: FeatureSlideData[] = [
-  {
-    key: 'save',
-    icon: { ios: 'banknote.fill', android: 'savings', web: 'savings' },
-    titleParts: ['Save money', 'on every shop'],
-    subtitle: 'Track spending and save more every day.',
-    accent: OnboardingSlideAccents.green,
-  },
-  {
-    key: 'compare',
-    icon: { ios: 'tag.fill', android: 'sell', web: 'sell' },
-    titleParts: ['Compare prices', 'in real time'],
-    subtitle: 'Find the best deals across stores before you buy.',
-    accent: OnboardingSlideAccents.yellow,
-  },
-  {
-    key: 'lists',
-    icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
-    titleParts: ['Build smarter', 'shopping lists'],
-    subtitle: 'Organize, suggest, and stay on track.',
-    accent: OnboardingSlideAccents.purple,
-  },
-];
-
 export default function OnboardingScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -57,6 +36,33 @@ export default function OnboardingScreen() {
   const [carouselHeight, setCarouselHeight] = useState(0);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+
+  const featureSlides: FeatureSlideData[] = useMemo(
+    () => [
+      {
+        key: 'save',
+        icon: { ios: 'banknote.fill', android: 'savings', web: 'savings' },
+        titleParts: [t('onboarding.slides.save.title1'), t('onboarding.slides.save.title2')],
+        subtitle: t('onboarding.slides.save.subtitle'),
+        accent: OnboardingSlideAccents.green,
+      },
+      {
+        key: 'compare',
+        icon: { ios: 'tag.fill', android: 'sell', web: 'sell' },
+        titleParts: [t('onboarding.slides.compare.title1'), t('onboarding.slides.compare.title2')],
+        subtitle: t('onboarding.slides.compare.subtitle'),
+        accent: OnboardingSlideAccents.yellow,
+      },
+      {
+        key: 'lists',
+        icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
+        titleParts: [t('onboarding.slides.lists.title1'), t('onboarding.slides.lists.title2')],
+        subtitle: t('onboarding.slides.lists.subtitle'),
+        accent: OnboardingSlideAccents.purple,
+      },
+    ],
+    [t]
+  );
 
   const isSignupSlide = activeIndex === SLIDE_COUNT - 1;
   const showSkip = activeIndex < SLIDE_COUNT - 1;
@@ -123,12 +129,14 @@ export default function OnboardingScreen() {
             onPress={handleSkip}
             style={styles.skipBtn}
             accessibilityRole="button"
-            accessibilityLabel="Skip onboarding"
+            accessibilityLabel={t('onboarding.skipA11y')}
           >
-            <Text style={styles.skipText}>Skip</Text>
+            <Text style={styles.skipText}>{t('common.skip')}</Text>
           </Pressable>
         ) : (
-          <View style={styles.topBarSpacer} />
+          <View style={styles.langSlot}>
+            <LanguagePicker compact />
+          </View>
         )}
       </View>
 
@@ -146,7 +154,7 @@ export default function OnboardingScreen() {
           style={styles.scroll}
         >
           {carouselHeight > 0 &&
-            FEATURE_SLIDES.map((slide) => (
+            featureSlides.map((slide) => (
               <View
                 key={slide.key}
                 style={[styles.slide, { width: screenWidth, height: carouselHeight }]}
@@ -180,9 +188,9 @@ export default function OnboardingScreen() {
             style={({ pressed }) => [styles.nextBtn, pressed && styles.nextBtnPressed]}
             onPress={handleNext}
             accessibilityRole="button"
-            accessibilityLabel="Next slide"
+            accessibilityLabel={t('onboarding.nextA11y')}
           >
-            <Text style={styles.nextBtnText}>Next</Text>
+            <Text style={styles.nextBtnText}>{t('common.next')}</Text>
           </Pressable>
         ) : null}
 
@@ -193,7 +201,7 @@ export default function OnboardingScreen() {
               onPress={() => scrollToIndex(index)}
               style={[styles.dot, index === activeIndex ? styles.dotActive : styles.dotInactive]}
               accessibilityRole="button"
-              accessibilityLabel={`Go to slide ${index + 1}`}
+              accessibilityLabel={t('onboarding.goToSlide', { n: index + 1 })}
             />
           ))}
         </View>
@@ -217,6 +225,10 @@ const styles = StyleSheet.create({
   },
   topBarSpacer: {
     width: 48,
+  },
+  langSlot: {
+    minWidth: 120,
+    alignItems: 'flex-end',
   },
   skipBtn: {
     paddingVertical: 8,

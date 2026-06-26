@@ -2,6 +2,7 @@ import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
@@ -45,6 +46,7 @@ function WebTabScreenLayout({ children, navigation }: WebTabScreenLayoutProps) {
 }
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const headerShown = useClientOnlyValue(false, true);
   const insets = useSafeAreaInsets();
   const tabBarBottomPadding = getTabBarBottomPadding(insets.bottom);
@@ -67,7 +69,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
+          title: t('tabs.home'),
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <SymbolView
@@ -81,7 +83,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="receipts"
         options={{
-          title: 'Receipts',
+          title: t('tabs.receipts'),
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <SymbolView
@@ -99,12 +101,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Scan',
+          title: t('tabs.scan'),
           headerShown: false,
           tabBarIcon: ({ focused }) => <ScanTabIcon focused={focused} />,
           tabBarLabel: ({ focused, color }) => (
             <Text style={[styles.scanLabel, { color: focused ? SmartCartColors.primary : color }]}>
-              Scan
+              {t('tabs.scan')}
             </Text>
           ),
         }}
@@ -113,7 +115,7 @@ export default function TabLayout() {
         name="shopping-lists"
         initialParams={{ browse: '1' }}
         options={{
-          title: 'Lists',
+          title: t('tabs.lists'),
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <SymbolView
@@ -131,7 +133,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          title: 'More',
+          title: t('tabs.more'),
           headerShown: false,
           tabBarIcon: ({ color, focused }) => (
             <SymbolView

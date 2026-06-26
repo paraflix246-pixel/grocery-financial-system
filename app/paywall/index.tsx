@@ -3,8 +3,11 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import type { ComponentProps } from 'react';
 
+import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -26,12 +29,10 @@ import {
   FAMILY_SUBSCRIBE_LABEL,
   FAMILY_YEARLY_PRICE,
   FAMILY_YEARLY_PRICE_PER_MONTH,
-  FREE_PLAN_FEATURES,
-  PAYWALL_HEADLINE,
-  PAYWALL_SUBHEAD,
-  PRO_BADGE_LABEL,
-  PRO_CTA_LABEL,
-  PRO_CTA_SUBTEXT,
+  FREE_MAX_STORES,
+  FREE_PANTRY_MAX_ITEMS,
+  FREE_PRICE_HISTORY_DAYS,
+  FREE_RECEIPT_SCAN_LIMIT,
   PRO_MONTHLY_PRICE,
   PRO_PLAN_LEAD,
   PRO_SUBSCRIBE_LABEL,
@@ -66,66 +67,72 @@ const WIDE_LAYOUT_MIN_WIDTH = 560;
 
 const FOOTER_ESTIMATE = 320;
 
-const PLANS = [
-  {
-    id: 'free' as const,
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    features: FREE_PLAN_FEATURES,
-    accent: null,
-  },
-  {
-    id: 'pro' as const,
-    name: 'Pro',
-    price: PRO_MONTHLY_PRICE,
-    period: '/month',
-    isPro: true,
-    accent: GREEN,
-    badge: PRO_BADGE_LABEL,
-    highlighted: true,
-  },
-];
+const OUTCOME_KEYS = ['save', 'track', 'alerts'] as const;
+
+type SymbolName = ComponentProps<typeof SymbolView>['name'];
+
+const OUTCOME_ICONS: Record<(typeof OUTCOME_KEYS)[number], SymbolName> = {
+  save: { ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' },
+  track: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' },
+  alerts: { ios: 'bell.badge.fill', android: 'notifications_active', web: 'notifications_active' },
+};
 
 function getProPrice(billing: 'monthly' | 'yearly'): string {
   return billing === 'yearly' ? PRO_YEARLY_PRICE_PER_MONTH : PRO_MONTHLY_PRICE;
 }
 
-function getProPeriod(billing: 'monthly' | 'yearly'): string {
-  return billing === 'yearly' ? '/mo billed yearly' : '/month';
+function getProPeriod(billing: 'monthly' | 'yearly', t: (key: string) => string): string {
+  return billing === 'yearly' ? t('paywall.perMonthBilledYearly') : t('paywall.perMonth');
 }
 
 function getFamilyPrice(billing: 'monthly' | 'yearly'): string {
   return billing === 'yearly' ? FAMILY_YEARLY_PRICE_PER_MONTH : FAMILY_MONTHLY_PRICE;
 }
 
-function getFamilyPeriod(billing: 'monthly' | 'yearly'): string {
-  return billing === 'yearly' ? '/mo billed yearly' : '/month';
+function getFamilyPeriod(billing: 'monthly' | 'yearly', t: (key: string) => string): string {
+  return billing === 'yearly' ? t('paywall.perMonthBilledYearly') : t('paywall.perMonth');
 }
 
-function getSubscribeLabel(billing: 'monthly' | 'yearly', upgrading: boolean): string {
-  if (upgrading) return 'Processing...';
-  const price = billing === 'yearly' ? proYearlyLabel : `${PRO_MONTHLY_PRICE}/month`;
-  return `${PRO_SUBSCRIBE_LABEL} — ${price}`;
+function getSubscribeLabel(
+  billing: 'monthly' | 'yearly',
+  upgrading: boolean,
+  t: (key: string, opts?: Record<string, string>) => string
+): string {
+  if (upgrading) return t('common.processing');
+  const price = billing === 'yearly' ? proYearlyLabel : `${PRO_MONTHLY_PRICE}${t('paywall.perMonth')}`;
+  return t('paywall.subscribeProPrice', { price });
 }
 
-function getBillingDisclaimer(billingMode: ReturnType<typeof getSubscriptionBillingMode>): string {
-  if (billingMode === 'stripe') {
-    return 'Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.';
-  }
-  if (billingMode === 'revenuecat') {
-    return 'Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.';
-  }
-  if (billingMode === 'mock') {
-    return 'Dev mock billing — no payment processed. Subscription is stored locally on this device.';
-  }
-  if (Platform.OS === 'web') {
-    return 'Web billing is not configured yet. Add Stripe env vars on Vercel or use mock mode locally.';
-  }
-  return 'In-app purchases are not configured yet. Set RevenueCat API keys for native builds.';
+function getBillingDisclaimer(
+  billingMode: ReturnType<typeof getSubscriptionBillingMode>,
+  t: (key: string) => string
+): string {
+  if (billingMode === 'stripe') return t('paywall.billingDisclaimer.stripe');
+  if (billingMode === 'revenuecat') return t('paywall.billingDisclaimer.revenuecat');
+  if (billingMode === 'mock') return t('paywall.billingDisclaimer.mock');
+  if (Platform.OS === 'web') return t('paywall.billingDisclaimer.webUnconfigured');
+  return t('paywall.billingDisclaimer.nativeUnconfigured');
+}
+
+function ProShimmerBadge({ label }: { label: string }) {
+  return (
+    <LinearGradient
+      colors={['#22C55E', '#4ADE80', '#16A34A']}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.shimmerBadge}>
+      <SymbolView
+        name={{ ios: 'sparkles', android: 'auto_awesome', web: 'auto_awesome' }}
+        tintColor="#000"
+        size={12}
+      />
+      <Text style={styles.shimmerText}>{label}</Text>
+    </LinearGradient>
+  );
 }
 
 export default function PaywallScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -139,6 +146,15 @@ export default function PaywallScreen() {
   const [startingTrial, setStartingTrial] = useState(false);
   const [footerHeight, setFooterHeight] = useState(FOOTER_ESTIMATE);
   const billingMode = getSubscriptionBillingMode();
+
+  const freeFeatures = [
+    t('paywall.features.free.scans', { count: FREE_RECEIPT_SCAN_LIMIT }),
+    t('paywall.features.free.list'),
+    t('paywall.features.free.history', { days: FREE_PRICE_HISTORY_DAYS }),
+    t('paywall.features.free.alerts'),
+    t('paywall.features.free.stores', { count: FREE_MAX_STORES }),
+    t('paywall.features.free.pantry', { count: FREE_PANTRY_MAX_ITEMS }),
+  ];
 
   const handleStartTrial = async () => {
     setStartingTrial(true);
@@ -189,117 +205,124 @@ export default function PaywallScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Choose your plan" />
+      <ScreenHeader title={t('paywall.title')} />
 
       <ScrollView
         style={styles.scroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.content, { paddingBottom: footerHeight + 16 }]}>
-        {/* Section 1 — outcome hook */}
         <View style={styles.hero}>
           <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
-          <Text style={styles.heroTitle}>{PAYWALL_HEADLINE}</Text>
-          <Text style={styles.heroSub}>{PAYWALL_SUBHEAD}</Text>
+          <Text style={styles.heroTitle}>{t('paywall.headline')}</Text>
+          <Text style={styles.heroSub}>{t('paywall.subhead')}</Text>
+        </View>
+
+        <View style={styles.outcomesSection}>
+          <Text style={styles.outcomesTitle}>{t('paywall.outcomeTitle')}</Text>
+          <Text style={styles.outcomesSub}>{t('paywall.outcomeSubtitle')}</Text>
+          <View style={styles.outcomesGrid}>
+            {OUTCOME_KEYS.map((key) => (
+              <View key={key} style={styles.outcomeCard}>
+                <View style={styles.outcomeIconWrap}>
+                  <SymbolView name={OUTCOME_ICONS[key]} tintColor={GREEN} size={20} />
+                </View>
+                <Text style={styles.outcomeCardTitle}>{t(`paywall.outcomes.${key}.title`)}</Text>
+                <Text style={styles.outcomeCardBody}>{t(`paywall.outcomes.${key}.body`)}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         <View style={styles.billingToggle}>
           <Pressable
             style={[styles.billingBtn, billing === 'monthly' && styles.billingBtnActive]}
             onPress={() => setBilling('monthly')}>
-            <Text style={[styles.billingText, billing === 'monthly' && styles.billingTextActive]}>Monthly</Text>
+            <Text style={[styles.billingText, billing === 'monthly' && styles.billingTextActive]}>
+              {t('common.monthly')}
+            </Text>
           </Pressable>
           <Pressable
             style={[styles.billingBtn, billing === 'yearly' && styles.billingBtnActive]}
             onPress={() => setBilling('yearly')}>
             <Text style={[styles.billingText, billing === 'yearly' && styles.billingTextActive]}>
-              Yearly (save {YEARLY_SAVINGS_PERCENT}%)
+              {t('common.yearlySave', { percent: YEARLY_SAVINGS_PERCENT })}
             </Text>
           </Pressable>
         </View>
 
-        {/* Section 2 — Free vs Pro comparison */}
         <View style={[styles.plansRow, isWide && styles.plansRowWide]}>
-          {PLANS.map((plan) => {
-            const isPaid = plan.id !== 'free';
-            const isSelected = isPaid && selectedPro;
-            const accent = plan.accent ?? CARD_BORDER;
-
-            return (
-              <Pressable
-                key={plan.id}
-                disabled={!isPaid}
-                onPress={() => isPaid && setSelectedPro(true)}
-                style={[
-                  styles.planCard,
-                  isWide && styles.planCardWide,
-                  plan.highlighted && styles.planCardHighlighted,
-                  isSelected && { borderColor: accent, borderWidth: 2 },
-                  !isPaid && styles.planCardFree,
-                ]}>
-                {'badge' in plan && plan.badge ? (
-                  <Text style={styles.planBadge}>{plan.badge}</Text>
-                ) : null}
-                <Text style={styles.planName}>{plan.name}</Text>
-                <View style={styles.priceRow}>
-                  <Text style={[styles.planPrice, plan.accent && { color: plan.accent }]}>
-                    {isPaid ? getProPrice(billing) : plan.price}
-                  </Text>
-                  <Text style={styles.planPeriod}>{isPaid ? getProPeriod(billing) : plan.period}</Text>
-                </View>
-                {isPaid && billing === 'yearly' ? (
-                  <Text style={styles.yearlyNote}>{PRO_YEARLY_PRICE} billed annually</Text>
-                ) : null}
-                <View style={styles.featureList}>
-                  {'isPro' in plan && plan.isPro ? (
-                    <ProPlanFeaturesList
-                      variant="full"
-                      leadLabel={PRO_PLAN_LEAD}
-                      accentColor={plan.accent ?? GREEN}
-                      mutedColor={TEXT_MUTED}
-                      featureTextStyle={styles.featureText}
-                      leadTextStyle={styles.featureText}
-                    />
-                  ) : (
-                    FREE_PLAN_FEATURES.map((f) => (
-                      <View key={f} style={styles.featureRow}>
-                        <View style={styles.featureIconWrap}>
-                          <SymbolView
-                            name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
-                            tintColor={plan.accent ?? TEXT_MUTED}
-                            size={18}
-                          />
-                        </View>
-                        <Text style={styles.featureText}>{f}</Text>
-                      </View>
-                    ))
-                  )}
-                </View>
-                {isPaid ? (
-                  <View style={[styles.selectIndicator, isSelected && { backgroundColor: `${accent}22` }]}>
-                    <View style={[styles.selectDot, isSelected && { backgroundColor: accent }]} />
-                    <Text style={[styles.selectText, isSelected && { color: TEXT_PRIMARY }]}>
-                      {isSelected ? 'Selected' : 'Select plan'}
-                    </Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {/* Section 3 — Family workspace callout (separate from Personal Pro) */}
-        <View style={styles.familySection}>
-          <Text style={styles.sectionLabel}>Need household sharing?</Text>
-          <View style={styles.familyCard}>
-            <Text style={styles.familyBadge}>{FAMILY_BADGE_LABEL}</Text>
-            <Text style={styles.familyTitle}>Family workspace</Text>
-            <Text style={styles.familySubtitle}>{FAMILY_CTA_SUBTEXT}</Text>
+          <View style={[styles.planCard, styles.planCardFree, isWide && styles.planCardWide]}>
+            <Text style={styles.planName}>{t('paywall.freePlan')}</Text>
             <View style={styles.priceRow}>
-              <Text style={[styles.planPrice, { color: PURPLE }]}>{getFamilyPrice(billing)}</Text>
-              <Text style={styles.planPeriod}>{getFamilyPeriod(billing)}</Text>
+              <Text style={styles.planPrice}>$0</Text>
+              <Text style={styles.planPeriod}>{t('paywall.forever')}</Text>
+            </View>
+            <View style={styles.featureList}>
+              {freeFeatures.map((f) => (
+                <View key={f} style={styles.featureRow}>
+                  <View style={styles.featureIconWrap}>
+                    <SymbolView
+                      name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
+                      tintColor={TEXT_MUTED}
+                      size={18}
+                    />
+                  </View>
+                  <Text style={styles.featureText}>{f}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          <Pressable
+            onPress={() => setSelectedPro(true)}
+            style={[
+              styles.planCard,
+              isWide && styles.planCardWide,
+              styles.planCardHighlighted,
+              selectedPro && { borderColor: GREEN, borderWidth: 2 },
+            ]}>
+            <View style={styles.proBadgeRow}>
+              <ProShimmerBadge label={t('paywall.proBadge')} />
+            </View>
+            <Text style={styles.planName}>{t('paywall.proPlan')}</Text>
+            <View style={styles.priceRow}>
+              <Text style={[styles.planPrice, { color: GREEN }]}>{getProPrice(billing)}</Text>
+              <Text style={styles.planPeriod}>{getProPeriod(billing, t)}</Text>
             </View>
             {billing === 'yearly' ? (
-              <Text style={styles.yearlyNote}>{FAMILY_YEARLY_PRICE} billed annually</Text>
+              <Text style={styles.yearlyNote}>{t('paywall.billedAnnually', { price: PRO_YEARLY_PRICE })}</Text>
+            ) : null}
+            <View style={styles.featureList}>
+              <ProPlanFeaturesList
+                variant="grouped"
+                leadLabel={t('paywall.proLead')}
+                accentColor={GREEN}
+                mutedColor={TEXT_MUTED}
+                featureTextStyle={styles.featureText}
+                leadTextStyle={styles.featureText}
+              />
+            </View>
+            <View style={[styles.selectIndicator, selectedPro && { backgroundColor: `${GREEN}22` }]}>
+              <View style={[styles.selectDot, selectedPro && { backgroundColor: GREEN }]} />
+              <Text style={[styles.selectText, selectedPro && { color: TEXT_PRIMARY }]}>
+                {selectedPro ? t('common.selected') : t('common.selectPlan')}
+              </Text>
+            </View>
+          </Pressable>
+        </View>
+
+        <View style={styles.familySection}>
+          <Text style={styles.sectionLabel}>{t('paywall.familySection')}</Text>
+          <View style={styles.familyCard}>
+            <Text style={styles.familyBadge}>{FAMILY_BADGE_LABEL}</Text>
+            <Text style={styles.familyTitle}>{t('paywall.familyTitle')}</Text>
+            <Text style={styles.familySubtitle}>{t('paywall.familySubtitle')}</Text>
+            <View style={styles.priceRow}>
+              <Text style={[styles.planPrice, { color: PURPLE }]}>{getFamilyPrice(billing)}</Text>
+              <Text style={styles.planPeriod}>{getFamilyPeriod(billing, t)}</Text>
+            </View>
+            {billing === 'yearly' ? (
+              <Text style={styles.yearlyNote}>{t('paywall.billedAnnually', { price: FAMILY_YEARLY_PRICE })}</Text>
             ) : null}
             <FamilyPlanFeaturesList
               leadLabel={FAMILY_PLAN_LEAD}
@@ -315,19 +338,18 @@ export default function PaywallScreen() {
               accessibilityRole="button"
               accessibilityLabel={FAMILY_SUBSCRIBE_LABEL}>
               <Text style={styles.familyBtnText}>
-                {upgradingFamily ? 'Processing...' : `${FAMILY_SUBSCRIBE_LABEL} — ${getFamilyPrice(billing)}/mo`}
+                {upgradingFamily
+                  ? t('common.processing')
+                  : `${t('paywall.familySubscribe')} — ${getFamilyPrice(billing)}/mo`}
               </Text>
             </Pressable>
-            <Pressable
-              style={styles.familyLink}
-              onPress={() => router.push('/family_plans' as never)}>
-              <Text style={styles.familyLinkText}>Create or join a household</Text>
+            <Pressable style={styles.familyLink} onPress={() => router.push('/family_plans' as never)}>
+              <Text style={styles.familyLinkText}>{t('paywall.familyJoin')}</Text>
             </Pressable>
           </View>
         </View>
       </ScrollView>
 
-      {/* Section 4 — fixed bottom CTAs + legal */}
       <View
         style={[styles.footer, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}
         onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
@@ -336,11 +358,13 @@ export default function PaywallScreen() {
           disabled={startingTrial || upgrading}
           onPress={handleStartTrial}
           accessibilityRole="button"
-          accessibilityLabel={PRO_CTA_LABEL}>
-          <Text style={styles.upgradeBtnText}>{startingTrial ? 'Starting trial...' : PRO_CTA_LABEL}</Text>
+          accessibilityLabel={t('paywall.startTrial')}>
+          <Text style={styles.upgradeBtnText}>
+            {startingTrial ? t('paywall.startingTrial') : t('paywall.startTrial')}
+          </Text>
         </Pressable>
 
-        <Text style={styles.ctaSubtext}>{PRO_CTA_SUBTEXT}</Text>
+        <Text style={styles.ctaSubtext}>{t('paywall.trialSubtext')}</Text>
 
         <Pressable
           style={[styles.subscribeBtn, (upgrading || startingTrial) && styles.btnDisabled]}
@@ -348,16 +372,16 @@ export default function PaywallScreen() {
           onPress={handleUpgrade}
           accessibilityRole="button"
           accessibilityLabel={PRO_SUBSCRIBE_LABEL}>
-          <Text style={styles.subscribeBtnText}>{getSubscribeLabel(billing, upgrading)}</Text>
+          <Text style={styles.subscribeBtnText}>{getSubscribeLabel(billing, upgrading, t)}</Text>
         </Pressable>
 
-        <Text style={styles.commitNote}>{COMMIT_NOTE}</Text>
+        <Text style={styles.commitNote}>{COMMIT_NOTE || t('paywall.commitNote')}</Text>
 
         <Pressable style={styles.freeLink} onPress={() => router.back()}>
-          <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL}</Text>
+          <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL || t('paywall.continueFree')}</Text>
         </Pressable>
 
-        <Text style={styles.disclaimer}>{getBillingDisclaimer(billingMode)}</Text>
+        <Text style={styles.disclaimer}>{getBillingDisclaimer(billingMode, t)}</Text>
 
         <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor={PURPLE} style={styles.legalFooter} />
       </View>
@@ -387,6 +411,50 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     maxWidth: 320,
   },
+  outcomesSection: { marginBottom: 22 },
+  outcomesTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: TEXT_PRIMARY,
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  outcomesSub: {
+    fontSize: 13,
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 14,
+    lineHeight: 19,
+  },
+  outcomesGrid: { gap: 10 },
+  outcomeCard: {
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.2)',
+  },
+  outcomeIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(34,197,94,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  outcomeCardTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: TEXT_PRIMARY,
+    marginBottom: 4,
+  },
+  outcomeCardBody: {
+    fontSize: 12,
+    color: TEXT_MUTED,
+    lineHeight: 18,
+  },
   billingToggle: {
     flexDirection: 'row',
     backgroundColor: CARD_BG,
@@ -414,11 +482,22 @@ const styles = StyleSheet.create({
   planCardWide: { flexBasis: 0, minWidth: 0 },
   planCardHighlighted: { borderColor: 'rgba(34,197,94,0.35)' },
   planCardFree: { opacity: 0.92 },
-  planBadge: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: GREEN,
-    marginBottom: 6,
+  proBadgeRow: { marginBottom: 8 },
+  shimmerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  shimmerText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#000',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
   },
   planName: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4, flexWrap: 'wrap' },

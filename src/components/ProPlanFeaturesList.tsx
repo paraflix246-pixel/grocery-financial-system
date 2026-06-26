@@ -1,11 +1,17 @@
 import { StyleSheet, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { PRO_PLAN_FEATURE_GROUPS, PRO_PLAN_FEATURES } from '@/src/constants/proPricing';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
 type Variant = 'full' | 'grouped';
+
+export type ProFeatureGroup = {
+  title: string;
+  items: readonly string[];
+};
 
 type Props = {
   variant?: Variant;
@@ -16,6 +22,10 @@ type Props = {
   featureTextStyle?: StyleProp<TextStyle>;
   secondaryTextStyle?: StyleProp<TextStyle>;
   leadTextStyle?: StyleProp<TextStyle>;
+  /** When set, overrides default English feature strings. */
+  features?: readonly string[];
+  /** When set with variant grouped, overrides default groups. */
+  groups?: readonly ProFeatureGroup[];
 };
 
 function CheckRow({
@@ -65,11 +75,52 @@ export function ProPlanFeaturesList({
   featureTextStyle,
   secondaryTextStyle,
   leadTextStyle,
+  features,
+  groups,
 }: Props) {
+  const { t } = useTranslation();
+
+  const resolvedFeatures =
+    features ??
+    PRO_PLAN_FEATURES.map((_, index) => {
+      const keys = [
+        'paywall.features.pro.unlimitedScans',
+        'paywall.features.pro.fullHistory',
+        'paywall.features.pro.smartAlerts',
+        'paywall.features.pro.multiStore',
+        'paywall.features.pro.spendingOverview',
+        'paywall.features.pro.cheapestCart',
+        'paywall.features.pro.export',
+        'paywall.features.pro.unlimitedPantry',
+        'paywall.features.pro.adFree',
+        'paywall.features.pro.customThemes',
+      ] as const;
+      return t(keys[index] ?? keys[0]);
+    });
+
+  const resolvedGroups: readonly ProFeatureGroup[] =
+    groups ??
+    PRO_PLAN_FEATURE_GROUPS.map((group, groupIndex) => {
+      const titleKeys = [
+        'paywall.features.groups.receiptsPrices',
+        'paywall.features.groups.storesSavings',
+        'paywall.features.groups.budget',
+        'paywall.features.groups.exportPantry',
+        'paywall.features.groups.experience',
+      ] as const;
+      return {
+        title: t(titleKeys[groupIndex] ?? titleKeys[0]),
+        items: group.items.map((item) => {
+          const idx = (PRO_PLAN_FEATURES as readonly string[]).indexOf(item);
+          return idx >= 0 ? resolvedFeatures[idx] ?? item : item;
+        }),
+      };
+    });
+
   if (variant === 'grouped') {
     return (
       <View style={[styles.list, style]}>
-        {PRO_PLAN_FEATURE_GROUPS.map((group) => (
+        {resolvedGroups.map((group) => (
           <View key={group.title} style={styles.group}>
             <Text style={[styles.groupTitle, { color: accentColor }]}>{group.title}</Text>
             {group.items.map((item) => (
@@ -93,7 +144,7 @@ export function ProPlanFeaturesList({
       {leadLabel ? (
         <Text style={[styles.leadLabel, { color: mutedColor }, leadTextStyle]}>{leadLabel}</Text>
       ) : null}
-      {PRO_PLAN_FEATURES.map((feature) => (
+      {resolvedFeatures.map((feature) => (
         <CheckRow key={feature} text={feature} accent={accentColor} textStyle={featureTextStyle} />
       ))}
     </View>

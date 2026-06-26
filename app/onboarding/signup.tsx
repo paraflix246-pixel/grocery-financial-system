@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
@@ -24,6 +25,7 @@ function isValidEmail(value: string) {
 }
 
 export default function SignupScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
@@ -40,11 +42,11 @@ export default function SignupScreen() {
   async function handleSignUp() {
     setError(null);
     if (!isValidEmail(email)) {
-      setError('Please enter a valid email address.');
+      setError(t('auth.signup.errorEmail'));
       return;
     }
     if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+      setError(t('auth.signup.errorPassword'));
       return;
     }
     setLoading(true);
@@ -52,7 +54,7 @@ export default function SignupScreen() {
       await signUpWithEmail(email, password, name);
       router.push('/onboarding/upgrade');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong. Please try again.');
+      setError(e instanceof Error ? e.message : t('auth.signup.errorGeneric'));
     } finally {
       setLoading(false);
     }
@@ -105,10 +107,8 @@ export default function SignupScreen() {
         <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
 
         {/* Heading */}
-        <Text style={styles.heading}>Create your account</Text>
-        <Text style={styles.subheading}>
-          Start saving money on every shop.
-        </Text>
+        <Text style={styles.heading}>{t('auth.signup.heading')}</Text>
+        <Text style={styles.subheading}>{t('auth.signup.subheading')}</Text>
 
         {/* Error */}
         {error ? (
@@ -119,13 +119,13 @@ export default function SignupScreen() {
 
         {/* Name input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Name</Text>
+          <Text style={styles.label}>{t('auth.signup.name')}</Text>
           <TextInput
             style={[
               styles.input,
               nameFocused && styles.inputFocused,
             ]}
-            placeholder="Your first name"
+            placeholder={t('auth.signup.namePlaceholder')}
             placeholderTextColor={OnboardingColors.textLight}
             autoCapitalize="words"
             autoComplete="name-given"
@@ -139,13 +139,13 @@ export default function SignupScreen() {
 
         {/* Email input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Email</Text>
+          <Text style={styles.label}>{t('auth.signup.email')}</Text>
           <TextInput
             style={[
               styles.input,
               emailFocused && styles.inputFocused,
             ]}
-            placeholder="you@example.com"
+            placeholder={t('auth.signup.emailPlaceholder')}
             placeholderTextColor={OnboardingColors.textLight}
             keyboardType="email-address"
             autoCapitalize="none"
@@ -161,13 +161,13 @@ export default function SignupScreen() {
 
         {/* Password input */}
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Password</Text>
+          <Text style={styles.label}>{t('auth.signup.password')}</Text>
           <TextInput
             style={[
               styles.input,
               passwordFocused && styles.inputFocused,
             ]}
-            placeholder="At least 6 characters"
+            placeholder={t('auth.signup.passwordPlaceholder')}
             placeholderTextColor={OnboardingColors.textLight}
             secureTextEntry
             autoCapitalize="none"
@@ -192,12 +192,12 @@ export default function SignupScreen() {
           onPress={handleSignUp}
           disabled={loading || !email || !password}
           accessibilityRole="button"
-          accessibilityLabel="Continue"
+          accessibilityLabel={t('auth.signup.submit')}
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.ctaBtnText}>Continue</Text>
+            <Text style={styles.ctaBtnText}>{t('auth.signup.submit')}</Text>
           )}
         </Pressable>
 
@@ -211,16 +211,16 @@ export default function SignupScreen() {
           onPress={handleGoogleSignIn}
           disabled={loading}
           accessibilityRole="button"
-          accessibilityLabel="Continue with Google"
+          accessibilityLabel={t('auth.signup.google')}
         >
           <Text style={styles.googleBtnG}>G</Text>
-          <Text style={styles.googleBtnText}>Continue with Google</Text>
+          <Text style={styles.googleBtnText}>{t('auth.signup.google')}</Text>
         </Pressable>
 
         {/* Divider */}
         <View style={styles.divider}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>or</Text>
+          <Text style={styles.dividerText}>{t('common.or')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
@@ -234,20 +234,20 @@ export default function SignupScreen() {
           onPress={handleGuest}
           disabled={loading}
           accessibilityRole="button"
-          accessibilityLabel="Continue as Guest"
+          accessibilityLabel={t('auth.signup.guest')}
         >
-          <Text style={styles.ghostBtnText}>Continue as Guest</Text>
+          <Text style={styles.ghostBtnText}>{t('auth.signup.guest')}</Text>
         </Pressable>
 
         {/* Terms */}
         <Text style={styles.terms}>
-          By continuing you agree to our{' '}
+          {t('auth.signup.termsPrefix')}{' '}
           <Text style={styles.termsLink} onPress={() => router.push('/terms')}>
-            Terms
+            {t('auth.signup.terms')}
           </Text>{' '}
-          and{' '}
+          {t('auth.signup.and')}{' '}
           <Text style={styles.termsLink} onPress={() => router.push('/privacy')}>
-            Privacy Policy
+            {t('auth.signup.privacy')}
           </Text>
         </Text>
 
@@ -258,8 +258,8 @@ export default function SignupScreen() {
           accessibilityRole="button"
         >
           <Text style={styles.signinLinkText}>
-            Already have an account?{' '}
-            <Text style={styles.signinHighlight}>Sign in</Text>
+            {t('auth.signup.hasAccount')}{' '}
+            <Text style={styles.signinHighlight}>{t('auth.signup.signIn')}</Text>
           </Text>
         </Pressable>
       </ScrollView>
