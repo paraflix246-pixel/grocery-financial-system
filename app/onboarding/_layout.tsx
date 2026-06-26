@@ -7,6 +7,7 @@ export default function OnboardingLayout() {
       <Stack.Screen name="signup" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="signin" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="forgot-password" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="reset-password" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="upgrade" options={{ animation: 'slide_from_bottom' }} />
     </Stack>
   );

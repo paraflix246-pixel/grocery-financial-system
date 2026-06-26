@@ -14,17 +14,13 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { forgotPassword } from '@/src/services/authService';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+import { forgotPassword } from '@/src/services/authService';
+import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
-const BG = '#0F0F0F';
-const PURPLE = '#7C3AED';
-const GREEN = '#22C55E';
-const TEXT_PRIMARY = '#FFFFFF';
-const TEXT_MUTED = 'rgba(255,255,255,0.52)';
-const INPUT_BG = '#1A1A1E';
-const INPUT_BORDER = 'rgba(255,255,255,0.12)';
-const INPUT_BORDER_FOCUS = PURPLE;
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
@@ -38,8 +34,8 @@ export default function ForgotPasswordScreen() {
 
   async function handleSend() {
     setError(null);
-    if (!email.trim()) {
-      setError('Please enter your email address.');
+    if (!isValidEmail(email)) {
+      setError('Please enter a valid email address.');
       return;
     }
     setLoading(true);
@@ -62,7 +58,7 @@ export default function ForgotPasswordScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.background} />
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -71,8 +67,7 @@ export default function ForgotPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
-        <PennyPantryLogo variant="inline" size={28} nameColor={PURPLE} nameSize={24} style={styles.logoRow} />
+        <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
 
         <Text style={styles.heading}>Reset your password</Text>
         <Text style={styles.subheading}>
@@ -84,8 +79,9 @@ export default function ForgotPasswordScreen() {
             <Text style={styles.successIcon}>✉️</Text>
             <Text style={styles.successTitle}>Check your email</Text>
             <Text style={styles.successText}>
-              We sent a reset link to <Text style={styles.successEmail}>{email.trim()}</Text>.
-              It may take a minute to arrive.
+              We sent a reset link to{' '}
+              <Text style={styles.successEmail}>{email.trim()}</Text>. It may take a minute to
+              arrive.
             </Text>
           </View>
         ) : (
@@ -101,7 +97,7 @@ export default function ForgotPasswordScreen() {
               <TextInput
                 style={[styles.input, emailFocused && styles.inputFocused]}
                 placeholder="you@example.com"
-                placeholderTextColor="rgba(255,255,255,0.28)"
+                placeholderTextColor={OnboardingColors.textLight}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -112,7 +108,7 @@ export default function ForgotPasswordScreen() {
                 onBlur={() => setEmailFocused(false)}
                 onSubmitEditing={handleSend}
                 returnKeyType="send"
-                selectionColor={PURPLE}
+                selectionColor={OnboardingColors.green}
               />
             </View>
 
@@ -128,7 +124,7 @@ export default function ForgotPasswordScreen() {
               accessibilityLabel="Send reset link"
             >
               {loading ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <Text style={styles.ctaBtnText}>Send reset link</Text>
               )}
@@ -153,42 +149,42 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: OnboardingColors.background,
   },
   scrollContent: {
     paddingHorizontal: 24,
     flexGrow: 1,
   },
-  logoRow: {
-    marginBottom: 40,
+  logo: {
+    marginBottom: 8,
   },
   heading: {
-    color: TEXT_PRIMARY,
+    color: OnboardingColors.text,
     fontSize: 30,
     fontWeight: '800',
     letterSpacing: -0.5,
     marginBottom: 8,
   },
   subheading: {
-    color: TEXT_MUTED,
+    color: OnboardingColors.textMuted,
     fontSize: 16,
     marginBottom: 32,
     lineHeight: 24,
   },
   errorBox: {
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    backgroundColor: '#FEF2F2',
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.3)',
+    borderColor: 'rgba(239,68,68,0.25)',
   },
   errorText: {
-    color: '#F87171',
+    color: '#DC2626',
     fontSize: 14,
   },
   successBox: {
-    backgroundColor: 'rgba(34,197,94,0.1)',
+    backgroundColor: '#F0FDF4',
     borderRadius: 16,
     padding: 28,
     alignItems: 'center',
@@ -201,19 +197,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   successTitle: {
-    color: TEXT_PRIMARY,
+    color: OnboardingColors.text,
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 10,
   },
   successText: {
-    color: TEXT_MUTED,
+    color: OnboardingColors.textMuted,
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
   },
   successEmail: {
-    color: GREEN,
+    color: OnboardingColors.green,
     fontWeight: '600',
   },
   inputGroup: {
@@ -221,25 +217,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: 'rgba(255,255,255,0.7)',
+    color: OnboardingColors.text,
     fontSize: 14,
     fontWeight: '600',
   },
   input: {
-    backgroundColor: INPUT_BG,
+    backgroundColor: OnboardingColors.card,
     borderWidth: 1,
-    borderColor: INPUT_BORDER,
+    borderColor: OnboardingColors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 15,
-    color: TEXT_PRIMARY,
+    color: OnboardingColors.text,
     fontSize: 16,
   },
   inputFocused: {
-    borderColor: INPUT_BORDER_FOCUS,
+    borderColor: OnboardingColors.green,
   },
   ctaBtn: {
-    backgroundColor: GREEN,
+    backgroundColor: OnboardingColors.green,
     borderRadius: 999,
     paddingVertical: 17,
     alignItems: 'center',
@@ -249,10 +245,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   ctaBtnPressed: {
-    opacity: 0.82,
+    opacity: 0.88,
   },
   ctaBtnText: {
-    color: '#000',
+    color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.1,
@@ -263,11 +259,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   backLinkText: {
-    color: TEXT_MUTED,
+    color: OnboardingColors.textMuted,
     fontSize: 14,
   },
   backLinkHighlight: {
-    color: PURPLE,
+    color: OnboardingColors.green,
     fontWeight: '600',
   },
 });

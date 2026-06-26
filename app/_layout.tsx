@@ -19,7 +19,12 @@ import { TrialReminderProvider } from '@/src/components/TrialReminderProvider';
 import { SmartCartColors } from '@/src/theme/smartCart';
 import { initStorage } from '@/src/services/storageService';
 import { bootstrapExternalPriceProviders } from '@/src/services/externalPriceBootstrap';
-import { getSession, syncAuthUserFromSession, syncProfileDisplayNameFromAuth } from '@/src/services/authService';
+import {
+  getSession,
+  maybeSendWelcomeEmail,
+  syncAuthUserFromSession,
+  syncProfileDisplayNameFromAuth,
+} from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
@@ -225,6 +230,7 @@ export default function RootLayout() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
         void syncAuthUserFromSession();
+        void maybeSendWelcomeEmail();
         useBudgetStore.getState().completeOnboarding();
       } else if (event === 'SIGNED_OUT') {
         // Only redirect to onboarding if onboarding wasn't completed as guest

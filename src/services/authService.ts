@@ -157,13 +157,53 @@ export async function resetPassword(newPassword: string): Promise<void> {
 
 export async function forgotPassword(email: string): Promise<void> {
   if (!supabase) {
-    // Supabase not available (e.g. web without env vars) — fail gracefully
-    return;
+    throw new Error('Auth service not available. Please try again later.');
   }
   const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-    redirectTo: getAuthRedirectUrl('/reset-password'),
+    redirectTo: getAuthRedirectUrl('/onboarding/reset-password'),
   });
   if (error) throw new Error(mapSupabaseError(error.message));
+}
+
+function resolveAuthApiUrl(path: string): string | null {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+    return `${window.location.origin}${path}`;
+  }
+  const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
+  return appUrl ? `${appUrl.replace(/\/$/, '')}${path}` : null;
+}
+
+/** Sends a one-time welcome email via POST /api/auth/welcome (Resend). Non-blocking.
+ *  Server env: RESEND_API_KEY, WELCOME_FROM_EMAIL, SUPABASE_SERVICE_ROLE_KEY.
+ *  Marks user_metadata.welcome_email_sent via service role after send. */
+export async function maybeSendWelcomeEmail(): Promise<void> {
+  if (!supabase) return;
+
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
+  if (!user?.email) return;
+  if (user.user_metadata?.welcome_email_sent === true) return;
+
+  const apiUrl = resolveAuthApiUrl('/api/auth/welcome');
+  if (!apiUrl) return;
+
+  const session = await getSession();
+  if (!session?.access_token) return;
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    if (response.ok) {
+      await supabase.auth.refreshSession();
+    }
+  } catch (error) {
+    console.warn('[auth] welcome email request failed:', error);
+  }
 }
 
 export async function syncAuthUserFromSession(): Promise<void> {
@@ -178,6 +218,7 @@ export async function syncAuthUserFromSession(): Promise<void> {
   };
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
   await syncProfileDisplayNameFromAuth();
+  void maybeSendWelcomeEmail();
 }
 
 /** True when the user has an active Supabase account session (not guest-only). */
