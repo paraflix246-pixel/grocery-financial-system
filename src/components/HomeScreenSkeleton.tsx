@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppHeader } from '@/src/components/AppHeader';
+import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
 function SkeletonBlock({
@@ -21,6 +22,7 @@ export const HomeScreenSkeleton = memo(function HomeScreenSkeleton() {
   const insets = useSafeAreaInsets();
 
   return (
+    <PremiumScreenBackground>
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <AppHeader showBack={false} notificationCount={0} />
 
@@ -47,13 +49,14 @@ export const HomeScreenSkeleton = memo(function HomeScreenSkeleton() {
         </View>
       </View>
     </View>
+    </PremiumScreenBackground>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SmartCartColors.background,
+    backgroundColor: 'transparent',
     paddingHorizontal: 16,
     paddingBottom: 32,
   },

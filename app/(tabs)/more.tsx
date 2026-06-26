@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { AppHeader } from '@/src/components/AppHeader';
+import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -78,6 +79,7 @@ export default function MoreScreen() {
   const sections = useMenuSections();
 
   return (
+    <PremiumScreenBackground>
     <ScrollView
       style={styles.container}
       contentContainerStyle={[
@@ -153,11 +155,12 @@ export default function MoreScreen() {
         <Text style={styles.footerVersion}>{t('more.footerVersion')}</Text>
       </View>
     </ScrollView>
+    </PremiumScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SmartCartColors.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content: { paddingHorizontal: 16, paddingBottom: 32 },
   title: { fontSize: 28, fontWeight: '800', color: SmartCartColors.text },
   subtitle: { fontSize: 14, color: SmartCartColors.textSecondary, marginBottom: 16, marginTop: 4 },

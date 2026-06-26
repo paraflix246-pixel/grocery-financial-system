@@ -53,6 +53,7 @@ import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
 import { PRO_MONTHLY_PRICE } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { formatHomeGreetingI18n, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { translateCategory } from '@/src/i18n/helpers';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 import { formatCurrency } from '@/src/utils/priceParser';
@@ -148,6 +149,7 @@ export default function HomeScreen() {
   const greetingText = formatHomeGreetingI18n(displayName, t);
 
   return (
+    <PremiumScreenBackground>
     <ScrollView
       style={styles.container}
       contentContainerStyle={[
@@ -313,11 +315,12 @@ export default function HomeScreen() {
         />
       ) : null}
     </ScrollView>
+    </PremiumScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SmartCartColors.background },
+  container: { flex: 1, backgroundColor: 'transparent' },
   content: { paddingHorizontal: 16 },
   greetingBlock: { marginBottom: 16 },
   greeting: { fontSize: 24, fontWeight: '800', color: SmartCartColors.text, letterSpacing: -0.5 },

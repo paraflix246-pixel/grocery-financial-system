@@ -39,6 +39,8 @@ function applyThemeTokens(theme: AppThemeTokens): void {
     primaryLight: theme.primary,
     background: theme.background,
     card: theme.surface,
+    cardElevated: theme.surfaceElevated,
+    accentGlow: theme.accentGlow,
     text: theme.text,
     textSecondary: theme.textMuted,
     textMuted: theme.textMuted,

@@ -19,7 +19,8 @@ import {
   type SubscriptionTier,
 } from '@/src/store/useSubscriptionStore';
 import { refreshScheduledNotifications } from '@/src/services/notificationService';
-import { signOut, getSession, getStoredUser, isSignedInAccount } from '@/src/services/authService';
+import { signOut, getSession, getStoredUser, isSignedInAccount, changeAccountEmail } from '@/src/services/authService';
+import { shareText } from '@/src/utils/copyOrShare';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import {
   getOpenLastListPreference,
@@ -27,6 +28,7 @@ import {
 } from '@/src/utils/listNavigationPrefs';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
 import { LanguagePicker, ThemePicker } from '@/src/components/settings/AppearanceSettings';
+import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
@@ -74,6 +76,10 @@ export default function SettingsScreen() {
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [accountEmail, setAccountEmail] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [emailChangeMessage, setEmailChangeMessage] = useState<string | null>(null);
   const tier = useSubscriptionStore((s) => s.tier);
   const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
@@ -99,6 +105,7 @@ export default function SettingsScreen() {
     const signedIn = await isSignedInAccount();
     setIsSignedIn(signedIn);
     setIsGuest(Boolean(storedUser?.isGuest || !session?.user));
+    setAccountEmail(session?.user?.email ?? storedUser?.email ?? '');
     setLoading(false);
   }, [loadSettings]);
 
@@ -137,6 +144,33 @@ export default function SettingsScreen() {
     router.replace('/onboarding/signin');
   };
 
+  const handleShareApp = async () => {
+    await shareText(t('settings.shareMessage'), t('settings.shareApp'));
+  };
+
+  const handleChangeEmail = async () => {
+    setEmailChangeMessage(null);
+    const trimmed = newEmail.trim();
+    if (!trimmed) {
+      setEmailChangeMessage(t('settings.changeEmailRequired'));
+      return;
+    }
+    setChangingEmail(true);
+    try {
+      const result = await changeAccountEmail(trimmed);
+      setNewEmail('');
+      setEmailChangeMessage(
+        t('settings.changeEmailPending', { email: result.pendingNewEmail })
+      );
+    } catch (error) {
+      setEmailChangeMessage(
+        error instanceof Error ? error.message : t('settings.changeEmailFailed')
+      );
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setSaveMessage(null);
@@ -157,14 +191,14 @@ export default function SettingsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.center}>
+      <PremiumScreenBackground style={styles.center}>
         <ActivityIndicator size="large" color={SmartCartColors.primary} />
-      </View>
+      </PremiumScreenBackground>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <PremiumScreenBackground style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>{t('settings.title')}</Text>
@@ -395,6 +429,29 @@ export default function SettingsScreen() {
 
         <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
         <View style={styles.menu}>
+          <Pressable
+            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            onPress={() => void handleShareApp()}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.shareApp')}
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }}
+                tintColor={SmartCartColors.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>{t('settings.shareApp')}</Text>
+              <Text style={styles.menuSub}>{t('settings.shareAppSub')}</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
           {MENU_ITEMS.map((item) => (
             <Pressable
               key={item.labelKey}
@@ -420,6 +477,47 @@ export default function SettingsScreen() {
           {isSignedIn ? (
             <>
               <Text style={styles.fieldHint}>{t('settings.signedIn')}</Text>
+              {accountEmail ? (
+                <>
+                  <Text style={styles.fieldLabel}>{t('settings.currentEmail')}</Text>
+                  <Text style={styles.accountEmail}>{accountEmail}</Text>
+                  <View style={styles.divider} />
+                  <Text style={styles.fieldLabel}>{t('settings.changeEmail')}</Text>
+                  <Text style={styles.fieldHint}>{t('settings.changeEmailHint')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newEmail}
+                    onChangeText={setNewEmail}
+                    placeholder={t('settings.changeEmailPlaceholder')}
+                    placeholderTextColor={SmartCartColors.textMuted}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    editable={!changingEmail}
+                  />
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.secondaryBtn,
+                      pressed && styles.secondaryBtnPressed,
+                      changingEmail && styles.secondaryBtnDisabled,
+                    ]}
+                    onPress={() => void handleChangeEmail()}
+                    disabled={changingEmail || !newEmail.trim()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('settings.changeEmailSubmit')}
+                  >
+                    {changingEmail ? (
+                      <ActivityIndicator color={SmartCartColors.primary} />
+                    ) : (
+                      <Text style={styles.secondaryBtnText}>{t('settings.changeEmailSubmit')}</Text>
+                    )}
+                  </Pressable>
+                  {emailChangeMessage ? (
+                    <Text style={styles.emailChangeMessage}>{emailChangeMessage}</Text>
+                  ) : null}
+                  <View style={styles.divider} />
+                </>
+              ) : null}
               <Pressable
                 style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
                 onPress={() => void handleLogout()}
@@ -447,12 +545,12 @@ export default function SettingsScreen() {
         visible={accountSheetVisible}
         onClose={() => setAccountSheetVisible(false)}
       />
-    </View>
+    </PremiumScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SmartCartColors.background },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -548,4 +646,22 @@ const styles = StyleSheet.create({
   },
   logoutBtnPressed: { backgroundColor: SmartCartColors.badge },
   logoutBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  accountEmail: { fontSize: 15, color: SmartCartColors.text, marginBottom: 4 },
+  secondaryBtn: {
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1,
+    borderColor: SmartCartColors.primary,
+    alignItems: 'center',
+  },
+  secondaryBtnPressed: { backgroundColor: `${SmartCartColors.primary}12` },
+  secondaryBtnDisabled: { opacity: 0.5 },
+  secondaryBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.primary },
+  emailChangeMessage: {
+    marginTop: 10,
+    fontSize: 13,
+    color: SmartCartColors.textSecondary,
+    lineHeight: 18,
+  },
 });

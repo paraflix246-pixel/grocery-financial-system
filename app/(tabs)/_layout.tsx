@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartShadow } from '@/src/theme/smartCart';
 import {
   getTabBarBottomPadding,
@@ -46,22 +47,33 @@ function WebTabScreenLayout({ children }: WebTabScreenLayoutProps) {
 
 export default function TabLayout() {
   const { t } = useTranslation();
+  const { theme } = useAppTheme();
   const headerShown = useClientOnlyValue(false, true);
   const insets = useSafeAreaInsets();
   const tabBarBottomPadding = getTabBarBottomPadding(insets.bottom);
   const tabBarHeight = getTabBarHeight(insets.bottom);
+
+  const tabBarStyle =
+    Platform.OS === 'web'
+      ? [styles.tabBar, { backgroundColor: theme.surface, borderTopColor: `${theme.primary}40` }]
+      : [
+          styles.tabBar,
+          {
+            height: tabBarHeight,
+            paddingBottom: tabBarBottomPadding,
+            backgroundColor: theme.surface,
+            borderTopColor: `${theme.primary}40`,
+          },
+        ];
 
   return (
     <Tabs
       screenLayout={Platform.OS === 'web' ? WebTabScreenLayout : undefined}
       screenOptions={{
         headerShown,
-        tabBarActiveTintColor: SmartCartColors.primary,
-        tabBarInactiveTintColor: SmartCartColors.textMuted,
-        tabBarStyle:
-          Platform.OS === 'web'
-            ? styles.tabBar
-            : [styles.tabBar, { height: tabBarHeight, paddingBottom: tabBarBottomPadding }],
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textMuted,
+        tabBarStyle,
         tabBarLabelStyle: styles.tabLabel,
         ...(Platform.OS === 'web' ? { animation: 'fade' as const, lazy: false } : null),
       }}>
@@ -167,9 +179,7 @@ const styles = StyleSheet.create({
     zIndex: -1,
   },
   tabBar: {
-    backgroundColor: '#fff',
-    borderTopColor: SmartCartColors.border,
-    borderTopWidth: 1,
+    borderTopWidth: 1.5,
     height: WEB_TAB_BAR_HEIGHT,
     paddingTop: TAB_BAR_TOP_PADDING,
     paddingBottom: 12,

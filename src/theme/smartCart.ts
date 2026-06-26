@@ -6,6 +6,8 @@ export const SmartCartColors = {
   primaryMuted: '#86EFAC',
   background: '#F5F5F7',
   card: '#FFFFFF',
+  cardElevated: '#FFFFFF',
+  accentGlow: 'rgba(34, 197, 94, 0.10)',
   text: '#1A1A1A',
   textSecondary: '#6B7280',
   textMuted: '#9CA3AF',

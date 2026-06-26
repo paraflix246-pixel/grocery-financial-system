@@ -18,6 +18,8 @@ import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { LegalFooter } from '@/src/components/legal/LegalFooter';
 import { FamilyPlanFeaturesList } from '@/src/components/FamilyPlanFeaturesList';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
+import { ThemePreviewMini } from '@/src/components/ThemePreviewMini';
+import { APP_THEME_LIST } from '@/src/theme/appThemes';
 
 import {
   COMMIT_NOTE,
@@ -128,6 +130,21 @@ function ProShimmerBadge({ label }: { label: string }) {
       />
       <Text style={styles.shimmerText}>{label}</Text>
     </LinearGradient>
+  );
+}
+
+function PaywallThemePreview({ label }: { label: string }) {
+  const proThemes = APP_THEME_LIST.filter((preset) => preset.isPremium);
+
+  return (
+    <View style={styles.themePreviewSection}>
+      <Text style={styles.themePreviewLabel}>{label}</Text>
+      <View style={styles.themePreviewRow}>
+        {proThemes.map((preset) => (
+          <ThemePreviewMini key={preset.id} preset={preset} size="sm" />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -301,6 +318,7 @@ export default function PaywallScreen() {
                 featureTextStyle={styles.featureText}
                 leadTextStyle={styles.featureText}
               />
+              <PaywallThemePreview label={t('features.labels.custom_themes')} />
             </View>
             <View style={[styles.selectIndicator, selectedPro && { backgroundColor: `${GREEN}22` }]}>
               <View style={[styles.selectDot, selectedPro && { backgroundColor: GREEN }]} />
@@ -638,5 +656,22 @@ const styles = StyleSheet.create({
   legalFooter: {
     marginTop: 0,
     paddingBottom: 2,
+  },
+  themePreviewSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: CARD_BORDER,
+    gap: 10,
+  },
+  themePreviewLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: TEXT_MUTED,
+  },
+  themePreviewRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
   },
 });

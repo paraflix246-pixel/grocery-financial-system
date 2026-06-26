@@ -20,14 +20,26 @@ export type AppThemeTokens = {
   /** i18n key under themes.* */
   nameKey: string;
   descriptionKey: string;
+  /** Base screen background — subtle primary tint on premium themes */
   background: string;
+  /** Semi-transparent primary wash at top of screen */
+  backgroundGradientTop: string;
+  /** Card / list row surfaces */
   surface: string;
+  /** Modals and elevated cards with a slight theme tint */
+  surfaceElevated: string;
   primary: string;
   primaryText: string;
   text: string;
   textMuted: string;
   border: string;
   headerBg: string;
+  /** Optional top bar gradient [start, end] */
+  headerGradient: [string, string];
+  /** rgba for corner highlight glows */
+  accentGlow: string;
+  /** Stronger corner glow + tinted surfaces (Pro themes) */
+  isPremium: boolean;
   /** Swatch preview colors for theme picker */
   swatch: [string, string];
 };
@@ -40,13 +52,18 @@ export const APP_THEMES: Record<AppThemeId, AppThemeTokens> = {
     nameKey: 'themes.pennyGreen.name',
     descriptionKey: 'themes.pennyGreen.description',
     background: '#F5F5F7',
+    backgroundGradientTop: 'rgba(34, 197, 94, 0.06)',
     surface: '#FFFFFF',
+    surfaceElevated: '#FFFFFF',
     primary: '#22C55E',
     primaryText: '#FFFFFF',
     text: '#1A1A1A',
     textMuted: '#9CA3AF',
     border: '#E5E7EB',
     headerBg: '#F5F5F7',
+    headerGradient: ['#F5F5F7', '#F0FDF4'],
+    accentGlow: 'rgba(34, 197, 94, 0.10)',
+    isPremium: false,
     swatch: ['#FFFFFF', '#22C55E'],
   },
   midnight_slate: {
@@ -54,55 +71,75 @@ export const APP_THEMES: Record<AppThemeId, AppThemeTokens> = {
     nameKey: 'themes.midnightSlate.name',
     descriptionKey: 'themes.midnightSlate.description',
     background: '#0F172A',
+    backgroundGradientTop: 'rgba(20, 184, 166, 0.20)',
     surface: '#1E293B',
+    surfaceElevated: '#273549',
     primary: '#14B8A6',
     primaryText: '#FFFFFF',
     text: '#F1F5F9',
     textMuted: '#94A3B8',
     border: '#334155',
     headerBg: '#0F172A',
+    headerGradient: ['#0F172A', '#134E4A'],
+    accentGlow: 'rgba(20, 184, 166, 0.38)',
+    isPremium: true,
     swatch: ['#1E293B', '#14B8A6'],
   },
   sunrise_coral: {
     id: 'sunrise_coral',
     nameKey: 'themes.sunriseCoral.name',
     descriptionKey: 'themes.sunriseCoral.description',
-    background: '#FFFBF5',
+    background: '#FFF7ED',
+    backgroundGradientTop: 'rgba(249, 115, 22, 0.16)',
     surface: '#FFFFFF',
+    surfaceElevated: '#FFFBF5',
     primary: '#F97316',
     primaryText: '#FFFFFF',
     text: '#292524',
     textMuted: '#A8A29E',
     border: '#FED7AA',
-    headerBg: '#FFFBF5',
+    headerBg: '#FFF7ED',
+    headerGradient: ['#FFF7ED', '#FFEDD5'],
+    accentGlow: 'rgba(249, 115, 22, 0.24)',
+    isPremium: true,
     swatch: ['#FFF7ED', '#F97316'],
   },
   ocean_blue: {
     id: 'ocean_blue',
     nameKey: 'themes.oceanBlue.name',
     descriptionKey: 'themes.oceanBlue.description',
-    background: '#F0F9FF',
+    background: '#EFF6FF',
+    backgroundGradientTop: 'rgba(29, 78, 216, 0.14)',
     surface: '#FFFFFF',
+    surfaceElevated: '#F0F9FF',
     primary: '#1D4ED8',
     primaryText: '#FFFFFF',
     text: '#0F172A',
     textMuted: '#64748B',
     border: '#BAE6FD',
-    headerBg: '#F0F9FF',
+    headerBg: '#EFF6FF',
+    headerGradient: ['#EFF6FF', '#DBEAFE'],
+    accentGlow: 'rgba(29, 78, 216, 0.22)',
+    isPremium: true,
     swatch: ['#FFFFFF', '#1D4ED8'],
   },
   lavender_pro: {
     id: 'lavender_pro',
     nameKey: 'themes.lavenderPro.name',
     descriptionKey: 'themes.lavenderPro.description',
-    background: '#FAF5FF',
+    background: '#F5F0FF',
+    backgroundGradientTop: 'rgba(124, 58, 237, 0.18)',
     surface: '#FFFFFF',
+    surfaceElevated: '#FAF5FF',
     primary: '#7C3AED',
     primaryText: '#FFFFFF',
     text: '#1E1B4B',
     textMuted: '#A78BFA',
     border: '#E9D5FF',
-    headerBg: '#FAF5FF',
+    headerBg: '#F5F0FF',
+    headerGradient: ['#F5F0FF', '#EDE9FE'],
+    accentGlow: 'rgba(124, 58, 237, 0.30)',
+    isPremium: true,
     swatch: ['#FFFFFF', '#7C3AED'],
   },
 };

@@ -4,6 +4,7 @@ import { SymbolView } from 'expo-symbols';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
+import { ThemePreviewMini } from '@/src/components/ThemePreviewMini';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import type { AppThemeId, AppThemeTokens } from '@/src/theme/appThemes';
@@ -101,19 +102,22 @@ function ThemeSwatch({
   onPress: () => void;
 }) {
   const { t } = useTranslation();
-  const [bg, accent] = preset.swatch;
 
   return (
     <Pressable
-      style={[styles.swatchCard, selected && styles.swatchCardSelected, locked && styles.swatchLocked]}
+      style={[
+        styles.swatchCard,
+        selected && [styles.swatchCardSelected, { borderColor: preset.primary, backgroundColor: `${preset.primary}0D` }],
+        locked && styles.swatchLocked,
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={t(preset.nameKey)}>
-      <View style={[styles.swatchPreview, { backgroundColor: bg, borderColor: preset.border }]}>
-        <View style={[styles.swatchAccent, { backgroundColor: accent }]} />
+      <View style={styles.swatchPreviewWrap}>
+        <ThemePreviewMini preset={preset} selected={selected} />
         {selected && !locked ? (
-          <View style={[styles.checkBadge, { backgroundColor: accent }]}>
+          <View style={[styles.checkBadge, { backgroundColor: preset.primary }]}>
             <SymbolView
               name={{ ios: 'checkmark', android: 'check', web: 'check' }}
               tintColor="#fff"
@@ -208,26 +212,14 @@ const styles = StyleSheet.create({
     borderColor: SmartCartColors.border,
     backgroundColor: SmartCartColors.background,
   },
-  swatchCardSelected: {
-    borderColor: SmartCartColors.primary,
-    backgroundColor: `${SmartCartColors.primary}0D`,
-  },
+  swatchCardSelected: {},
   swatchLocked: {
     opacity: 0.72,
   },
-  swatchPreview: {
+  swatchPreviewWrap: {
     height: 52,
-    borderRadius: SmartCartRadius.sm,
-    borderWidth: 1,
     marginBottom: 8,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-    padding: 8,
-  },
-  swatchAccent: {
-    width: 28,
-    height: 8,
-    borderRadius: 4,
+    position: 'relative',
   },
   checkBadge: {
     position: 'absolute',
