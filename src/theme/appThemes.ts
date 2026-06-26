@@ -6,6 +6,7 @@
  * - Sunrise Coral: warm cream + coral accent
  * - Ocean Blue: cool white + deep blue
  * - Lavender Pro: soft purple + violet accent
+ * - Ruby Red: cream white + bold red accent — premium feel
  */
 
 export type AppThemeId =
@@ -13,7 +14,8 @@ export type AppThemeId =
   | 'midnight_slate'
   | 'sunrise_coral'
   | 'ocean_blue'
-  | 'lavender_pro';
+  | 'lavender_pro'
+  | 'ruby_red';
 
 export type AppThemeTokens = {
   id: AppThemeId;
@@ -141,6 +143,25 @@ export const APP_THEMES: Record<AppThemeId, AppThemeTokens> = {
     accentGlow: 'rgba(124, 58, 237, 0.30)',
     isPremium: true,
     swatch: ['#FFFFFF', '#7C3AED'],
+  },
+  ruby_red: {
+    id: 'ruby_red',
+    nameKey: 'themes.rubyRed.name',
+    descriptionKey: 'themes.rubyRed.description',
+    background: '#FFFBF7',
+    backgroundGradientTop: 'rgba(220, 38, 38, 0.16)',
+    surface: '#FFFFFF',
+    surfaceElevated: '#FFF5F5',
+    primary: '#DC2626',
+    primaryText: '#FFFFFF',
+    text: '#1C1917',
+    textMuted: '#A8A29E',
+    border: '#FECACA',
+    headerBg: '#FFFBF7',
+    headerGradient: ['#FFFBF7', '#FEE2E2'],
+    accentGlow: 'rgba(220, 38, 38, 0.28)',
+    isPremium: true,
+    swatch: ['#FFFBF7', '#DC2626'],
   },
 };
 

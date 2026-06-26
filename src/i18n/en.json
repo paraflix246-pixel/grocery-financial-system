@@ -253,7 +253,9 @@
       "cheapest_basket": "Cheapest cart across stores",
       "api_access": "Multi-store price comparison",
       "pantry_unlimited": "Unlimited pantry tracking",
-      "custom_themes": "Custom app themes & colors"
+      "custom_themes": "Custom app themes & colors",
+      "custom_fonts": "Custom fonts",
+      "custom_avatars": "Custom avatars"
     }
   },
   "onboarding": {
@@ -426,7 +428,9 @@
         "export": "Export spending data",
         "unlimitedPantry": "Unlimited pantry tracking",
         "adFree": "Ad-free experience (when ads are shown on Free)",
-        "customThemes": "Custom app themes & colors"
+        "customThemes": "Custom app themes & colors",
+        "customFonts": "Custom fonts",
+        "customAvatars": "Custom avatars"
       },
       "groups": {
         "receiptsPrices": "Receipts & prices",
@@ -460,6 +464,12 @@
     "themeHint": "Personalize Penny Pantry with Pro themes",
     "themeLocked": "Upgrade to Pro to unlock custom themes",
     "themeLockedBtn": "Unlock with Pro",
+    "font": "Font",
+    "fontHint": "Choose a typeface for the whole app (Pro)",
+    "fontLocked": "Upgrade to Pro to unlock custom fonts",
+    "avatar": "Avatar",
+    "avatarHint": "Pick a character for your home greeting (Pro)",
+    "avatarLocked": "Upgrade to Pro to unlock custom avatars",
     "languageHint": "Changes the language across the app",
     "unsavedChangesTitle": "Save changes?",
     "unsavedChangesMessage": "You have unsaved appearance changes.",
@@ -515,6 +525,47 @@
     "lavenderPro": {
       "name": "Lavender Pro",
       "description": "Soft purple palette with rich violet accents."
+    },
+    "rubyRed": {
+      "name": "Ruby Red",
+      "description": "Cream white with bold red accents — premium and confident."
     }
+  },
+  "fonts": {
+    "sample": "Penny Pantry",
+    "system": {
+      "name": "System",
+      "description": "Your device's default typeface."
+    },
+    "inter": {
+      "name": "Inter",
+      "description": "Clean, modern sans-serif."
+    },
+    "nunito": {
+      "name": "Nunito",
+      "description": "Rounded and friendly."
+    },
+    "lora": {
+      "name": "Lora",
+      "description": "Elegant serif for a refined look."
+    },
+    "spaceMono": {
+      "name": "Space Mono",
+      "description": "Modern monospace — crisp and technical."
+    },
+    "poppins": {
+      "name": "Poppins Bold",
+      "description": "Bold display weight for headlines."
+    }
+  },
+  "avatars": {
+    "cart": { "name": "Cart Buddy" },
+    "pennyPig": { "name": "Penny Pig" },
+    "produce": { "name": "Fresh Greens" },
+    "carrot": { "name": "Carrot Champ" },
+    "apple": { "name": "Apple Pick" },
+    "basket": { "name": "Market Basket" },
+    "receipt": { "name": "Receipt Pro" },
+    "savings": { "name": "Savings Star" }
   }
 }

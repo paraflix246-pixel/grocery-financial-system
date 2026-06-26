@@ -71,6 +71,8 @@ export const PRO_PLAN_FEATURES = [
   'Unlimited pantry tracking',
   'Ad-free experience (when ads are shown on Free)',
   'Custom app themes & colors',
+  'Custom fonts',
+  'Custom avatars',
 ] as const;
 
 export const FAMILY_PLAN_FEATURES = [
@@ -100,7 +102,7 @@ export const PRO_PLAN_FEATURE_GROUPS = [
   },
   {
     title: 'Experience',
-    items: [PRO_PLAN_FEATURES[8], PRO_PLAN_FEATURES[9]],
+    items: [PRO_PLAN_FEATURES[8], PRO_PLAN_FEATURES[9], PRO_PLAN_FEATURES[10], PRO_PLAN_FEATURES[11]],
   },
 ] as const;
 
@@ -135,4 +137,6 @@ export const PRO_FEATURE_LABELS = {
   api_access: PRO_PLAN_FEATURES[3],
   pantry_unlimited: UNLIMITED_PANTRY_LABEL,
   custom_themes: PRO_PLAN_FEATURES[9],
+  custom_fonts: PRO_PLAN_FEATURES[10],
+  custom_avatars: PRO_PLAN_FEATURES[11],
 } as const;

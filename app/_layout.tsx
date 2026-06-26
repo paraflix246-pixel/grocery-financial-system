@@ -2,6 +2,10 @@ import 'react-native-reanimated';
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, useSegments, type Href } from 'expo-router';
 import { useFonts } from 'expo-font';
+import { Inter_400Regular } from '@expo-google-fonts/inter';
+import { Nunito_600SemiBold } from '@expo-google-fonts/nunito';
+import { Lora_400Regular } from '@expo-google-fonts/lora';
+import { Poppins_700Bold } from '@expo-google-fonts/poppins';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
@@ -19,6 +23,8 @@ import { UpgradePromptProvider } from '@/src/components/UpgradePromptProvider';
 import { TrialReminderProvider } from '@/src/components/TrialReminderProvider';
 import { SmartCartColors } from '@/src/theme/smartCart';
 import { AppThemeProvider, loadStoredThemeId } from '@/src/theme/AppThemeProvider';
+import { AppFontProvider } from '@/src/theme/AppFontProvider';
+import { AvatarProvider } from '@/src/components/avatars/AvatarProvider';
 import { initI18n, i18n } from '@/src/i18n';
 import { initStorage } from '@/src/services/storageService';
 import { bootstrapExternalPriceProviders } from '@/src/services/externalPriceBootstrap';
@@ -177,6 +183,10 @@ function FamilyRealtimeBootstrap() {
 export default function RootLayout() {
   const [loaded, fontError] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    Inter_400Regular,
+    Nunito_600SemiBold,
+    Lora_400Regular,
+    Poppins_700Bold,
   });
   const [fontsTimedOut, setFontsTimedOut] = useState(Platform.OS === 'web');
   const [localeReady, setLocaleReady] = useState(false);
@@ -277,19 +287,23 @@ export default function RootLayout() {
     <GlobalErrorBoundary>
       <I18nextProvider i18n={i18n}>
         <AppThemeProvider>
-          <GestureHandlerRootView style={styles.root}>
-            <SafeAreaProvider initialMetrics={initialWindowMetrics}>
-              <UpgradePromptProvider>
-                <TrialReminderProvider>
-                  <FamilyRealtimeBootstrap />
-                  <AuthSessionGuard />
-                  <DevConnectionBanner />
-                  <StorageSlowBanner />
-                  <RootLayoutNav />
-                </TrialReminderProvider>
-              </UpgradePromptProvider>
-            </SafeAreaProvider>
-          </GestureHandlerRootView>
+          <AppFontProvider>
+            <AvatarProvider>
+              <GestureHandlerRootView style={styles.root}>
+                <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+                  <UpgradePromptProvider>
+                    <TrialReminderProvider>
+                      <FamilyRealtimeBootstrap />
+                      <AuthSessionGuard />
+                      <DevConnectionBanner />
+                      <StorageSlowBanner />
+                      <RootLayoutNav />
+                    </TrialReminderProvider>
+                  </UpgradePromptProvider>
+                </SafeAreaProvider>
+              </GestureHandlerRootView>
+            </AvatarProvider>
+          </AppFontProvider>
         </AppThemeProvider>
       </I18nextProvider>
     </GlobalErrorBoundary>

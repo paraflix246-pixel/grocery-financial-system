@@ -94,6 +94,8 @@ export function ProPlanFeaturesList({
         'paywall.features.pro.unlimitedPantry',
         'paywall.features.pro.adFree',
         'paywall.features.pro.customThemes',
+        'paywall.features.pro.customFonts',
+        'paywall.features.pro.customAvatars',
       ] as const;
       return t(keys[index] ?? keys[0]);
     });

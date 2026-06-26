@@ -5,9 +5,14 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { ThemePreviewMini } from '@/src/components/ThemePreviewMini';
+import { AvatarBadge } from '@/src/components/avatars/AvatarBadge';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
+import { useAppFont } from '@/src/theme/AppFontProvider';
+import type { AppFontId } from '@/src/theme/appFonts';
 import type { AppThemeId, AppThemeTokens } from '@/src/theme/appThemes';
+import type { AppAvatarId } from '@/src/components/avatars/appAvatars';
+import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { setAppLocale, type AppLocale } from '@/src/i18n';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
@@ -100,6 +105,148 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
             onPress={() => handleSelect(preset.id)}
           />
         ))}
+      </View>
+    </View>
+  );
+}
+
+type FontPickerProps = {
+  fontId?: AppFontId;
+  onFontSelect?: (id: AppFontId) => void;
+};
+
+export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPickerProps = {}) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { fontId: contextFontId, setFontId, fonts } = useAppFont();
+  const fontId = controlledFontId ?? contextFontId;
+  const { unlocked, requestAccess } = useFeatureGate('custom_fonts');
+
+  const handleSelect = (id: AppFontId) => {
+    const preset = fonts.find((f) => f.id === id);
+    if (preset?.isPro && !unlocked) {
+      requestAccess();
+      return;
+    }
+    if (onFontSelect) {
+      onFontSelect(id);
+      return;
+    }
+    void setFontId(id);
+  };
+
+  return (
+    <View style={styles.themeSection}>
+      {!unlocked ? (
+        <Pressable style={styles.lockedBanner} onPress={() => router.push('/paywall' as never)}>
+          <SymbolView
+            name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
+            tintColor={SmartCartColors.primary}
+            size={16}
+          />
+          <Text style={styles.lockedText}>{t('settings.fontLocked')}</Text>
+          <Text style={styles.lockedLink}>{t('settings.themeLockedBtn')}</Text>
+        </Pressable>
+      ) : null}
+
+      <View style={styles.fontList}>
+        {fonts.map((preset) => {
+          const locked = preset.isPro && !unlocked;
+          const selected = fontId === preset.id;
+          return (
+            <Pressable
+              key={preset.id}
+              style={[
+                styles.fontCard,
+                selected && [styles.fontCardSelected, { borderColor: SmartCartColors.primary }],
+                locked && styles.swatchLocked,
+              ]}
+              onPress={() => handleSelect(preset.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}>
+              <Text
+                style={[
+                  styles.fontSample,
+                  preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
+                  selected && { color: SmartCartColors.primary },
+                ]}
+                numberOfLines={1}>
+                {t(preset.sampleKey)}
+              </Text>
+              <Text style={styles.fontName} numberOfLines={1}>
+                {t(preset.nameKey)}
+              </Text>
+              {locked ? (
+                <SymbolView
+                  name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
+                  tintColor={SmartCartColors.textMuted}
+                  size={12}
+                />
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+type AvatarPickerProps = {
+  avatarId?: AppAvatarId;
+  onAvatarSelect?: (id: AppAvatarId) => void;
+};
+
+export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: AvatarPickerProps = {}) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { avatarId: contextAvatarId, setAvatarId, avatars } = useAvatar();
+  const avatarId = controlledAvatarId ?? contextAvatarId;
+  const { unlocked, requestAccess } = useFeatureGate('custom_avatars');
+
+  const handleSelect = (id: AppAvatarId) => {
+    if (!unlocked) {
+      requestAccess();
+      return;
+    }
+    if (onAvatarSelect) {
+      onAvatarSelect(id);
+      return;
+    }
+    void setAvatarId(id);
+  };
+
+  return (
+    <View style={styles.themeSection}>
+      {!unlocked ? (
+        <Pressable style={styles.lockedBanner} onPress={() => router.push('/paywall' as never)}>
+          <SymbolView
+            name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
+            tintColor={SmartCartColors.primary}
+            size={16}
+          />
+          <Text style={styles.lockedText}>{t('settings.avatarLocked')}</Text>
+          <Text style={styles.lockedLink}>{t('settings.themeLockedBtn')}</Text>
+        </Pressable>
+      ) : null}
+
+      <View style={styles.avatarGrid}>
+        {avatars.map((preset) => {
+          const selected = avatarId === preset.id;
+          return (
+            <Pressable
+              key={preset.id}
+              style={[styles.avatarCell, selected && styles.avatarCellSelected]}
+              onPress={() => handleSelect(preset.id)}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
+              accessibilityLabel={t(preset.nameKey)}>
+              <AvatarBadge preset={preset} size="md" />
+              <Text style={styles.avatarName} numberOfLines={1}>
+                {t(preset.nameKey)}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -262,5 +409,55 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     color: SmartCartColors.textMuted,
+  },
+  fontList: { gap: 8 },
+  fontCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1.5,
+    borderColor: SmartCartColors.border,
+    backgroundColor: SmartCartColors.background,
+  },
+  fontCardSelected: {
+    backgroundColor: `${SmartCartColors.primary}0D`,
+  },
+  fontSample: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: SmartCartColors.text,
+  },
+  fontName: {
+    fontSize: 11,
+    color: SmartCartColors.textMuted,
+    maxWidth: 72,
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  avatarCell: {
+    width: '22%',
+    minWidth: 68,
+    alignItems: 'center',
+    gap: 4,
+    padding: 6,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  avatarCellSelected: {
+    borderColor: SmartCartColors.primary,
+    backgroundColor: `${SmartCartColors.primary}0D`,
+  },
+  avatarName: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: SmartCartColors.textMuted,
+    textAlign: 'center',
   },
 });

@@ -19,6 +19,9 @@ import { LegalFooter } from '@/src/components/legal/LegalFooter';
 import { FamilyPlanFeaturesList } from '@/src/components/FamilyPlanFeaturesList';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 import { ThemePreviewMini } from '@/src/components/ThemePreviewMini';
+import { AvatarBadge } from '@/src/components/avatars/AvatarBadge';
+import { APP_AVATAR_LIST } from '@/src/components/avatars/appAvatars';
+import { APP_FONT_LIST } from '@/src/theme/appFonts';
 import { APP_THEME_LIST } from '@/src/theme/appThemes';
 
 import {
@@ -142,6 +145,45 @@ function PaywallThemePreview({ label }: { label: string }) {
       <View style={styles.themePreviewRow}>
         {proThemes.map((preset) => (
           <ThemePreviewMini key={preset.id} preset={preset} size="sm" />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PaywallFontPreview({ label }: { label: string }) {
+  const proFonts = APP_FONT_LIST.filter((preset) => preset.isPro).slice(0, 4);
+
+  return (
+    <View style={styles.themePreviewSection}>
+      <Text style={styles.themePreviewLabel}>{label}</Text>
+      <View style={styles.fontPreviewRow}>
+        {proFonts.map((preset) => (
+          <View key={preset.id} style={styles.fontPreviewChip}>
+            <Text
+              style={[
+                styles.fontPreviewText,
+                preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
+              ]}
+              numberOfLines={1}>
+              Aa
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function PaywallAvatarPreview({ label }: { label: string }) {
+  const previewAvatars = APP_AVATAR_LIST.slice(0, 6);
+
+  return (
+    <View style={styles.themePreviewSection}>
+      <Text style={styles.themePreviewLabel}>{label}</Text>
+      <View style={styles.avatarPreviewRow}>
+        {previewAvatars.map((preset) => (
+          <AvatarBadge key={preset.id} preset={preset} size="sm" />
         ))}
       </View>
     </View>
@@ -319,6 +361,8 @@ export default function PaywallScreen() {
                 leadTextStyle={styles.featureText}
               />
               <PaywallThemePreview label={t('features.labels.custom_themes')} />
+              <PaywallFontPreview label={t('features.labels.custom_fonts')} />
+              <PaywallAvatarPreview label={t('features.labels.custom_avatars')} />
             </View>
             <View style={[styles.selectIndicator, selectedPro && { backgroundColor: `${GREEN}22` }]}>
               <View style={[styles.selectDot, selectedPro && { backgroundColor: GREEN }]} />
@@ -673,5 +717,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  fontPreviewRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  fontPreviewChip: {
+    minWidth: 44,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    alignItems: 'center',
+  },
+  fontPreviewText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: TEXT_PRIMARY,
+  },
+  avatarPreviewRow: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
   },
 });

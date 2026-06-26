@@ -28,11 +28,15 @@ import {
   setOpenLastListPreference,
 } from '@/src/utils/listNavigationPrefs';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
-import { LanguagePicker, ThemePicker } from '@/src/components/settings/AppearanceSettings';
+import { LanguagePicker, ThemePicker, FontPicker, AvatarPicker } from '@/src/components/settings/AppearanceSettings';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
+import { useAppFont } from '@/src/theme/AppFontProvider';
 import type { AppThemeId } from '@/src/theme/appThemes';
+import type { AppFontId } from '@/src/theme/appFonts';
+import type { AppAvatarId } from '@/src/components/avatars/appAvatars';
+import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { i18n, previewAppLocale, setAppLocale, type AppLocale } from '@/src/i18n';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
@@ -76,6 +80,20 @@ export default function SettingsScreen() {
     revertTheme,
     setThemeId: persistThemeId,
   } = useAppTheme();
+  const {
+    fontId: persistedFontId,
+    ready: fontReady,
+    previewFont,
+    revertFont,
+    setFontId: persistFontId,
+  } = useAppFont();
+  const {
+    avatarId: persistedAvatarId,
+    ready: avatarReady,
+    previewAvatar,
+    revertAvatar,
+    setAvatarId: persistAvatarId,
+  } = useAvatar();
   const { settings, loadSettings, saveSettings } = useSettingsStore();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
@@ -86,6 +104,10 @@ export default function SettingsScreen() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [savedThemeId, setSavedThemeId] = useState<AppThemeId | null>(null);
   const [draftThemeId, setDraftThemeId] = useState<AppThemeId | null>(null);
+  const [savedFontId, setSavedFontId] = useState<AppFontId | null>(null);
+  const [draftFontId, setDraftFontId] = useState<AppFontId | null>(null);
+  const [savedAvatarId, setSavedAvatarId] = useState<AppAvatarId | null>(null);
+  const [draftAvatarId, setDraftAvatarId] = useState<AppAvatarId | null>(null);
   const [savedLocale, setSavedLocale] = useState<AppLocale | null>(null);
   const [draftLocale, setDraftLocale] = useState<AppLocale | null>(null);
   const appearanceInitialized = useRef(false);
@@ -133,40 +155,63 @@ export default function SettingsScreen() {
   }, [load]);
 
   useEffect(() => {
-    if (!themeReady || appearanceInitialized.current) return;
+    if (!themeReady || !fontReady || !avatarReady || appearanceInitialized.current) return;
     appearanceInitialized.current = true;
     const locale: AppLocale = i18n.language === 'es' ? 'es' : 'en';
     setSavedThemeId(persistedThemeId);
     setDraftThemeId(persistedThemeId);
+    setSavedFontId(persistedFontId);
+    setDraftFontId(persistedFontId);
+    setSavedAvatarId(persistedAvatarId);
+    setDraftAvatarId(persistedAvatarId);
     setSavedLocale(locale);
     setDraftLocale(locale);
-  }, [themeReady, persistedThemeId]);
+  }, [themeReady, fontReady, avatarReady, persistedThemeId, persistedFontId, persistedAvatarId]);
 
   const appearanceDirty =
     savedThemeId !== null &&
     draftThemeId !== null &&
+    savedFontId !== null &&
+    draftFontId !== null &&
+    savedAvatarId !== null &&
+    draftAvatarId !== null &&
     savedLocale !== null &&
     draftLocale !== null &&
-    (draftThemeId !== savedThemeId || draftLocale !== savedLocale);
+    (draftThemeId !== savedThemeId ||
+      draftFontId !== savedFontId ||
+      draftAvatarId !== savedAvatarId ||
+      draftLocale !== savedLocale);
 
   const saveAppearance = useCallback(async () => {
-    if (!draftThemeId || !draftLocale) return;
+    if (!draftThemeId || !draftFontId || !draftAvatarId || !draftLocale) return;
     await persistThemeId(draftThemeId);
+    await persistFontId(draftFontId);
+    await persistAvatarId(draftAvatarId);
     await setAppLocale(draftLocale);
     setSavedThemeId(draftThemeId);
+    setSavedFontId(draftFontId);
+    setSavedAvatarId(draftAvatarId);
     setSavedLocale(draftLocale);
-  }, [draftThemeId, draftLocale, persistThemeId]);
+  }, [draftThemeId, draftFontId, draftAvatarId, draftLocale, persistThemeId, persistFontId, persistAvatarId]);
 
   const discardAppearance = useCallback(() => {
     if (savedThemeId) {
       revertTheme();
       setDraftThemeId(savedThemeId);
     }
+    if (savedFontId) {
+      revertFont();
+      setDraftFontId(savedFontId);
+    }
+    if (savedAvatarId) {
+      revertAvatar();
+      setDraftAvatarId(savedAvatarId);
+    }
     if (savedLocale) {
       previewAppLocale(savedLocale);
       setDraftLocale(savedLocale);
     }
-  }, [savedThemeId, savedLocale, revertTheme]);
+  }, [savedThemeId, savedFontId, savedAvatarId, savedLocale, revertTheme, revertFont, revertAvatar]);
 
   const handleDraftThemeSelect = useCallback(
     (id: AppThemeId) => {
@@ -174,6 +219,22 @@ export default function SettingsScreen() {
       previewTheme(id);
     },
     [previewTheme],
+  );
+
+  const handleDraftFontSelect = useCallback(
+    (id: AppFontId) => {
+      setDraftFontId(id);
+      previewFont(id);
+    },
+    [previewFont],
+  );
+
+  const handleDraftAvatarSelect = useCallback(
+    (id: AppAvatarId) => {
+      setDraftAvatarId(id);
+      previewAvatar(id);
+    },
+    [previewAvatar],
   );
 
   const handleDraftLocaleSelect = useCallback((locale: AppLocale) => {
@@ -379,6 +440,18 @@ export default function SettingsScreen() {
           <Text style={styles.fieldHint}>{t('settings.themeHint')}</Text>
           {draftThemeId ? (
             <ThemePicker themeId={draftThemeId} onThemeSelect={handleDraftThemeSelect} />
+          ) : null}
+          <View style={styles.divider} />
+          <Text style={styles.fieldLabel}>{t('settings.font')}</Text>
+          <Text style={styles.fieldHint}>{t('settings.fontHint')}</Text>
+          {draftFontId ? (
+            <FontPicker fontId={draftFontId} onFontSelect={handleDraftFontSelect} />
+          ) : null}
+          <View style={styles.divider} />
+          <Text style={styles.fieldLabel}>{t('settings.avatar')}</Text>
+          <Text style={styles.fieldHint}>{t('settings.avatarHint')}</Text>
+          {draftAvatarId ? (
+            <AvatarPicker avatarId={draftAvatarId} onAvatarSelect={handleDraftAvatarSelect} />
           ) : null}
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('common.language')}</Text>

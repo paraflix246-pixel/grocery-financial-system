@@ -18,7 +18,9 @@ export type TierGatedFeature =
   | 'multi_user_sync'
   | 'budget_forecasting'
   | 'cheapest_basket'
-  | 'custom_themes';
+  | 'custom_themes'
+  | 'custom_fonts'
+  | 'custom_avatars';
 
 export type TierLimitConfig = {
   receiptsPerMonth: number | null;
@@ -35,6 +37,8 @@ export type TierLimitConfig = {
   cheapestBasket: boolean;
   csvExport: boolean;
   customThemes: boolean;
+  customFonts: boolean;
+  customAvatars: boolean;
 };
 
 const FREE_LIMITS: TierLimitConfig = {
@@ -52,6 +56,8 @@ const FREE_LIMITS: TierLimitConfig = {
   cheapestBasket: false,
   csvExport: false,
   customThemes: false,
+  customFonts: false,
+  customAvatars: false,
 };
 
 const PRO_LIMITS: TierLimitConfig = {
@@ -69,6 +75,8 @@ const PRO_LIMITS: TierLimitConfig = {
   cheapestBasket: true,
   csvExport: true,
   customThemes: true,
+  customFonts: true,
+  customAvatars: true,
 };
 
 /** Legacy household tier uses the same limits as Pro. */
@@ -111,6 +119,10 @@ export function tierAllowsFeature(feature: TierGatedFeature, limits: TierLimitCo
       return limits.cheapestBasket;
     case 'custom_themes':
       return limits.customThemes;
+    case 'custom_fonts':
+      return limits.customFonts;
+    case 'custom_avatars':
+      return limits.customAvatars;
     default:
       return true;
   }

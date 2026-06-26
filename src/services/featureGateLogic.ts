@@ -10,7 +10,9 @@ export type PersonalGatedFeature =
   | 'export_advanced'
   | 'budget_forecasting'
   | 'cheapest_basket'
-  | 'custom_themes';
+  | 'custom_themes'
+  | 'custom_fonts'
+  | 'custom_avatars';
 
 export type GatedFeature = PersonalGatedFeature | WorkspaceGatedFeature;
 
