@@ -40,5 +40,16 @@
 
   Supabase variables (do not edit)
   --------------------------------
-  {{ .ConfirmationURL }} — auth action link
+  {{ .ConfirmationURL }} — auth action link (confirm, invite, magic link,
+                           change email, reset password)
+  {{ .NewEmail }}        — new email address (change-email.html only)
+  {{ .Token }}           — 6-digit OTP (reauthentication.html only)
+  {{ .SiteURL }}         — app Site URL (optional; not used in current templates)
+
+  Template files
+  --------------
+  confirm-signup.html, invite-user.html, magic-link.html, change-email.html,
+  reset-password.html, reauthentication.html
+
+  Subject lines: src/services/auth/emailBranding.ts → SUPABASE_EMAIL_SUBJECTS
 -->

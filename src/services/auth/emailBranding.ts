@@ -1,3 +1,14 @@
+/** Recommended Supabase Dashboard subject lines (paste into Authentication → Email Templates). */
+export const SUPABASE_EMAIL_SUBJECTS = {
+  confirmSignup: 'Confirm your Penny Pantry email',
+  inviteUser: "You've been invited to Penny Pantry",
+  magicLink: 'Your Penny Pantry sign-in link',
+  changeEmail: 'Confirm your new Penny Pantry email',
+  resetPassword: 'Reset your Penny Pantry password',
+  /** Include {{ .Token }} so the code appears in mobile notification previews. */
+  reauthentication: '{{ .Token }} is your Penny Pantry verification code',
+} as const;
+
 /** Shared Penny Pantry email design tokens (matches onboardingTheme / SmartCartColors). */
 export const EMAIL_BRAND = {
   green: '#22C55E',
