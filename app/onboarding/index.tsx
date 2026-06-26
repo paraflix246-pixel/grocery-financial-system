@@ -19,7 +19,7 @@ import {
 } from '@/src/components/onboarding/OnboardingFeatureSlide';
 import { OnboardingSignupSlide } from '@/src/components/onboarding/OnboardingSignupSlide';
 import { signInWithApple, signInWithGoogle } from '@/src/services/authService';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { OnboardingColors, OnboardingSlideAccents } from '@/src/theme/onboardingTheme';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
 const SLIDE_COUNT = 4;
@@ -30,18 +30,21 @@ const FEATURE_SLIDES: FeatureSlideData[] = [
     icon: { ios: 'banknote.fill', android: 'savings', web: 'savings' },
     titleParts: ['Save money', 'on every shop'],
     subtitle: 'Track spending and save more every day.',
+    accent: OnboardingSlideAccents.green,
   },
   {
     key: 'compare',
     icon: { ios: 'tag.fill', android: 'sell', web: 'sell' },
     titleParts: ['Compare prices', 'in real time'],
     subtitle: 'Find the best deals across stores before you buy.',
+    accent: OnboardingSlideAccents.yellow,
   },
   {
     key: 'lists',
     icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
     titleParts: ['Build smarter', 'shopping lists'],
     subtitle: 'Organize, suggest, and stay on track.',
+    accent: OnboardingSlideAccents.purple,
   },
 ];
 
@@ -231,7 +234,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   slide: {
-    paddingHorizontal: 4,
+    flex: 1,
+    alignItems: 'center',
   },
   footer: {
     paddingHorizontal: 28,
