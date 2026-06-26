@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useEffect, useState } from 'react';
 
 import { Text } from '@/components/Themed';
@@ -30,7 +30,7 @@ export function StorageSlowBanner() {
     return () => clearTimeout(slowTimer);
   }, []);
 
-  if (dismissed) return null;
+  if (Platform.OS === 'web' || dismissed) return null;
 
   const showDegraded = mode === 'async';
   const showSlow = slow && mode === 'pending';

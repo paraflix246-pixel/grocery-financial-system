@@ -36,7 +36,7 @@ export default function TermsScreen() {
 
       <LegalSection heading="Penny Pantry Pro">
         Pro features may require a paid subscription. Pricing is shown in the app (currently
-        $4.99/month or $49.99/year). Subscriptions, billing, and refunds are handled through the
+        $3.99/month or $39.99/year). Subscriptions, billing, and refunds are handled through the
         applicable app store when payment is enabled. During the MVP period, Pro may be available as
         a local mock without real payment processing.
       </LegalSection>
