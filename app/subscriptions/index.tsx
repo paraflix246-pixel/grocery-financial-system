@@ -272,7 +272,13 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12 },
 
-  benefitText: { fontSize: 14, color: SmartCartColors.text, flex: 1, lineHeight: 20 },
+  benefitText: {
+    fontSize: 13,
+    color: SmartCartColors.text,
+    flex: 1,
+    flexShrink: 1,
+    lineHeight: 20,
+  },
 
   upgradeBtn: {
 

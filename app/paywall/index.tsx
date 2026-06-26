@@ -288,19 +288,21 @@ export default function PaywallScreen() {
               <View style={styles.featureList}>
                 {'isPro' in plan && plan.isPro ? (
                   <ProPlanFeaturesList
+                    variant="full"
                     accentColor={plan.accent ?? GREEN}
                     mutedColor={TEXT_MUTED}
                     featureTextStyle={styles.featureText}
-                    secondaryTextStyle={styles.featureTextSecondary}
                   />
                 ) : (
                   FREE_PLAN_FEATURES.map((f) => (
                     <View key={f} style={styles.featureRow}>
-                      <SymbolView
-                        name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
-                        tintColor={plan.accent ?? TEXT_MUTED}
-                        size={18}
-                      />
+                      <View style={styles.featureIconWrap}>
+                        <SymbolView
+                          name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
+                          tintColor={plan.accent ?? TEXT_MUTED}
+                          size={18}
+                        />
+                      </View>
                       <Text style={styles.featureText}>{f}</Text>
                     </View>
                   ))
@@ -483,13 +485,29 @@ const styles = StyleSheet.create({
 
   },
 
-  featureList: { marginTop: 16 },
+  featureList: { marginTop: 16, paddingRight: 4 },
 
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    width: '100%',
+  },
 
-  featureText: { flex: 1, fontSize: 14, color: 'rgba(255,255,255,0.88)', lineHeight: 20 },
+  featureIconWrap: {
+    width: 18,
+    height: 18,
+    flexShrink: 0,
+    marginTop: 1,
+  },
 
-  featureTextSecondary: { color: 'rgba(255,255,255,0.72)' },
+  featureText: {
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.88)',
+    lineHeight: 20,
+  },
 
   selectIndicator: {
 

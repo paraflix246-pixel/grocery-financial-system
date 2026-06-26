@@ -73,10 +73,10 @@ export default function UpgradeScreen() {
           </View>
           <Text style={styles.proCardLead}>Everything you need to shop smarter as a family:</Text>
           <ProPlanFeaturesList
+            variant="full"
             accentColor={GREEN}
             mutedColor={TEXT_MUTED}
             featureTextStyle={styles.benefitText}
-            secondaryTextStyle={styles.benefitTextSecondary}
           />
         </View>
 
@@ -184,15 +184,11 @@ const styles = StyleSheet.create({
   },
   benefitText: {
     color: TEXT_PRIMARY,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
     flex: 1,
-    lineHeight: 21,
-  },
-  benefitTextSecondary: {
-    color: 'rgba(255,255,255,0.75)',
-    fontSize: 13,
-    fontWeight: '400',
+    flexShrink: 1,
+    lineHeight: 20,
   },
   upgradeBtn: {
     backgroundColor: GREEN,

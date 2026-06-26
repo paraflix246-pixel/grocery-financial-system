@@ -12,6 +12,8 @@ export const PRO_CTA_LABEL = 'Start saving with Pro';
 
 export const PRO_BADGE_LABEL = 'Best for families';
 
+export const PRO_CARD_FRAMING = 'Everything in Free, plus:';
+
 export const CONTINUE_FREE_LABEL = 'Try Free first';
 
 export const COMMIT_NOTE = 'Cancel anytime — no contracts.';
@@ -31,34 +33,78 @@ export const proMonthlyLabel = `${PRO_MONTHLY_PRICE}/mo`;
 export const proYearlyLabel = `${PRO_YEARLY_PRICE}/yr`;
 
 export const FREE_PLAN_FEATURES = [
-  `Try with up to ${FREE_RECEIPT_SCAN_LIMIT} receipt scans/month`,
+  `Up to ${FREE_RECEIPT_SCAN_LIMIT} receipt scans/month`,
   'Build a basic grocery list',
-  `Spot recent price changes (${FREE_PRICE_HISTORY_DAYS}-day history)`,
+  `${FREE_PRICE_HISTORY_DAYS}-day price history`,
   'Set price alerts manually',
-  'Track one store at a time',
+  `${FREE_MAX_STORES} store at a time`,
   `Pantry capped at ${FREE_PANTRY_MAX_ITEMS} items`,
 ] as const;
 
-export const PRO_PLAN_FEATURES = [
-  'Scan unlimited receipts — catch every price change',
-  'Full price history — see what you have actually paid',
-  'Get alerted the moment your staples go on sale',
-  'Compare live prices across all your stores',
-  'Sync with family or roommates in real time',
-  'Forecast grocery spend before month-end surprises',
-  'Auto-find the cheapest basket across your stores',
-  'Export CSV & tax-ready spending logs',
-  'Track your whole pantry — no item limits',
+export type ProPlanFeatureDetail = {
+  upgradeLabel: string;
+  text: string;
+  freeLimit?: string;
+};
+
+export const PRO_PLAN_FEATURE_DETAILS: readonly ProPlanFeature":"FeatureDetail[] = [
+  {
+    upgradeLabel: 'Unlimited',
+    text: 'Receipt scans — catch every price change',
+    freeLimit: `${FREE_RECEIPT_SCAN_LIMIT}/mo`,
+  },
+  {
+    upgradeLabel: 'Full',
+    text: 'Price history — see what you have actually paid',
+    freeLimit: `${FREE_PRICE_HISTORY_DAYS} days`,
+  },
+  {
+    upgradeLabel: 'Instant',
+    text: 'Sale alerts the moment your staples drop',
+    freeLimit: 'Manual only',
+  },
+  {
+    upgradeLabel: 'All stores',
+    text: 'Live price comparison across every store you shop',
+    freeLimit: `${FREE_MAX_STORES} store`,
+  },
+  {
+    upgradeLabel: 'Family sync',
+    text: 'Share lists with family or roommates in real time',
+  },
+  {
+    upgradeLabel: 'Forecast',
+    text: 'Grocery spend forecasts before month-end surprises',
+  },
+  {
+    upgradeLabel: 'Smart cart',
+    text: 'Auto-find the cheapest basket across your stores',
+  },
+  {
+    upgradeLabel: 'Export',
+    text: 'CSV & tax-ready spending logs',
+  },
+  {
+    upgradeLabel: 'Unlimited',
+    text: 'Pantry tracking — no item limits',
+    freeLimit: `${FREE_PANTRY_MAX_ITEMS} items`,
+  },
 ] as const;
 
-/** Short headlines for paywall cards — full list stays in PRO_PLAN_FEATURES. */
-export const PRO_PLAN_HEADLINE_FEATURES = [
-  'Unlimited receipts & full price history',
-  'Instant sale alerts on your staples',
-  'Compare prices & find the cheapest basket',
-  'Sync with family or roommates in real time',
-  'Spend forecasts, exports & unlimited pantry',
-] as const;
+/** Flat strings for modals and legacy references — index-aligned with PRO_PLAN_FEATURE_DETAILS. */
+export const PRO_PLAN_FEATURES = PRO_PLAN_FEATURE_DETAILS.map(
+  (feature) => `${feature.upgradeLabel} ${feature.text.charAt(0).toLowerCase()}${feature.text.slice(1)}`,
+) as unknown as readonly [
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+  string,
+];
 
 export const PRO_PLAN_FEATURE_GROUPS = [
   {
