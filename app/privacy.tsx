@@ -43,11 +43,12 @@ export default function PrivacyScreen() {
         store billing is not active.{'\n\n'}
         Device and local storage: We use AsyncStorage and SQLite (on native) to persist your
         receipts, lists, pantry, preferences, and trial state on your device.{'\n\n'}
-        Community pricing: When our community-pricing backend is configured, anonymized item names,
-        prices, store names, and purchase dates from receipt scans may be contributed automatically
-        to a shared database to power price comparison and inflation trends. This data is not linked
-        to your email, display name, or account identity. A random device-scoped identifier may be
-        used to deduplicate contributions.
+        Community pricing: When our community-pricing backend is configured, item names, prices,
+        store names, and purchase dates from receipt scans may be contributed automatically to a
+        shared database to power price comparison and inflation trends. This data is de-identified
+        and aggregated where reasonably practicable and is not linked to your email, display name,
+        or account identity. A random device-scoped identifier may be used to deduplicate
+        contributions.
       </LegalSection>
 
       <LegalSection heading="Guest mode">
@@ -68,7 +69,15 @@ export default function PrivacyScreen() {
         • Send notifications you opt into (such as price alerts and budget reminders){'\n'}
         • Operate community pricing and store comparison features when enabled{'\n'}
         • Enforce plan limits, prevent abuse, and maintain server-side receipt parsing{'\n\n'}
-        We do not sell your personal information.
+        We do not sell your personal information. We do not use personal information to build
+        advertising profiles or deliver cross-context behavioral advertising.
+      </LegalSection>
+
+      <LegalSection heading="No professional advice">
+        Information displayed in the app — including spending summaries, price comparisons, savings
+        estimates, and pantry data — is for informational purposes only. It is not financial,
+        accounting, tax, legal, investment, or nutritional advice. Consult qualified professionals
+        for decisions in those areas.
       </LegalSection>
 
       <LegalSection heading="No sale of personal data">
@@ -89,11 +98,13 @@ export default function PrivacyScreen() {
         receipt history until you delete them.
       </LegalSection>
 
-      <LegalSection heading="Data accuracy">
+      <LegalSection heading="Data accuracy and automated processing">
         Information displayed in the app — including scanned receipt data, price comparisons, and
         savings estimates — may be incomplete or inaccurate. Automated OCR, receipt parsing, and
-        third-party price feeds can contain errors. We process data as received and do not guarantee
-        its accuracy. You are responsible for reviewing information before relying on it.
+        third-party price feeds can contain errors. When configured, AI-assisted parsing (OpenAI
+        and/or DeepSeek) is probabilistic and may misread or omit receipt details; outputs are not
+        verified facts. We process data as received and do not guarantee its accuracy. You are
+        responsible for reviewing information before relying on it.
       </LegalSection>
 
       <LegalSection heading="Third-party services">
@@ -220,10 +231,12 @@ export default function PrivacyScreen() {
       </LegalSection>
 
       <LegalSection heading="Data retention">
-        Local data, including receipt images and parsed receipt data, remains on your device until you
-        delete it or uninstall the app. Account and subscription records are kept while your account
-        is active and for a reasonable period afterward for legal, billing, and security purposes.
-        Anonymized community pricing contributions may be retained to support price trends.
+        We retain personal information only as long as necessary to provide the Service, comply
+        with legal obligations, resolve disputes, enforce our agreements, and protect security.
+        Local data, including receipt images and parsed receipt data, remains on your device until
+        you delete it or uninstall the app. Account and subscription records are kept while your
+        account is active and for a reasonable period afterward as described above. De-identified
+        community pricing contributions may be retained to support price trends.
       </LegalSection>
 
       <LegalSection heading="Changes to this policy">
