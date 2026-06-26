@@ -2,7 +2,7 @@ import { useRouter } from 'expo-router';
 
 import { useState } from 'react';
 
-import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { SymbolView } from 'expo-symbols';
 
@@ -33,6 +33,7 @@ import {
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 
 import { getSubscriptionBillingMode } from '@/src/services/subscriptionService';
+import { redirectToStripeCheckout } from '@/src/services/stripeSubscriptionService';
 
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
@@ -115,6 +116,10 @@ export default function PaywallScreen() {
     if (!selectedPro) return;
     setUpgrading(true);
     try {
+      if (Platform.OS === 'web' && billingMode === 'stripe') {
+        await redirectToStripeCheckout(billing);
+        return;
+      }
       await upgradeToPro(billing);
       router.replace('/subscriptions' as never);
     } catch (error) {
@@ -247,11 +252,15 @@ export default function PaywallScreen() {
         </Pressable>
 
         <Text style={styles.disclaimer}>
-          {billingMode === 'revenuecat'
+          {billingMode === 'stripe'
+            ? 'Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.'
+            : billingMode === 'revenuecat'
             ? 'Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.'
             : billingMode === 'mock'
               ? 'Dev mock billing — no payment processed. Subscription is stored locally on this device.'
-              : 'In-app purchases are not configured yet. Set RevenueCat API keys for native builds.'}
+              : Platform.OS === 'web'
+                ? 'Web billing is not configured yet. Add Stripe env vars on Vercel or use mock mode locally.'
+                : 'In-app purchases are not configured yet. Set RevenueCat API keys for native builds.'}
         </Text>
       </ScrollView>
     </View>

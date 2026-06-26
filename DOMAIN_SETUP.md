@@ -258,6 +258,78 @@ Rebuild after secrets: `eas build --profile production --platform all`
 
 ---
 
+## 7. Stripe — web billing (code ready)
+
+Web subscriptions use **Stripe Checkout + Customer Portal**. Native iOS/Android continue to use **RevenueCat** (§6).
+
+### Architecture
+
+```
+Web paywall → POST /api/stripe/create-checkout-session → Stripe Checkout
+Stripe webhook → POST /api/stripe/webhook → Supabase stripe_subscriptions
+Web app load → GET /api/stripe/subscription-status → Pro tier sync
+Manage billing → POST /api/stripe/create-portal-session → Stripe Customer Portal
+```
+
+Run migration `supabase/migrations/005_stripe_subscriptions.sql` in Supabase SQL Editor before going live.
+
+### Products (Stripe Dashboard → Products)
+
+| Product | Price | Billing | Notes |
+|---------|-------|---------|-------|
+| Penny Pantry Pro | $3.99 | Monthly recurring | Copy **Price ID** → `STRIPE_PRICE_PRO_MONTHLY` |
+| Penny Pantry Pro | $39.99 | Yearly recurring | Copy **Price ID** → `STRIPE_PRICE_PRO_YEARLY` |
+
+Use **test mode** first (`sk_test_…`, `price_…` from test products).
+
+### Vercel environment variables
+
+Add to **Production** (and **Preview** for staging):
+
+| Variable | Where to get it |
+|----------|-----------------|
+| `STRIPE_SECRET_KEY` | Stripe → Developers → API keys |
+| `STRIPE_WEBHOOK_SECRET` | Stripe → Developers → Webhooks → signing secret |
+| `STRIPE_PRICE_PRO_MONTHLY` | Product → monthly price ID |
+| `STRIPE_PRICE_PRO_YEARLY` | Product → annual price ID |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API → `service_role` (never expose to client) |
+| `EXPO_PUBLIC_APP_URL` | `https://pennypantry.xyz` (already required) |
+
+Optional local dev: `EXPO_PUBLIC_STRIPE_USE_MOCK=true` to skip Stripe and use mock tier gates.
+
+### Webhook endpoint
+
+1. Stripe Dashboard → **Developers → Webhooks → Add endpoint**
+2. URL: `https://pennypantry.xyz/api/stripe/webhook`
+3. Events:
+   - `checkout.session.completed`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+4. Copy **Signing secret** → `STRIPE_WEBHOOK_SECRET` on Vercel
+5. Redeploy after adding env vars
+
+Local webhook testing:
+
+```bash
+stripe listen --forward-to localhost:8081/api/stripe/webhook
+```
+
+### Customer Portal
+
+Stripe Dashboard → **Settings → Billing → Customer portal** → enable and allow subscription cancellation.
+
+### Manual test checklist (test mode)
+
+- [ ] Migration `005_stripe_subscriptions.sql` applied in Supabase
+- [ ] All Stripe + `SUPABASE_SERVICE_ROLE_KEY` env vars set on Vercel
+- [ ] Webhook endpoint active and receiving events
+- [ ] Sign in on web → Paywall → **Subscribe to Pro** redirects to Stripe Checkout
+- [ ] Test card `4242 4242 4242 4242` completes → `/subscriptions?stripe=success` shows Pro
+- [ ] **Manage subscription** opens Stripe portal; cancel keeps access until period end
+- [ ] 7-day local trial still works; subscribing during trial clears trial and marks paid
+
+---
+
 ## Legacy URL
 
 The old deployment URL `https://grocery-financial-system.vercel.app` may remain as a Vercel alias.  

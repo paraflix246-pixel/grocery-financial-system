@@ -1,8 +1,8 @@
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { SymbolView } from 'expo-symbols';
 
@@ -19,6 +19,7 @@ import { computeTrialStatus } from '@/src/services/trialService';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 
 import { getSubscriptionBillingMode, restoreSubscriptionPurchases } from '@/src/services/subscriptionService';
+import { redirectToStripePortal } from '@/src/services/stripeSubscriptionService';
 
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
@@ -29,6 +30,8 @@ import { formatDisplayDate } from '@/src/utils/dateParser';
 export default function SubscriptionsScreen() {
 
   const router = useRouter();
+  const { stripe } = useLocalSearchParams<{ stripe?: string }>();
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   const { tier, plan, expiresAt, loaded, loadSubscription, downgradeToFree, subscriptionSource, trialStartedAt, isPro } =
     useSubscriptionStore();
@@ -40,6 +43,14 @@ export default function SubscriptionsScreen() {
     loadSubscription();
 
   }, [loadSubscription]);
+
+  useEffect(() => {
+    if (stripe === 'success') {
+      void loadSubscription().then(() => {
+        Alert.alert('Welcome to Pro', 'Your Stripe subscription is active.');
+      });
+    }
+  }, [stripe, loadSubscription]);
 
 
 
@@ -79,7 +90,9 @@ export default function SubscriptionsScreen() {
 
   const billingStatusLabel = isTrial
     ? `7-day Pro trial · ${trialStatus.daysRemaining} ${trialStatus.daysRemaining === 1 ? 'day' : 'days'} left`
-    : billingMode === 'revenuecat'
+    : billingMode === 'stripe'
+      ? `${plan === 'yearly' ? 'Annual' : 'Monthly'} · billed via Stripe`
+      : billingMode === 'revenuecat'
 
       ? `${plan === 'yearly' ? 'Annual' : 'Monthly'} · billed via App Store / Play Store`
 
@@ -109,6 +122,19 @@ export default function SubscriptionsScreen() {
 
   };
 
+  const handleManageStripe = async () => {
+    setOpeningPortal(true);
+    try {
+      await redirectToStripePortal();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Could not open billing portal.';
+      Alert.alert('Billing portal', message);
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
+  const isStripePaid = billingMode === 'stripe' && isPaid && subscriptionSource === 'paid';
 
 
   return (
@@ -183,11 +209,20 @@ export default function SubscriptionsScreen() {
 
 
 
-            <Pressable style={styles.downgradeBtn} onPress={handleDowngrade}>
-
-              <Text style={styles.downgradeText}>Downgrade to Free</Text>
-
-            </Pressable>
+            {isStripePaid ? (
+              <Pressable
+                style={styles.upgradeBtn}
+                disabled={openingPortal}
+                onPress={() => void handleManageStripe()}>
+                <Text style={styles.upgradeBtnText}>
+                  {openingPortal ? 'Opening portal…' : 'Manage subscription'}
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.downgradeBtn} onPress={handleDowngrade}>
+                <Text style={styles.downgradeText}>Downgrade to Free</Text>
+              </Pressable>
+            )}
 
 
 
@@ -219,13 +254,19 @@ export default function SubscriptionsScreen() {
 
           <Text style={styles.infoTitle}>
 
-            {billingMode === 'revenuecat' ? 'Store billing' : 'Billing status'}
+            {billingMode === 'stripe'
+              ? 'Stripe billing'
+              : billingMode === 'revenuecat'
+                ? 'Store billing'
+                : 'Billing status'}
 
           </Text>
 
           <Text style={styles.infoBody}>
 
-            {billingMode === 'revenuecat'
+            {billingMode === 'stripe'
+              ? 'Subscriptions are managed securely by Stripe. Cancel anytime from Manage subscription; access continues until the period ends.'
+              : billingMode === 'revenuecat'
 
               ? 'Subscriptions are managed by Apple or Google. Cancel anytime in your device subscription settings; access continues until the period ends.'
 
@@ -233,7 +274,9 @@ export default function SubscriptionsScreen() {
 
                 ? 'Dev mock mode — subscriptions are stored locally for testing tier gates without App Store / Play billing.'
 
-                : 'Native billing is not configured. Add RevenueCat keys and rebuild with EAS to enable real Pro purchases.'}
+                : Platform.OS === 'web'
+                  ? 'Web billing is not configured. Add Stripe env vars on Vercel to enable Pro checkout.'
+                  : 'Native billing is not configured. Add RevenueCat keys and rebuild with EAS to enable real Pro purchases.'}
 
           </Text>
 

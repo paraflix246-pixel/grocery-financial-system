@@ -1,6 +1,13 @@
 import type { SubscriptionPlan, SubscriptionState, SubscriptionTier } from '@/src/store/useSubscriptionStore';
 import { Platform } from 'react-native';
 
+import {
+  fetchStripeConfigured,
+  fetchStripeSubscriptionStatus,
+  isStripeWebClientAvailable,
+  mapStripeStatusToSubscriptionState,
+  redirectToStripeCheckout,
+} from '@/src/services/stripeSubscriptionService';
 export type PurchaseResult = {
   success: boolean;
   state: SubscriptionState;
@@ -39,12 +46,14 @@ export function isRevenueCatConfigured(): boolean {
 
 /** When true, purchases use local mock tokens instead of the store. */
 export function isSubscriptionMockMode(): boolean {
+  if (Platform.OS === 'web' && isStripeWebClientAvailable()) {
+    return process.env.EXPO_PUBLIC_STRIPE_USE_MOCK === 'true';
+  }
   if (isRevenueCatConfigured()) {
     return process.env.EXPO_PUBLIC_REVENUECAT_USE_MOCK === 'true';
   }
   return typeof __DEV__ !== 'undefined' ? __DEV__ : process.env.NODE_ENV !== 'production';
 }
-
 /** @deprecated Use isSubscriptionMockMode() */
 export const SUBSCRIPTION_DEV_MOCK = isSubscriptionMockMode();
 
@@ -168,8 +177,19 @@ export async function initializeSubscriptionProvider(): Promise<void> {
 }
 
 export async function loadSubscriptionFromProvider(): Promise<SubscriptionState | null> {
-  if (!isRevenueCatConfigured()) return null;
+  if (Platform.OS === 'web' && isStripeWebClientAvailable() && !isSubscriptionMockMode()) {
+    try {
+      const status = await fetchStripeSubscriptionStatus();
+      if (status?.configured) {
+        return status.subscription ? mapStripeStatusToSubscriptionState(status) : null;
+      }
+    } catch (error) {
+      console.warn('[subscription] Stripe load failed:', error);
+    }
+    return null;
+  }
 
+  if (!isRevenueCatConfigured()) return null;
   try {
     const Purchases = await ensureRevenueCatConfigured();
     const info = await Purchases.getCustomerInfo();
@@ -186,15 +206,30 @@ export async function purchaseSubscription(plan: SubscriptionPlan): Promise<Purc
     return { success: true, state };
   }
 
-  if (!isRevenueCatConfigured()) {
-    return {
+  if (Platform.OS === 'web' && isStripeWebClientAvailable()) {
+    try {
+      await redirectToStripeCheckout(plan);
+      return {
+        success: false,
+        state: DEFAULT_STATE,
+        error: 'Redirecting to Stripe checkout…',
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : 'Could not start Stripe checkout.';
+      return { success: false, state: DEFAULT_STATE, error: message };
+    }
+  }
+
+  if (!isRevenueCatConfigured()) {    return {
       success: false,
       state: DEFAULT_STATE,
       error:
         Platform.OS === 'web'
-          ? 'Subscribe in the iOS or Android app. Web billing is not enabled yet.'
-          : 'In-app purchases are not configured. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY / EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY.',
-    };
+          ? 'Web billing is not configured. Set Stripe env vars on Vercel or use EXPO_PUBLIC_STRIPE_USE_MOCK=true for local testing.'
+          : 'In-app purchases are not configured. Set EXPO_PUBLIC_REVENUECAT_IOS_API_KEY / EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY.',    };
   }
 
   try {
@@ -257,8 +292,19 @@ export function isSubscriptionExpired(state: SubscriptionState): boolean {
   return Boolean(state.expiresAt && new Date(state.expiresAt) < new Date());
 }
 
-export function getSubscriptionBillingMode(): 'revenuecat' | 'mock' | 'unconfigured' {
+export function getSubscriptionBillingMode(): 'revenuecat' | 'stripe' | 'mock' | 'unconfigured' {
+  if (Platform.OS === 'web') {
+    if (isStripeWebClientAvailable() && !isSubscriptionMockMode()) return 'stripe';
+    if (isSubscriptionMockMode()) return 'mock';
+    return 'unconfigured';
+  }
   if (isRevenueCatConfigured() && !isSubscriptionMockMode()) return 'revenuecat';
   if (isSubscriptionMockMode()) return 'mock';
   return 'unconfigured';
+}
+
+/** Web-only: probe whether Stripe API routes are configured (no auth required). */
+export async function probeStripeWebConfigured(): Promise<boolean> {
+  if (Platform.OS !== 'web' || !isStripeWebClientAvailable()) return false;
+  return fetchStripeConfigured();
 }
