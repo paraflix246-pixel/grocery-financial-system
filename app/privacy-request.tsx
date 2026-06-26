@@ -42,7 +42,7 @@ export default function PrivacyRequestScreen() {
 
       <LegalSection heading="Guest mode">
         Guest data is stored only on your device and is not linked to a cloud account. To remove
-        guest data, use Settings → Account → Clear all local data, or uninstall the app.
+        guest data, use Settings → Local data → Clear all local data, or uninstall the app.
       </LegalSection>
 
       <LegalSection heading="California residents">

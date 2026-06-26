@@ -207,7 +207,7 @@ export default function PrivacyScreen() {
         to your account. Deleting your account permanently removes your Supabase authentication
         record and linked cloud subscription data. Local data on your device is cleared as part of
         in-app deletion; some data may remain until you uninstall the app. Guest users can clear
-        local data via Settings → Account → Clear all local data.
+        local data via Settings → Local data → Clear all local data.
       </LegalSection>
 
       <LegalSection heading="International users">
