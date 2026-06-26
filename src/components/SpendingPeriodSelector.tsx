@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
+import { getSpendingPeriodOptions } from '@/src/i18n/helpers';
 import {
-  SPENDING_PERIOD_OPTIONS,
   type SpendingPeriod,
 } from '@/src/utils/spendingPeriodAnalytics';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -18,8 +19,10 @@ type Props = {
 };
 
 export function SpendingPeriodSelector({ period, onPeriodChange }: Props) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const selected = SPENDING_PERIOD_OPTIONS.find((o) => o.id === period);
+  const periodOptions = useMemo(() => getSpendingPeriodOptions(t), [t]);
+  const selected = periodOptions.find((o) => o.id === period);
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
@@ -44,8 +47,8 @@ export function SpendingPeriodSelector({ period, onPeriodChange }: Props) {
         style={styles.periodPill}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel="Select spending period">
-        <Text style={styles.periodText}>{selected?.pillLabel ?? 'This Month'}</Text>
+        accessibilityLabel={t('chart.selectPeriodA11y')}>
+        <Text style={styles.periodText}>{selected?.pillLabel ?? t('periods.thisMonth')}</Text>
         <SymbolView
           name={{ ios: 'chevron.down', android: 'expand_more', web: 'expand_more' }}
           tintColor={SmartCartColors.textSecondary}
@@ -56,7 +59,7 @@ export function SpendingPeriodSelector({ period, onPeriodChange }: Props) {
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <View style={styles.menu}>
-            {SPENDING_PERIOD_OPTIONS.map((option) => {
+            {periodOptions.map((option) => {
               const active = option.id === period;
               return (
                 <Pressable

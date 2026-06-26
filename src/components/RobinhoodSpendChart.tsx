@@ -20,14 +20,16 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, LinearGradient, Line, Path, Stop } from 'react-native-svg';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
+import { getRobinhoodComparisonLabel, getRobinhoodEmptyMessage } from '@/src/i18n/helpers';
 import type { Receipt } from '@/src/models/types';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
 import {
   ROBINHOOD_RANGE_OPTIONS,
-  ROBINHOOD_COMPARISON_LABELS,
   buildRobinhoodSpendAnalytics,
   clampZoomFactor,
   formatChartHeaderDate,
@@ -275,11 +277,13 @@ function ChartTooltip({
   x,
   y,
   chartWidth,
+  t,
 }: {
   point: RobinhoodChartPoint;
   x: number;
   y: number;
   chartWidth: number;
+  t: TFunction;
 }) {
   const tooltipWidth = 168;
   const left = Math.min(Math.max(x - tooltipWidth / 2, 8), Math.max(chartWidth - tooltipWidth - 8, 8));
@@ -301,13 +305,14 @@ function ChartTooltip({
         <Text style={styles.tooltipMeta}>{point.storeName}</Text>
       ) : null}
       {point.receiptId ? (
-        <Text style={styles.tooltipMeta}>{point.itemCount ?? 0} items</Text>
+        <Text style={styles.tooltipMeta}>{t('chart.tooltipItems', { count: point.itemCount ?? 0 })}</Text>
       ) : null}
     </View>
   );
 }
 
 export function RobinhoodSpendChart({ receipts, style, fullBleed = false }: Props) {
+  const { t } = useTranslation();
   const [range, setRange] = useState<RobinhoodChartRange>('1m');
   const [periodOffset, setPeriodOffset] = useState(0);
   const [zoomFactor, setZoomFactor] = useState(1);
@@ -537,6 +542,7 @@ export function RobinhoodSpendChart({ receipts, style, fullBleed = false }: Prop
           x={tooltipCoord.x}
           y={tooltipCoord.y}
           chartWidth={chartWidth}
+          t={t}
         />
       ) : null}
       <ChartTouchOverlay
@@ -561,7 +567,7 @@ export function RobinhoodSpendChart({ receipts, style, fullBleed = false }: Prop
               style={styles.backToToday}
               accessibilityRole="button"
               onPress={resetToToday}>
-              <Text style={styles.backToTodayText}>Back to today</Text>
+              <Text style={styles.backToTodayText}>{t('common.backToToday')}</Text>
             </Pressable>
           ) : null}
           {showComparison ? (
@@ -575,7 +581,7 @@ export function RobinhoodSpendChart({ receipts, style, fullBleed = false }: Prop
                 <Text style={styles.comparisonLabel}>
                   ({analytics.percentChange >= 0 ? '+' : ''}
                   {analytics.percentChange.toFixed(1)}%){' '}
-                  {ROBINHOOD_COMPARISON_LABELS[analytics.range]}
+                  {getRobinhoodComparisonLabel(t, analytics.range)}
                 </Text>
               </Text>
             </View>
@@ -617,7 +623,11 @@ export function RobinhoodSpendChart({ receipts, style, fullBleed = false }: Prop
             style={[styles.chartTouchArea, chartFadeStyle]}
             onLayout={onChartLayout}>
             <View style={styles.emptyChart}>
-              <Text style={styles.emptyText}>{analytics.emptyMessage}</Text>
+              <Text style={styles.emptyText}>
+                {analytics.emptyMessageKey
+                  ? getRobinhoodEmptyMessage(t, analytics.emptyMessageKey)
+                  : analytics.emptyMessage}
+              </Text>
             </View>
           </Animated.View>
         )}

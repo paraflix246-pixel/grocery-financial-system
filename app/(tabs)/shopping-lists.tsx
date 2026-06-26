@@ -22,6 +22,7 @@ import {
 import { SymbolView } from 'expo-symbols';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 
 
@@ -90,6 +91,7 @@ import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 
 export default function ListsScreen() {
 
+  const { t } = useTranslation();
   const router = useRouter();
 
   const { action, browse } = useLocalSearchParams<{ action?: string; browse?: string }>();
@@ -722,9 +724,9 @@ export default function ListsScreen() {
 
         <View style={styles.titleBlock}>
 
-          <Text style={styles.pageTitle}>Shopping Lists</Text>
+          <Text style={styles.pageTitle}>{t('lists.title')}</Text>
 
-          <Text style={styles.pageSubtitle}>Plan trips, track totals, shop smarter</Text>
+          <Text style={styles.pageSubtitle}>{t('lists.subtitle')}</Text>
 
         </View>
 
@@ -734,7 +736,7 @@ export default function ListsScreen() {
 
           accessibilityRole="button"
 
-          accessibilityLabel="Create new list"
+          accessibilityLabel={t('lists.createNewA11y')}
 
           disabled={creating}
 
@@ -935,7 +937,7 @@ export default function ListsScreen() {
             void createListWithOptions(suggestNewListName(useListStore.getState().lists), selectedStore)
           }>
 
-          <Text style={styles.createBtnText}>Create list</Text>
+          <Text style={styles.createBtnText}>{t('lists.createList')}</Text>
 
         </Pressable>
 

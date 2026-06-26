@@ -11,6 +11,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
@@ -75,14 +76,14 @@ function resolveExpiresOn(addedDate: string, shelfLifeDays: number): string {
   return computeExpiresOnDate(addedDate, shelfLifeDays) ?? '';
 }
 
-function emptyMessage(activeTab: string): string {
+function emptyMessage(activeTab: string, t: (key: string) => string): string {
   if (activeTab === 'running_low') {
-    return 'Nothing running low. Items appear here when quantity drops to your low-stock threshold.';
+    return t('pantry.emptyRunningLow');
   }
   if (activeTab === 'expiring') {
-    return 'Nothing expiring soon. Items appear here when they are within 3 days of your expiry setting.';
+    return t('pantry.emptyExpiring');
   }
-  return 'No pantry items yet. Add items manually or scan receipts to populate your pantry.';
+  return t('pantry.emptyDefault');
 }
 
 function statusPillStyle(status: PantryItemView['status']) {
@@ -97,6 +98,7 @@ function statusPillStyle(status: PantryItemView['status']) {
 }
 
 export default function PantryScreen() {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [items, setItems] = useState<PantryItemView[]>([]);
@@ -531,7 +533,7 @@ export default function PantryScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="Pantry"
+        title={t('pantry.title')}
         rightAction={
           <Pressable
             style={styles.headerActionBtn}
@@ -550,7 +552,7 @@ export default function PantryScreen() {
             contentContainerStyle={styles.content}
             pointerEvents={showModal ? 'none' : 'auto'}
             style={showModal ? styles.listHiddenUnderModal : undefined}>
-            <MockupScreenTitle title="Pantry" subtitle="Track what you have on hand" />
+            <MockupScreenTitle title={t('pantry.title')} subtitle={t('pantry.subtitle')} />
 
             <View style={styles.statsRow}>
               <MockupCard style={styles.statCard}>
@@ -589,7 +591,7 @@ export default function PantryScreen() {
 
             {filtered.length === 0 ? (
               <MockupCard>
-                <Text style={styles.empty}>{emptyMessage(activeTab)}</Text>
+                <Text style={styles.empty}>{emptyMessage(activeTab, t)}</Text>
               </MockupCard>
             ) : (
               <>

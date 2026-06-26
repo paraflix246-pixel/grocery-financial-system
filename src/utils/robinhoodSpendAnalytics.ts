@@ -40,6 +40,7 @@ export type RobinhoodSpendAnalytics = {
   hasAnyReceipts: boolean;
   hasReceiptsInPeriod: boolean;
   emptyMessage: string | null;
+  emptyMessageKey: 'noReceipts' | 'noPeriod' | null;
   periodLabel: string;
   isViewingPastPeriod: boolean;
   windowStart: string;
@@ -321,10 +322,13 @@ export function buildRobinhoodSpendAnalytics(
   const hasReceiptsInPeriod = receiptsInPeriod.length > 0;
 
   let emptyMessage: string | null = null;
+  let emptyMessageKey: 'noReceipts' | 'noPeriod' | null = null;
   if (!hasAnyReceipts) {
     emptyMessage = 'Scan your first receipt to see your spending chart';
+    emptyMessageKey = 'noReceipts';
   } else if (!hasReceiptsInPeriod) {
     emptyMessage = 'No receipts in this period';
+    emptyMessageKey = 'noPeriod';
   }
 
   const chartPoints = hasReceiptsInPeriod
@@ -344,6 +348,7 @@ export function buildRobinhoodSpendAnalytics(
     hasAnyReceipts,
     hasReceiptsInPeriod,
     emptyMessage,
+    emptyMessageKey,
     periodLabel: formatRobinhoodPeriodLabel(range, baseRange.start, baseRange.end),
     isViewingPastPeriod: periodOffset < 0,
     windowStart: start,

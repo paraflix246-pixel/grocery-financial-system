@@ -10,9 +10,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BackButton } from '@/src/components/BackButton';
+import { i18n } from '@/src/i18n';
 import { CameraOverlay } from '@/src/components/CameraOverlay';
 import { ReceiptScanProcessing } from '@/src/components/ReceiptScanProcessing';
 import { scanReceiptFromImage, shouldOpenPreview } from '@/src/services/receiptParsePipeline';
@@ -38,7 +40,7 @@ try {
 }
 
 function showScanError(message: string) {
-  Alert.alert('Scan failed', message);
+  Alert.alert(i18n.t('scan.scanFailed'), message);
 }
 
 // ---------------------------------------------------------------------------
@@ -56,6 +58,7 @@ type CameraCaptureProps = {
 };
 
 function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCaptureProps) {
+  const { t } = useTranslation();
   const vc = visionCamera!;
   const { hasPermission, requestPermission } = vc.useCameraPermission();
   const device = vc.useCameraDevice('back');
@@ -83,16 +86,16 @@ function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCa
   if (!device || !hasPermission) {
     return (
       <View style={styles.center}>
-        <Text style={styles.title}>Scan Receipt</Text>
-        <Text style={styles.subtitle}>Camera permission required</Text>
+        <Text style={styles.title}>{t('scan.title')}</Text>
+        <Text style={styles.subtitle}>{t('scan.permissionRequired')}</Text>
         <Pressable style={styles.button} onPress={requestPermission}>
-          <Text style={styles.buttonText}>Grant Permission</Text>
+          <Text style={styles.buttonText}>{t('scan.grantPermission')}</Text>
         </Pressable>
         <Pressable style={styles.secondaryButton} onPress={onGallery}>
-          <Text style={styles.secondaryText}>Or pick from gallery</Text>
+          <Text style={styles.secondaryText}>{t('scan.pickGallery')}</Text>
         </Pressable>
         <Pressable style={styles.secondaryButton} onPress={onManualEntry}>
-          <Text style={styles.secondaryText}>Add receipt manually</Text>
+          <Text style={styles.secondaryText}>{t('scan.addManual')}</Text>
         </Pressable>
       </View>
     );
@@ -121,13 +124,13 @@ function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCa
 
       <View style={[styles.controls, { paddingBottom: 24 }]}>
         <Pressable onPress={onManualEntry}>
-          <Text style={styles.retakeText}>Manual</Text>
+          <Text style={styles.retakeText}>{t('common.manual')}</Text>
         </Pressable>
         <Pressable style={styles.captureBtn} onPress={capturePhoto}>
           <View style={styles.captureInner} />
         </Pressable>
         <Pressable onPress={() => setFlashOn((f) => !f)}>
-          <Text style={styles.flashText}>{flashOn ? 'Flash On' : 'Flash'}</Text>
+          <Text style={styles.flashText}>{flashOn ? t('scan.flashOn') : t('scan.flash')}</Text>
         </Pressable>
       </View>
     </>
@@ -139,6 +142,7 @@ function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCa
 // ---------------------------------------------------------------------------
 
 export default function ScanScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tier = useSubscriptionStore((s) => s.tier);
@@ -244,15 +248,13 @@ export default function ScanScreen() {
           <BackButton showLabel={false} tintColor="#fff" />
         </View>
         <View style={styles.center}>
-          <Text style={styles.title}>Scan Receipt</Text>
-          <Text style={styles.subtitle}>
-            Camera not available — use gallery or manual entry
-          </Text>
+          <Text style={styles.title}>{t('scan.title')}</Text>
+          <Text style={styles.subtitle}>{t('scan.cameraUnavailable')}</Text>
           <Pressable style={styles.button} onPress={pickImage}>
-            <Text style={styles.buttonText}>Pick from gallery</Text>
+            <Text style={styles.buttonText}>{t('scan.pickFromGallery')}</Text>
           </Pressable>
           <Pressable style={styles.secondaryButton} onPress={handleManualEntry}>
-            <Text style={styles.secondaryText}>Add receipt manually</Text>
+            <Text style={styles.secondaryText}>{t('scan.addManual')}</Text>
           </Pressable>
         </View>
       </View>

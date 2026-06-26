@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { BackButton } from '@/src/components/BackButton';
@@ -17,6 +18,7 @@ type Props = {
 };
 
 export function AppHeader({ notificationCount = 0, onNotificationPress, showBack = true }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
   const [showLogout, setShowLogout] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
@@ -50,16 +52,16 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
     };
 
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Log out? You will need to sign in again to access your account.')) {
+      if (window.confirm(`${t('common.logOut')} ${t('common.logOutBody')}`)) {
         void doLogout();
       }
       return;
     }
 
-    Alert.alert('Log out?', 'You will need to sign in again to access your account.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('common.logOut'), t('common.logOutBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Log out',
+        text: t('settings.logout'),
         style: 'destructive',
         onPress: () => {
           void doLogout();
@@ -88,10 +90,10 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
           {showLogout ? (
             <Pressable
               style={styles.logoutBtn}
-              accessibilityLabel="Log out"
+              accessibilityLabel={t('settings.logout')}
               accessibilityRole="button"
               onPress={handleLogoutPress}>
-              <Text style={styles.logoutText}>Log out</Text>
+              <Text style={styles.logoutText}>{t('settings.logout')}</Text>
             </Pressable>
           ) : showSignIn ? (
             <Pressable

@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -75,6 +76,7 @@ function topStoresFromReceipts(receipts: Receipt[], limit = 4): string[] {
 }
 
 export default function ReceiptsScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { unlocked: exportUnlocked, requestAccess: requestExportAccess } = useFeatureGate('export_advanced');
   const { store: storeFilterParam } = useLocalSearchParams<{ store?: string }>();
@@ -103,8 +105,8 @@ export default function ReceiptsScreen() {
 
   const topStores = useMemo(() => topStoresFromReceipts(allReceipts), [allReceipts]);
   const storeChips = useMemo(
-    () => [{ id: 'all', label: 'All' }, ...topStores.map((store) => ({ id: store, label: store }))],
-    [topStores]
+    () => [{ id: 'all', label: t('common.all') }, ...topStores.map((store) => ({ id: store, label: store }))],
+    [topStores, t]
   );
 
   const filteredReceipts = useMemo(() => {
@@ -190,8 +192,8 @@ export default function ReceiptsScreen() {
     const count = selectedIds.size;
     if (count === 0) return;
     confirmDestructiveAction({
-      title: `Delete ${count} receipt${count === 1 ? '' : 's'}?`,
-      message: `Permanently remove ${count} receipt${count === 1 ? '' : 's'} and linked comparisons. Are you sure?`,
+      title: t('receipts.deleteTitle', { count }),
+      message: t('receipts.deleteMessage', { count }),
       onConfirm: async () => {
         setDeleting(true);
         const snapshots = allReceipts.filter((receipt) => selectedIds.has(receipt.id));
@@ -231,12 +233,12 @@ export default function ReceiptsScreen() {
         <AppHeader />
 
         <View style={styles.titleRow}>
-          <MockupScreenTitle title="Receipts" subtitle="Search and browse your scanned receipts" />
+          <MockupScreenTitle title={t('receipts.title')} subtitle={t('receipts.subtitle')} />
           {filteredReceipts.length > 0 ? (
             <Pressable
               style={styles.selectBtn}
               onPress={() => (selectMode ? exitSelectMode() : enterSelectMode())}>
-              <Text style={styles.selectBtnText}>{selectMode ? 'Cancel' : 'Select'}</Text>
+              <Text style={styles.selectBtnText}>{selectMode ? t('common.cancel') : t('common.select')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -244,7 +246,7 @@ export default function ReceiptsScreen() {
         <MockupSearchBar
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search receipts or items…"
+          placeholder={t('receipts.searchPlaceholder')}
         />
 
         <MockupFilterChips options={storeChips} selected={selectedStore} onSelect={setSelectedStore} />
@@ -259,7 +261,7 @@ export default function ReceiptsScreen() {
                 tintColor={SmartCartColors.primary}
                 size={16}
               />
-              <Text style={styles.actionBtnText}>Manual</Text>
+              <Text style={styles.actionBtnText}>{t('common.manual')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
@@ -272,7 +274,7 @@ export default function ReceiptsScreen() {
                 tintColor={SmartCartColors.primary}
                 size={16}
               />
-              <Text style={styles.actionBtnText}>Export JSON</Text>
+              <Text style={styles.actionBtnText}>{t('receipts.exportJson')}</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
@@ -285,15 +287,15 @@ export default function ReceiptsScreen() {
                 tintColor={SmartCartColors.primary}
                 size={16}
               />
-              <Text style={styles.actionBtnText}>Export CSV</Text>
+              <Text style={styles.actionBtnText}>{t('receipts.exportCsv')}</Text>
             </Pressable>
           </View>
         ) : null}
 
         {grouped.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No receipts yet</Text>
-            <Text style={styles.emptyBody}>Scan one to get started.</Text>
+            <Text style={styles.emptyTitle}>{t('receipts.emptyTitle')}</Text>
+            <Text style={styles.emptyBody}>{t('receipts.emptyBody')}</Text>
           </View>
         ) : (
           grouped.map((group) => (

@@ -19,7 +19,35 @@
     "selectPlan": "Select plan",
     "english": "English",
     "spanish": "Español",
-    "language": "Language"
+    "language": "Language",
+    "viewAll": "View All",
+    "all": "All",
+    "select": "Select",
+    "manual": "Manual",
+    "unknownStore": "Unknown store",
+    "also": "Also",
+    "current": "Current",
+    "alertAt": "Alert at",
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "itemOf": "item {{current}} of {{total}}",
+    "preview": "preview",
+    "comparisons": "comparisons",
+    "perMonthShort": "/mo",
+    "addStore": "Add store",
+    "delete": "Delete",
+    "search": "Search",
+    "backToToday": "Back to today",
+    "noSpendingData": "No spending data",
+    "samplePrices": "Sample prices",
+    "viewPlans": "View plans",
+    "unlockWith": "Unlock {{feature}} with {{plan}}",
+    "unlockFeature": "Unlock {{feature}}",
+    "withPlan": "with {{plan}}",
+    "goPro": "Go Pro",
+    "logOut": "Log out?",
+    "logOutBody": "You will need to sign in again to access your account.",
+    "signIn": "Sign in"
   },
   "tabs": {
     "home": "Home",
@@ -31,7 +59,202 @@
   "home": {
     "greetingMorning": "Good morning",
     "greetingAfternoon": "Good afternoon",
-    "greetingEvening": "Good evening"
+    "greetingEvening": "Good evening",
+    "greetingSub": "Here's your smart shopping overview",
+    "proBannerCompact": "Unlock price alerts & family lists — Pro from {{price}}/mo",
+    "budgetExceeded": "Weekly budget exceeded by {{amount}}",
+    "budgetThreshold": "You've used {{percent}}% of your weekly budget — approaching your alert threshold",
+    "thisWeek": "This Week",
+    "planVsActual": "Plan vs Actual",
+    "topStore": "Top Store",
+    "avgReceipt": "Avg receipt {{amount}}",
+    "overWeeklyBudget": "Over weekly budget",
+    "approachingBudgetLimit": "Approaching budget limit",
+    "percentOfWeeklyBudget": "{{percent}}% of weekly budget",
+    "editBudget": "Edit budget",
+    "details": "Details",
+    "spendingOverview": "Spending Overview",
+    "spendingOverviewSub": "Category breakdown from saved receipts",
+    "underBudget": "You're doing great! You're {{amount}} under budget"
+  },
+  "categories": {
+    "Groceries": "Groceries",
+    "Household": "Household",
+    "Snacks": "Snacks",
+    "Beverages": "Beverages",
+    "Produce": "Produce",
+    "Dairy": "Dairy",
+    "Pantry": "Pantry",
+    "Meat": "Meat",
+    "Bakery": "Bakery",
+    "Other": "Other",
+    "Uncategorized": "Uncategorized"
+  },
+  "periods": {
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "year": "Year",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "thisYear": "This Year"
+  },
+  "chart": {
+    "empty": {
+      "noReceipts": "Scan your first receipt to see your spending chart",
+      "noPeriod": "No receipts in this period"
+    },
+    "comparison": {
+      "1w": "vs last week",
+      "1m": "vs last month",
+      "3m": "vs prior 3 months",
+      "6m": "vs prior 6 months",
+      "1y": "vs last year",
+      "all": ""
+    },
+    "tooltipItems_one": "{{count}} item",
+    "tooltipItems_other": "{{count}} items",
+    "selectPeriodA11y": "Select spending period"
+  },
+  "quickActions": {
+    "shoppingLists": "Shopping Lists",
+    "listsSubtitleEmpty": "Create lists, plan trips & compare prices",
+    "listsSubtitle_one": "{{count}} list · plan, shop & track totals",
+    "listsSubtitle_other": "{{count}} lists · plan, shop & track totals",
+    "trackAlerts": "Track & Alerts",
+    "pantry": "Pantry",
+    "stores": "Stores"
+  },
+  "heroScan": {
+    "title": "Scan Receipt ✨",
+    "subtitle": "Upload or scan a receipt to extract items, track prices, and compare stores.",
+    "scanNow": "Scan Now",
+    "secure": "🛡️ Secure • Private • No Account Required",
+    "a11y": "Scan Receipt. Upload or scan a receipt to extract items, track prices, and compare stores."
+  },
+  "upgrade": {
+    "proComparisonHook": "Go Pro for more & cheaper cart comparisons across every store",
+    "stopMissingDrops": "Stop missing price drops",
+    "proBannerSub": "Real-time alerts, inflation tracking & live multi-store comparison"
+  },
+  "comparison": {
+    "title": "Cheapest Cart Comparison",
+    "loadingPrices": "Loading store prices…",
+    "previewMeta": " · preview · item {{current}} of {{total}}",
+    "comparisonsMeta": " · {{count}} comparisons"
+  },
+  "forgottenItems": {
+    "title": "Usually buy",
+    "message": "You usually buy {{name}} every {{days}} days. It's been {{since}}. Add them?",
+    "addToList": "Add to list",
+    "moreOverdue_one": "{{count}} more item overdue",
+    "moreOverdue_other": "{{count}} more items overdue"
+  },
+  "alerts": {
+    "title": "Track & Alerts",
+    "emptyTitle": "Notify me when price drops",
+    "emptyText": "Set alerts for items you buy often"
+  },
+  "receipts": {
+    "title": "Receipts",
+    "subtitle": "Search and browse your scanned receipts",
+    "searchPlaceholder": "Search receipts or items…",
+    "exportJson": "Export JSON",
+    "exportCsv": "Export CSV",
+    "emptyTitle": "No receipts yet",
+    "emptyBody": "Scan one to get started.",
+    "recentTitle": "Recent Receipts",
+    "deleteTitle_one": "Delete {{count}} receipt?",
+    "deleteTitle_other": "Delete {{count}} receipts?",
+    "deleteMessage_one": "Permanently remove {{count}} receipt and linked comparisons. Are you sure?",
+    "deleteMessage_other": "Permanently remove {{count}} receipts and linked comparisons. Are you sure?"
+  },
+  "scan": {
+    "title": "Scan Receipt",
+    "permissionRequired": "Camera permission required",
+    "grantPermission": "Grant Permission",
+    "pickGallery": "Or pick from gallery",
+    "pickFromGallery": "Pick from gallery",
+    "addManual": "Add receipt manually",
+    "cameraUnavailable": "Camera not available — use gallery or manual entry",
+    "flashOn": "Flash On",
+    "flash": "Flash",
+    "scanFailed": "Scan failed"
+  },
+  "lists": {
+    "title": "Shopping Lists",
+    "subtitle": "Plan trips, track totals, shop smarter",
+    "createList": "Create list",
+    "createNewA11y": "Create new list",
+    "deleteEmptyTitle": "Delete all empty lists?"
+  },
+  "pantry": {
+    "title": "Pantry",
+    "subtitle": "Track what you have on hand",
+    "emptyDefault": "No pantry items yet. Add items manually or scan receipts to populate your pantry.",
+    "emptyRunningLow": "Nothing running low. Items appear here when quantity drops to your low-stock threshold.",
+    "emptyExpiring": "Nothing expiring soon. Items appear here when they are within 3 days of your expiry setting."
+  },
+  "stores": {
+    "title": "Stores",
+    "lead": "Favorite stores appear first. Tap a store to view receipts. Removing a store hides it from this list but keeps receipt history.",
+    "emptyTitle": "No stores yet",
+    "emptyBody": "Add a store manually or scan a receipt to register one automatically.",
+    "addStore": "Add a store",
+    "removeTitle": "Remove {{name}}?"
+  },
+  "more": {
+    "title": "More",
+    "subtitle": "Settings & Pro features",
+    "sections": {
+      "essentials": "Essentials",
+      "proInsights": "Pro & Insights",
+      "collaboration": "Collaboration"
+    },
+    "items": {
+      "settings": { "label": "Settings", "subtitle": "Profile, notifications & preferences" },
+      "budget": { "label": "Budget", "subtitle": "Monthly limits & category budgets" },
+      "spendingAnalytics": { "label": "Spending Analytics", "subtitle": "Trends and category breakdown" },
+      "cartComparison": { "label": "Cart Comparison", "subtitle": "Compare store totals for your list" },
+      "pantry": { "label": "Pantry", "subtitle": "Track items from your receipts" },
+      "shoppingLists": { "label": "Shopping Lists", "subtitle": "Manage your grocery lists" },
+      "scanReceipt": { "label": "Scan Receipt", "subtitle": "Capture or upload a receipt" },
+      "pro": { "label": "Penny Pantry Pro", "subtitle": "Subscription & plan management" },
+      "spendingInsights": { "label": "Spending Insights", "subtitle": "Category & store breakdowns from your receipts" },
+      "brandIntelligence": { "label": "Brand Intelligence", "subtitle": "Brand ownership & corporate insights" },
+      "inflationTracker": { "label": "Inflation Tracker", "subtitle": "Personal price index from receipts" },
+      "regionalInsights": { "label": "Regional Insights", "subtitle": "Compare spend and inflation by state/province" },
+      "usageStats": { "label": "Usage Stats", "subtitle": "Local usage & contribution metrics" },
+      "familyPlans": { "label": "Family Plans", "subtitle": "Share lists with household members" }
+    },
+    "footerVersion": "Grocery Financial System"
+  },
+  "trackAlerts": {
+    "title": "Track & Alerts",
+    "watchlist": "Watchlist",
+    "alerts": "Alerts",
+    "emptyWatchlist": "Add price alerts or scan receipts to start tracking items.",
+    "alertActive": "Price alert active",
+    "sampleItem": "Sample item",
+    "fromReceipts": "From your receipts"
+  },
+  "features": {
+    "labels": {
+      "insights_pro": "See where your grocery budget goes",
+      "inflation_tracker": "See how inflation is hitting your basket",
+      "community_pricing": "Multi-store price comparison",
+      "usage_analytics": "Full price history (all purchases)",
+      "family_plans": "Shared shopping lists for your household",
+      "price_drop_alerts": "Smart sale alerts for tracked items",
+      "export_advanced": "Export spending data",
+      "multi_user_sync": "Live multi-user sync across phones",
+      "budget_forecasting": "Monthly spending overview",
+      "cheapest_basket": "Cheapest cart across stores",
+      "api_access": "Multi-store price comparison",
+      "pantry_unlimited": "Unlimited pantry tracking",
+      "custom_themes": "Custom app themes & colors"
+    }
   },
   "onboarding": {
     "slides": {

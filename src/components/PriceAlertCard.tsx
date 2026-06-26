@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import type { TFunction } from 'i18next';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
@@ -92,7 +94,7 @@ function formatOtherStoresLine(stores: StorePriceQuote[]): string | null {
     .join(' · ');
 }
 
-function AlertListRow({ row }: { row: AlertRowDisplay }) {
+function AlertListRow({ row, t }: { row: AlertRowDisplay; t: TFunction }) {
   const otherStoresLine = formatOtherStoresLine(row.otherStores);
 
   return (
@@ -107,13 +109,13 @@ function AlertListRow({ row }: { row: AlertRowDisplay }) {
         </Text>
         {otherStoresLine ? (
           <Text style={styles.extraStores} numberOfLines={1}>
-            Also: {otherStoresLine}
+            {t('common.also')}: {otherStoresLine}
           </Text>
         ) : null}
         <View style={styles.priceRow}>
-          <Text style={styles.currentLabel}>Current:</Text>
+          <Text style={styles.currentLabel}>{t('common.current')}:</Text>
           <Text style={styles.currentPrice}>{formatCurrency(row.currentPrice)}</Text>
-          <Text style={styles.targetLabel}>Alert at:</Text>
+          <Text style={styles.targetLabel}>{t('common.alertAt')}:</Text>
           <Text style={styles.targetPrice}>{formatCurrency(row.targetPrice)}</Text>
           {row.atTarget && row.percentBelowTarget >= 1 ? (
             <View style={styles.dropBadge}>
@@ -126,12 +128,20 @@ function AlertListRow({ row }: { row: AlertRowDisplay }) {
   );
 }
 
-function AlertList({ rows, onPressRow }: { rows: AlertRowDisplay[]; onPressRow: () => void }) {
+function AlertList({
+  rows,
+  onPressRow,
+  t,
+}: {
+  rows: AlertRowDisplay[];
+  onPressRow: () => void;
+  t: TFunction;
+}) {
   const content = rows.map((row, index) => (
     <View key={row.id}>
       {index > 0 ? <View style={styles.divider} /> : null}
       <Pressable onPress={onPressRow}>
-        <AlertListRow row={row} />
+        <AlertListRow row={row} t={t} />
       </Pressable>
     </View>
   ));
@@ -152,6 +162,7 @@ function AlertList({ rows, onPressRow }: { rows: AlertRowDisplay[]; onPressRow: 
 }
 
 export const PriceAlertCard = memo(function PriceAlertCard({ rules }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
   const rows = buildAlertRows(rules);
   const openAlerts = () => router.push('/price-tracker?tab=alerts' as never);
@@ -160,12 +171,12 @@ export const PriceAlertCard = memo(function PriceAlertCard({ rules }: Props) {
     return (
       <Pressable style={[styles.card, styles.emptyCard]} onPress={openAlerts}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>Track & Alerts</Text>
-          <Text style={styles.seeAll}>View All</Text>
+          <Text style={styles.title}>{t('alerts.title')}</Text>
+          <Text style={styles.seeAll}>{t('common.viewAll')}</Text>
         </View>
         <View style={styles.emptyBody}>
-          <Text style={styles.emptyTitle}>Notify me when price drops</Text>
-          <Text style={styles.emptyText}>Set alerts for items you buy often</Text>
+          <Text style={styles.emptyTitle}>{t('alerts.emptyTitle')}</Text>
+          <Text style={styles.emptyText}>{t('alerts.emptyText')}</Text>
         </View>
       </Pressable>
     );
@@ -174,10 +185,10 @@ export const PriceAlertCard = memo(function PriceAlertCard({ rules }: Props) {
   return (
     <View style={styles.card}>
       <Pressable style={styles.headerRow} onPress={openAlerts}>
-        <Text style={styles.title}>Track & Alerts</Text>
-        <Text style={styles.seeAll}>View All</Text>
+        <Text style={styles.title}>{t('alerts.title')}</Text>
+        <Text style={styles.seeAll}>{t('common.viewAll')}</Text>
       </Pressable>
-      <AlertList rows={rows} onPressRow={openAlerts} />
+      <AlertList rows={rows} onPressRow={openAlerts} t={t} />
     </View>
   );
 });

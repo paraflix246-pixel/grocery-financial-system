@@ -1,9 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import type { ComponentProps } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { useListStore } from '@/src/store/useListStore';
@@ -14,8 +15,7 @@ type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
 type Action = {
   id: string;
-  label: string;
-  subtitle?: string;
+  labelKey: string;
   icon: SymbolName;
   color: string;
   bgLight: string;
@@ -26,7 +26,7 @@ type Action = {
 const SECONDARY_ACTIONS: Action[] = [
   {
     id: 'track-alerts',
-    label: 'Track & Alerts',
+    labelKey: 'quickActions.trackAlerts',
     icon: { ios: 'bell.badge.fill', android: 'notifications_active', web: 'notifications_active' },
     color: SmartCartColors.accentOrange,
     bgLight: '#FFF7ED',
@@ -35,7 +35,7 @@ const SECONDARY_ACTIONS: Action[] = [
   },
   {
     id: 'pantry',
-    label: 'Pantry',
+    labelKey: 'quickActions.pantry',
     icon: { ios: 'refrigerator.fill', android: 'kitchen', web: 'kitchen' },
     color: '#9333EA',
     bgLight: '#F3E8FF',
@@ -44,7 +44,7 @@ const SECONDARY_ACTIONS: Action[] = [
   },
   {
     id: 'stores',
-    label: 'Stores',
+    labelKey: 'quickActions.stores',
     icon: { ios: 'storefront.fill', android: 'store', web: 'store' },
     color: SmartCartColors.accentBlue,
     bgLight: '#EFF6FF',
@@ -54,9 +54,11 @@ const SECONDARY_ACTIONS: Action[] = [
 ];
 
 function SecondaryActionCard({
+  label,
   action,
   onPress,
 }: {
+  label: string;
   action: Action;
   onPress: () => void;
 }) {
@@ -64,7 +66,7 @@ function SecondaryActionCard({
     <Pressable
       style={({ pressed }) => [styles.secondaryCard, pressed && styles.secondaryCardPressed]}
       accessibilityRole="button"
-      accessibilityLabel={action.label}
+      accessibilityLabel={label}
       onPress={onPress}>
       <LinearGradient
         colors={[action.bgLight, action.bgDark]}
@@ -74,12 +76,13 @@ function SecondaryActionCard({
         pointerEvents="none">
         <SymbolView name={action.icon} tintColor={action.color} size={20} />
       </LinearGradient>
-      <Text style={styles.secondaryLabel}>{action.label}</Text>
+      <Text style={styles.secondaryLabel}>{label}</Text>
     </Pressable>
   );
 }
 
 export function QuickActionGrid() {
+  const { t } = useTranslation();
   const router = useRouter();
   const listCount = useListStore((s) => s.lists.length);
 
@@ -91,22 +94,24 @@ export function QuickActionGrid() {
     loadLists();
   }, [loadLists]);
 
-  const listsSubtitle =
-    listCount === 0
-      ? 'Create lists, plan trips & compare prices'
-      : `${listCount} list${listCount === 1 ? '' : 's'} · plan, shop & track totals`;
+  const listsSubtitle = useMemo(() => {
+    if (listCount === 0) return t('quickActions.listsSubtitleEmpty');
+    return t('quickActions.listsSubtitle', { count: listCount });
+  }, [listCount, t]);
 
   function handleOpenShoppingLists() {
     skipOpenLastListOnNextFocus();
     router.push('/(tabs)/shopping-lists?browse=1' as never);
   }
 
+  const shoppingListsLabel = t('quickActions.shoppingLists');
+
   return (
     <View style={styles.grid}>
       <Pressable
         style={({ pressed }) => [styles.featuredCard, pressed && styles.featuredCardPressed]}
         accessibilityRole="button"
-        accessibilityLabel={`Shopping lists. ${listsSubtitle}`}
+        accessibilityLabel={`${shoppingListsLabel}. ${listsSubtitle}`}
         onPress={handleOpenShoppingLists}>
         <LinearGradient
           colors={['#ECFDF5', '#D1FAE5', '#BBF7D0']}
@@ -121,7 +126,7 @@ export function QuickActionGrid() {
             />
           </View>
           <View style={styles.featuredCopy}>
-            <Text style={styles.featuredLabel}>Shopping Lists</Text>
+            <Text style={styles.featuredLabel}>{shoppingListsLabel}</Text>
             <Text style={styles.featuredSubtitle} numberOfLines={2}>
               {listsSubtitle}
             </Text>
@@ -143,6 +148,7 @@ export function QuickActionGrid() {
         {SECONDARY_ACTIONS.map((action) => (
           <SecondaryActionCard
             key={action.id}
+            label={t(action.labelKey)}
             action={action}
             onPress={() => router.push(action.route as never)}
           />

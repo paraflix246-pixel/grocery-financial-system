@@ -7,6 +7,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { ComparisonUpgradeSlotCard } from '@/src/components/ComparisonUpgradeSlotCard';
@@ -21,7 +22,6 @@ import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { useRotatingItemComparison } from '@/src/hooks/useRotatingItemComparison';
 import type { ListItem } from '@/src/models/types';
-import { STARTER_SAMPLE_HINT } from '@/src/data/starterCommonGoods';
 import { getSavingsSubtitleForStoreRows } from '@/src/services/priceComparisonLogic';
 import {
   COMPARISON_FALLBACK_LIST_ID,
@@ -29,7 +29,7 @@ import {
   ensureHomeComparisonItems,
   HOME_CART_COMPARISON_PREVIEW_COUNT,
 } from '@/src/services/comparisonFallbackLogic';
-import { getFeatureLabel } from '@/src/services/featureGateService';
+import { getFeatureLabelI18n } from '@/src/i18n/helpers';
 import { useListStore } from '@/src/store/useListStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { SmartCartColors, SmartCartTypography } from '@/src/theme/smartCart';
@@ -52,6 +52,7 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
   listItems,
   isStarterSample: isStarterSampleProp,
 }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
   const { width: screenWidth } = useWindowDimensions();
 
@@ -88,15 +89,15 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
     isStarterSample || (effectiveListItems.length === 0 && previewListItems.length > 0);
 
   const subtitle = useMemo(() => {
-    if (showStarterHint) return STARTER_SAMPLE_HINT;
+    if (showStarterHint) return t('common.samplePrices');
     if (!current) return null;
     return getSavingsSubtitleForStoreRows(current.storeRows);
-  }, [showStarterHint, current]);
+  }, [showStarterHint, current, t]);
 
   if (loading) {
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
+        <Text style={styles.sectionTitle}>{t('comparison.title')}</Text>
         <View style={styles.loadingCard}>
           <ActivityIndicator size="small" color={SmartCartColors.primary} />
         </View>
@@ -113,16 +114,16 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
       <View style={styles.section}>
         <View style={styles.headerRow}>
           <View style={styles.headerTitleCol}>
-            <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
+            <Text style={styles.sectionTitle}>{t('comparison.title')}</Text>
             <Text style={styles.itemCountLabel}>
-              {previewItemCount} {previewItemCount === 1 ? 'item' : 'items'}
+              {t('common.items', { count: previewItemCount })}
             </Text>
-            {showStarterHint ? <Text style={styles.sourceHint}>{STARTER_SAMPLE_HINT}</Text> : null}
+            {showStarterHint ? <Text style={styles.sourceHint}>{t('common.samplePrices')}</Text> : null}
           </View>
         </View>
         <View style={styles.loadingCard}>
           <ActivityIndicator size="small" color={SmartCartColors.primary} />
-          <Text style={styles.loadingHint}>Loading store prices…</Text>
+          <Text style={styles.loadingHint}>{t('comparison.loadingPrices')}</Text>
         </View>
       </View>
     );
@@ -131,11 +132,11 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
   const showUpgradeSlot = !fullBasketUnlocked;
   const upgradeFeatureName =
     subscriptionTier === 'free'
-      ? getFeatureLabel('community_pricing')
-      : getFeatureLabel('cheapest_basket');
+      ? getFeatureLabelI18n(t, 'community_pricing')
+      : getFeatureLabelI18n(t, 'cheapest_basket');
   const upgradeHook =
     subscriptionTier === 'free'
-      ? 'Go Pro for more & cheaper cart comparisons across every store'
+      ? t('upgrade.proComparisonHook')
       : undefined;
 
   const useSideBySide = showUpgradeSlot && screenWidth >= COMPACT_ROW_MIN_WIDTH;
@@ -181,17 +182,17 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
     <View style={styles.section}>
       <View style={styles.headerRow}>
         <View style={styles.headerTitleCol}>
-          <Text style={styles.sectionTitle}>Cheapest Cart Comparison</Text>
+          <Text style={styles.sectionTitle}>{t('comparison.title')}</Text>
           <Text style={styles.itemCountLabel}>
-            {previewItemCount} {previewItemCount === 1 ? 'item' : 'items'}
+            {t('common.items', { count: previewItemCount })}
             {fullBasketUnlocked
-              ? ` · ${comparisons.length} comparisons`
-              : ` · preview · item ${currentIndex + 1} of ${comparisons.length}`}
+              ? t('comparison.comparisonsMeta', { count: comparisons.length })
+              : `${t('common.preview')} · ${t('common.itemOf', { current: currentIndex + 1, total: comparisons.length })}`}
           </Text>
           {subtitle ? <Text style={styles.sourceHint}>{subtitle}</Text> : null}
         </View>
         <Pressable onPress={() => router.push('/cart-comparison' as never)}>
-          <Text style={styles.seeAll}>View All</Text>
+          <Text style={styles.seeAll}>{t('common.viewAll')}</Text>
         </Pressable>
       </View>
 

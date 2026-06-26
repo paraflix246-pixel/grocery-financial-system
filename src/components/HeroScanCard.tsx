@@ -4,12 +4,14 @@ import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
 const scanReceiptBanner = require('../../assets/images/scan-receipt-banner.png');
 
 export function HeroScanCard() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [bannerFailed, setBannerFailed] = useState(false);
   const goToScan = () => router.push('/(tabs)/scan');
@@ -19,7 +21,7 @@ export function HeroScanCard() {
       style={styles.wrapper}
       onPress={goToScan}
       accessibilityRole="button"
-      accessibilityLabel="Scan Receipt. Upload or scan a receipt to extract items, track prices, and compare stores.">
+      accessibilityLabel={t('heroScan.a11y')}>
       <LinearGradient
         colors={['#15803D', '#22C55E', '#86EFAC']}
         start={{ x: 0, y: 0.5 }}
@@ -37,19 +39,17 @@ export function HeroScanCard() {
         />
       ) : null}
       <View style={[styles.copyBlock, { pointerEvents: 'none' }]}>
-        <Text style={styles.title}>Scan Receipt ✨</Text>
-        <Text style={styles.subtitle}>
-          Upload or scan a receipt to extract items, track prices, and compare stores.
-        </Text>
+        <Text style={styles.title}>{t('heroScan.title')}</Text>
+        <Text style={styles.subtitle}>{t('heroScan.subtitle')}</Text>
         <View style={styles.scanButton}>
           <SymbolView
             name={{ ios: 'camera', android: 'photo_camera', web: 'photo_camera' }}
             size={24}
             tintColor={SmartCartColors.primaryDark}
           />
-          <Text style={styles.scanButtonText}>Scan Now</Text>
+          <Text style={styles.scanButtonText}>{t('heroScan.scanNow')}</Text>
         </View>
-        <Text style={styles.secureText}>🛡️ Secure • Private • No Account Required</Text>
+        <Text style={styles.secureText}>{t('heroScan.secure')}</Text>
       </View>
     </Pressable>
   );

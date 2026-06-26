@@ -2,6 +2,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { AppBottomSheetModal } from '@/src/components/AppBottomSheetModal';
@@ -124,6 +125,7 @@ function TrackedItemOptionsSheet({
 }
 
 export default function PriceTrackerIndexScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { unlocked: cheapestUnlocked } = useFeatureGate('cheapest_basket');
   const { unlocked: autoAlertsUnlocked } = useFeatureGate('price_drop_alerts');
@@ -262,27 +264,25 @@ export default function PriceTrackerIndexScreen() {
 
   const topTabs = useMemo(
     () => [
-      { id: 'watchlist', label: 'Watchlist' },
-      { id: 'alerts', label: 'Alerts' },
+      { id: 'watchlist', label: t('trackAlerts.watchlist') },
+      { id: 'alerts', label: t('trackAlerts.alerts') },
     ],
-    []
+    [t]
   );
 
   const showingStarterItems = hasStarterTrackedItems(items);
 
   const watchlistSection = (
     <View style={styles.watchlistBlock}>
-      <MockupSectionLabel>Watchlist</MockupSectionLabel>
+      <MockupSectionLabel>{t('trackAlerts.watchlist')}</MockupSectionLabel>
       {items.length === 0 ? (
         <MockupCard>
-          <Text style={styles.empty}>
-            Add price alerts or scan receipts to start tracking items.
-          </Text>
+          <Text style={styles.empty}>{t('trackAlerts.emptyWatchlist')}</Text>
         </MockupCard>
       ) : (
         <>
           {showingStarterItems ? (
-            <Text style={styles.starterHint}>{STARTER_SAMPLE_HINT}</Text>
+            <Text style={styles.starterHint}>{t('common.samplePrices')}</Text>
           ) : null}
           {items.map((item) => (
           <View key={item.slug} style={styles.row}>
@@ -326,7 +326,7 @@ export default function PriceTrackerIndexScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Track & Alerts" />
+      <ScreenHeader title={t('trackAlerts.title')} />
 
       <View style={styles.tabBarWrap}>
         <MockupTabs tabs={topTabs} active={activeTab} onChange={(tab) => switchTab(tab as PriceWatchTab)} />

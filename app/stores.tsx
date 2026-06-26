@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
@@ -36,6 +37,7 @@ type StoreSummary = StoreDefinition & {
 };
 
 export default function StoresScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const [stores, setStores] = useState<StoreSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +126,7 @@ export default function StoresScreen() {
         ? ` Your ${store.receiptCount} receipt${store.receiptCount === 1 ? '' : 's'} from ${store.name} will stay in history.`
         : '';
     confirmDestructiveAction({
-      title: `Remove ${store.name}?`,
+      title: t('stores.removeTitle', { name: store.name }),
       message: `Remove this store from your list.${receiptNote}`,
       confirmLabel: 'Remove',
       onConfirm: async () => {
@@ -137,12 +139,12 @@ export default function StoresScreen() {
   return (
     <View style={styles.container}>
       <ScreenHeader
-        title="Stores"
+        title={t('stores.title')}
         rightAction={
           <Pressable
             style={({ pressed }) => [styles.headerBtn, pressed && styles.headerBtnPressed]}
             accessibilityRole="button"
-            accessibilityLabel="Add store"
+            accessibilityLabel={t('common.addStore')}
             onPress={openAddModal}>
             <SymbolView
               name={{ ios: 'plus', android: 'add', web: 'add' }}
@@ -159,22 +161,17 @@ export default function StoresScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.lead}>
-            Favorite stores appear first. Tap a store to view receipts. Removing a store hides it from
-            this list but keeps receipt history.
-          </Text>
+          <Text style={styles.lead}>{t('stores.lead')}</Text>
 
           {stores.length === 0 ? (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>No stores yet</Text>
-              <Text style={styles.emptyBody}>
-                Add a store manually or scan a receipt to register one automatically.
-              </Text>
+              <Text style={styles.emptyTitle}>{t('stores.emptyTitle')}</Text>
+              <Text style={styles.emptyBody}>{t('stores.emptyBody')}</Text>
               <Pressable
                 style={({ pressed }) => [styles.emptyBtn, pressed && styles.emptyBtnPressed]}
                 accessibilityRole="button"
                 onPress={openAddModal}>
-                <Text style={styles.emptyBtnText}>Add a store</Text>
+                <Text style={styles.emptyBtnText}>{t('stores.addStore')}</Text>
               </Pressable>
             </View>
           ) : (

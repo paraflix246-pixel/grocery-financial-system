@@ -53,6 +53,7 @@ import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
 import { PRO_MONTHLY_PRICE } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { formatHomeGreetingI18n, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { translateCategory } from '@/src/i18n/helpers';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 import { formatCurrency } from '@/src/utils/priceParser';
 import type { RepurchaseCadence } from '@/src/utils/repurchaseCadence';
@@ -126,11 +127,11 @@ export default function HomeScreen() {
   const categoryData = useMemo(() => {
     const { receipts } = getSpendingOverviewReceipts(allReceipts, spendingPeriod);
     return buildSpendingOverviewBreakdown(receipts).map((entry) => ({
-      label: entry.category,
+      label: translateCategory(t, entry.category),
       value: entry.amount,
       color: entry.color,
     }));
-  }, [allReceipts, spendingPeriod]);
+  }, [allReceipts, spendingPeriod, t]);
 
   const { blocking } = useFocusReload(load);
 
@@ -141,7 +142,9 @@ export default function HomeScreen() {
   const weeklyBudget = homeInsight?.weeklyBudget ?? weeklyBudgetSetting;
   const weeklySpend = homeInsight?.weeklySpend ?? 0;
   const underBudget = Math.max(weeklyBudget - weeklySpend, 0);
-  const budgetPercentLabel = `${Math.round((homeInsight?.budgetPercent ?? 0) * 100)}% of weekly budget`;
+  const budgetPercentLabel = t('home.percentOfWeeklyBudget', {
+    percent: Math.round((homeInsight?.budgetPercent ?? 0) * 100),
+  });
   const greetingText = formatHomeGreetingI18n(displayName, t);
 
   return (
@@ -162,19 +165,21 @@ export default function HomeScreen() {
 
       <View style={styles.greetingBlock}>
         <Text style={styles.greeting}>{greetingText} 👋</Text>
-        <Text style={styles.greetingSub}>Here's your smart shopping overview</Text>
+        <Text style={styles.greetingSub}>{t('home.greetingSub')}</Text>
       </View>
 
       {subscriptionTier === 'free' ? (
         <ProUpgradeBanner
           variant="compact"
-          message={`Unlock price alerts & family lists — Pro from ${PRO_MONTHLY_PRICE}/mo`}
+          message={t('home.proBannerCompact', { price: PRO_MONTHLY_PRICE.replace('$', '') })}
         />
       ) : null}
 
       {homeInsight && notifyBudgetAlerts && homeInsight.isOverBudget && (
         <StatusBanner
-          message={`Weekly budget exceeded by ${formatCurrency(Math.max(homeInsight.weeklySpend - homeInsight.weeklyBudget, 0))}`}
+          message={t('home.budgetExceeded', {
+            amount: formatCurrency(Math.max(homeInsight.weeklySpend - homeInsight.weeklyBudget, 0)),
+          })}
           emoji="⚠️"
           variant="warning"
         />
@@ -182,7 +187,9 @@ export default function HomeScreen() {
 
       {homeInsight && notifyBudgetAlerts && !homeInsight.isOverBudget && homeInsight.isOverThreshold && (
         <StatusBanner
-          message={`You've used ${Math.round(homeInsight.budgetPercent * 100)}% of your weekly budget — approaching your alert threshold`}
+          message={t('home.budgetThreshold', {
+            percent: Math.round(homeInsight.budgetPercent * 100),
+          })}
           emoji="📊"
           variant="warning"
         />
@@ -191,25 +198,25 @@ export default function HomeScreen() {
       {homeInsight && (
         <View style={[styles.insightRow, isWide && styles.insightRowWide]}>
           <InsightCard
-            title="This Week"
+            title={t('home.thisWeek')}
             value={`${formatCurrency(homeInsight.weeklySpend)} / ${formatCurrency(homeInsight.weeklyBudget)}`}
             subtitle={
               homeInsight.isOverBudget
-                ? 'Over weekly budget'
+                ? t('home.overWeeklyBudget')
                 : homeInsight.isOverThreshold
-                  ? 'Approaching budget limit'
+                  ? t('home.approachingBudgetLimit')
                   : budgetPercentLabel
             }
             variant={
               homeInsight.isOverBudget ? 'warning' : homeInsight.isOverThreshold ? 'warning' : 'default'
             }
-            actionHint="Edit budget"
+            actionHint={t('home.editBudget')}
             onPress={() => router.push('/settings/budget?edit=1')}
             expand={isWide}
           />
           {homeInsight.comparisonSummary ? (
             <InsightCard
-              title="Plan vs Actual"
+              title={t('home.planVsActual')}
               value={homeInsight.comparisonSummary}
               subtitle={
                 homeInsight.topInsight &&
@@ -218,17 +225,17 @@ export default function HomeScreen() {
                   : undefined
               }
               variant={homeInsight.comparisonSummary.startsWith('Over') ? 'warning' : 'success'}
-              actionHint="Details"
+              actionHint={t('home.details')}
               onPress={() => setPlanComparisonVisible(true)}
               expand={isWide}
             />
           ) : homeInsight.mostExpensiveStore ? (
             <InsightCard
-              title="Top Store"
+              title={t('home.topStore')}
               value={homeInsight.mostExpensiveStore}
               subtitle={
                 homeInsight.avgReceiptValue > 0
-                  ? `Avg receipt ${formatCurrency(homeInsight.avgReceiptValue)}`
+                  ? t('home.avgReceipt', { amount: formatCurrency(homeInsight.avgReceiptValue) })
                   : undefined
               }
               expand={isWide}
@@ -264,16 +271,16 @@ export default function HomeScreen() {
       <View style={[styles.analyticsRow, isWide && styles.analyticsRowWide]}>
         <View style={[styles.sectionCard, isWide && styles.analyticsHalf]}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Spending Overview</Text>
+            <Text style={styles.sectionTitle}>{t('home.spendingOverview')}</Text>
             <SpendingPeriodSelector period={spendingPeriod} onPeriodChange={setSpendingPeriod} />
           </View>
-          <Text style={styles.sectionSubtitle}>Category breakdown from saved receipts</Text>
+          <Text style={styles.sectionSubtitle}>{t('home.spendingOverviewSub')}</Text>
           <DonutChart data={categoryData} />
         </View>
         {underBudget > 0 && weeklySpend > 0 && (
           <View style={[isWide && styles.analyticsHalf, styles.statusWrap]}>
             <StatusBanner
-              message={`You're doing great! You're ${formatCurrency(underBudget)} under budget`}
+              message={t('home.underBudget', { amount: formatCurrency(underBudget) })}
               emoji="🌿"
             />
           </View>

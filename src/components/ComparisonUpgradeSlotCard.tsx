@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { HOME_COMPARISON_SLOT_MIN_HEIGHT, HOME_COMPARISON_SLOT_MIN_HEIGHT_COMPACT } from '@/src/components/HomeItemComparisonCard';
@@ -26,8 +27,9 @@ export function ComparisonUpgradeSlotCard({
   compact = false,
   flexWeight,
 }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
-  const planName = 'Pro';
+  const planName = t('common.pro');
   const subtitle = hook ?? PRO_UPGRADE_HOOK;
 
   const handlePress = () => {
@@ -54,7 +56,7 @@ export function ComparisonUpgradeSlotCard({
       ]}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={`Unlock ${featureName} with ${planName}`}>
+      accessibilityLabel={t('common.unlockWith', { feature: featureName, plan: planName })}>
       <LinearGradient
         colors={[...GRADIENT]}
         style={[styles.card, compact && styles.cardCompact]}
@@ -68,14 +70,16 @@ export function ComparisonUpgradeSlotCard({
           />
         </View>
         <Text style={[styles.title, compact && styles.titleCompact]} numberOfLines={2}>
-          Unlock {featureName}
+          {t('common.unlockFeature', { feature: featureName })}
         </Text>
-        <Text style={[styles.planLabel, compact && styles.planLabelCompact]}>with {planName}</Text>
+        <Text style={[styles.planLabel, compact && styles.planLabelCompact]}>
+          {t('common.withPlan', { plan: planName })}
+        </Text>
         <Text style={[styles.subtitle, compact && styles.subtitleCompact]} numberOfLines={compact ? 3 : 4}>
           {subtitle}
         </Text>
         <View style={[styles.ctaRow, compact && styles.ctaRowCompact]}>
-          <Text style={[styles.ctaText, compact && styles.ctaTextCompact]}>View plans</Text>
+          <Text style={[styles.ctaText, compact && styles.ctaTextCompact]}>{t('common.viewPlans')}</Text>
           <SymbolView
             name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
             tintColor="#86EFAC"

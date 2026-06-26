@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { ItemEmojiAvatar } from '@/src/components/ItemEmojiAvatar';
@@ -12,26 +13,32 @@ type Props = {
 };
 
 export function ForgottenItemsCard({ items, onAdd }: Props) {
+  const { t } = useTranslation();
   if (items.length === 0) return null;
 
   const top = items[0];
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Usually buy</Text>
+      <Text style={styles.title}>{t('forgottenItems.title')}</Text>
       <View style={styles.row}>
         <ItemEmojiAvatar emoji={getItemEmoji(top.displayName, top.displayName)} size="md" />
         <View style={styles.body}>
           <Text style={styles.message}>
-            You usually buy {top.displayName} every {top.medianDaysBetween} days. It&apos;s been{' '}
-            {top.daysSinceLastPurchase}. Add them?
+            {t('forgottenItems.message', {
+              name: top.displayName,
+              days: top.medianDaysBetween,
+              since: top.daysSinceLastPurchase,
+            })}
           </Text>
         </View>
       </View>
       <Pressable style={styles.btn} onPress={() => onAdd(top)}>
-        <Text style={styles.btnText}>Add to list</Text>
+        <Text style={styles.btnText}>{t('forgottenItems.addToList')}</Text>
       </Pressable>
       {items.length > 1 ? (
-        <Text style={styles.more}>{items.length - 1} more item{items.length === 2 ? '' : 's'} overdue</Text>
+        <Text style={styles.more}>
+          {t('forgottenItems.moreOverdue', { count: items.length - 1 })}
+        </Text>
       ) : null}
     </View>
   );

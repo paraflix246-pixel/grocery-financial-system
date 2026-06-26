@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 import { PieChart } from 'react-native-gifted-charts';
 import { StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { CategoryAvatar } from '@/src/components/CategoryAvatar';
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export const DonutChart = memo(function DonutChart({ data, radius = 64, innerRadius = 42 }: Props) {
+  const { t } = useTranslation();
   const total = useMemo(() => data.reduce((sum, d) => sum + d.value, 0), [data]);
   const size = radius * 2;
   const pieData = useMemo(
@@ -44,7 +46,7 @@ export const DonutChart = memo(function DonutChart({ data, radius = 64, innerRad
             </Text>
           </View>
         ))}
-        {total === 0 && <Text style={styles.empty}>No spending data</Text>}
+        {total === 0 && <Text style={styles.empty}>{t('common.noSpendingData')}</Text>}
       </View>
     </View>
   );

@@ -19,7 +19,35 @@
     "selectPlan": "Elegir plan",
     "english": "English",
     "spanish": "Español",
-    "language": "Idioma"
+    "language": "Idioma",
+    "viewAll": "Ver todo",
+    "all": "Todos",
+    "select": "Seleccionar",
+    "manual": "Manual",
+    "unknownStore": "Tienda desconocida",
+    "also": "También",
+    "current": "Actual",
+    "alertAt": "Alerta en",
+    "items_one": "{{count}} artículo",
+    "items_other": "{{count}} artículos",
+    "itemOf": "artículo {{current}} de {{total}}",
+    "preview": "vista previa",
+    "comparisons": "comparaciones",
+    "perMonthShort": "/mes",
+    "addStore": "Agregar tienda",
+    "delete": "Eliminar",
+    "search": "Buscar",
+    "backToToday": "Volver a hoy",
+    "noSpendingData": "Sin datos de gasto",
+    "samplePrices": "Precios de ejemplo",
+    "viewPlans": "Ver planes",
+    "unlockWith": "Desbloquea {{feature}} con {{plan}}",
+    "unlockFeature": "Desbloquea {{feature}}",
+    "withPlan": "con {{plan}}",
+    "goPro": "Hazte Pro",
+    "logOut": "¿Cerrar sesión?",
+    "logOutBody": "Tendrás que iniciar sesión de nuevo para acceder a tu cuenta.",
+    "signIn": "Iniciar sesión"
   },
   "tabs": {
     "home": "Inicio",
@@ -31,7 +59,202 @@
   "home": {
     "greetingMorning": "Buenos días",
     "greetingAfternoon": "Buenas tardes",
-    "greetingEvening": "Buenas noches"
+    "greetingEvening": "Buenas noches",
+    "greetingSub": "Aquí tienes tu resumen inteligente de compras",
+    "proBannerCompact": "Desbloquea alertas de precio y listas familiares — Pro desde {{price}}/mes",
+    "budgetExceeded": "Presupuesto semanal superado por {{amount}}",
+    "budgetThreshold": "Has usado el {{percent}}% de tu presupuesto semanal — te acercas al límite de alerta",
+    "thisWeek": "Esta semana",
+    "planVsActual": "Plan vs real",
+    "topStore": "Tienda principal",
+    "avgReceipt": "Recibo prom. {{amount}}",
+    "overWeeklyBudget": "Sobre el presupuesto semanal",
+    "approachingBudgetLimit": "Cerca del límite del presupuesto",
+    "percentOfWeeklyBudget": "{{percent}}% del presupuesto semanal",
+    "editBudget": "Editar presupuesto",
+    "details": "Detalles",
+    "spendingOverview": "Resumen de gastos",
+    "spendingOverviewSub": "Desglose por categoría de tus recibos guardados",
+    "underBudget": "¡Vas muy bien! Estás {{amount}} por debajo del presupuesto"
+  },
+  "categories": {
+    "Groceries": "Comestibles",
+    "Household": "Hogar",
+    "Snacks": "Snacks",
+    "Beverages": "Bebidas",
+    "Produce": "Frutas y verduras",
+    "Dairy": "Lácteos",
+    "Pantry": "Despensa",
+    "Meat": "Carnes",
+    "Bakery": "Panadería",
+    "Other": "Otros",
+    "Uncategorized": "Sin categoría"
+  },
+  "periods": {
+    "day": "Día",
+    "week": "Semana",
+    "month": "Mes",
+    "year": "Año",
+    "today": "Hoy",
+    "thisWeek": "Esta semana",
+    "thisMonth": "Este mes",
+    "thisYear": "Este año"
+  },
+  "chart": {
+    "empty": {
+      "noReceipts": "Escanea tu primer recibo para ver tu gráfico de gastos",
+      "noPeriod": "No hay recibos en este periodo"
+    },
+    "comparison": {
+      "1w": "vs semana pasada",
+      "1m": "vs mes pasado",
+      "3m": "vs 3 meses anteriores",
+      "6m": "vs 6 meses anteriores",
+      "1y": "vs año pasado",
+      "all": ""
+    },
+    "tooltipItems_one": "{{count}} artículo",
+    "tooltipItems_other": "{{count}} artículos",
+    "selectPeriodA11y": "Seleccionar periodo de gasto"
+  },
+  "quickActions": {
+    "shoppingLists": "Listas de compras",
+    "listsSubtitleEmpty": "Crea listas, planifica viajes y compara precios",
+    "listsSubtitle_one": "{{count}} lista · planifica, compra y sigue totales",
+    "listsSubtitle_other": "{{count}} listas · planifica, compra y sigue totales",
+    "trackAlerts": "Seguimiento y alertas",
+    "pantry": "Despensa",
+    "stores": "Tiendas"
+  },
+  "heroScan": {
+    "title": "Escanear recibo ✨",
+    "subtitle": "Sube o escanea un recibo para extraer artículos, seguir precios y comparar tiendas.",
+    "scanNow": "Escanear ahora",
+    "secure": "🛡️ Seguro • Privado • Sin cuenta requerida",
+    "a11y": "Escanear recibo. Sube o escanea un recibo para extraer artículos, seguir precios y comparar tiendas."
+  },
+  "upgrade": {
+    "proComparisonHook": "Hazte Pro para más comparaciones de carrito barato en todas las tiendas",
+    "stopMissingDrops": "No te pierdas las bajadas de precio",
+    "proBannerSub": "Alertas en tiempo real, seguimiento de inflación y comparación multi-tienda"
+  },
+  "comparison": {
+    "title": "Comparación del carrito más barato",
+    "loadingPrices": "Cargando precios de tiendas…",
+    "previewMeta": " · vista previa · artículo {{current}} de {{total}}",
+    "comparisonsMeta": " · {{count}} comparaciones"
+  },
+  "forgottenItems": {
+    "title": "Sueles comprar",
+    "message": "Sueles comprar {{name}} cada {{days}} días. Han pasado {{since}}. ¿Los agregas?",
+    "addToList": "Agregar a la lista",
+    "moreOverdue_one": "{{count}} artículo más vencido",
+    "moreOverdue_other": "{{count}} artículos más vencidos"
+  },
+  "alerts": {
+    "title": "Seguimiento y alertas",
+    "emptyTitle": "Avísame cuando baje el precio",
+    "emptyText": "Configura alertas para lo que compras seguido"
+  },
+  "receipts": {
+    "title": "Recibos",
+    "subtitle": "Busca y explora tus recibos escaneados",
+    "searchPlaceholder": "Buscar recibos o artículos…",
+    "exportJson": "Exportar JSON",
+    "exportCsv": "Exportar CSV",
+    "emptyTitle": "Aún no hay recibos",
+    "emptyBody": "Escanea uno para empezar.",
+    "recentTitle": "Recibos recientes",
+    "deleteTitle_one": "¿Eliminar {{count}} recibo?",
+    "deleteTitle_other": "¿Eliminar {{count}} recibos?",
+    "deleteMessage_one": "Se eliminará permanentemente {{count}} recibo y comparaciones vinculadas. ¿Seguro?",
+    "deleteMessage_other": "Se eliminarán permanentemente {{count}} recibos y comparaciones vinculadas. ¿Seguro?"
+  },
+  "scan": {
+    "title": "Escanear recibo",
+    "permissionRequired": "Se requiere permiso de cámara",
+    "grantPermission": "Conceder permiso",
+    "pickGallery": "O elegir de la galería",
+    "pickFromGallery": "Elegir de la galería",
+    "addManual": "Agregar recibo manualmente",
+    "cameraUnavailable": "Cámara no disponible — usa la galería o entrada manual",
+    "flashOn": "Flash encendido",
+    "flash": "Flash",
+    "scanFailed": "Error al escanear"
+  },
+  "lists": {
+    "title": "Listas de compras",
+    "subtitle": "Planifica viajes, sigue totales, compra mejor",
+    "createList": "Crear lista",
+    "createNewA11y": "Crear lista nueva",
+    "deleteEmptyTitle": "¿Eliminar todas las listas vacías?"
+  },
+  "pantry": {
+    "title": "Despensa",
+    "subtitle": "Controla lo que tienes a mano",
+    "emptyDefault": "Aún no hay artículos en la despensa. Agrégalos manualmente o escanea recibos.",
+    "emptyRunningLow": "Nada con stock bajo. Aparecen aquí cuando la cantidad baja a tu umbral.",
+    "emptyExpiring": "Nada por vencer pronto. Aparecen aquí cuando faltan 3 días o menos para vencer."
+  },
+  "stores": {
+    "title": "Tiendas",
+    "lead": "Las tiendas favoritas aparecen primero. Toca una para ver recibos. Quitar una tienda la oculta de esta lista pero conserva el historial.",
+    "emptyTitle": "Aún no hay tiendas",
+    "emptyBody": "Agrega una tienda manualmente o escanea un recibo para registrarla automáticamente.",
+    "addStore": "Agregar tienda",
+    "removeTitle": "¿Quitar {{name}}?"
+  },
+  "more": {
+    "title": "Más",
+    "subtitle": "Ajustes y funciones Pro",
+    "sections": {
+      "essentials": "Esenciales",
+      "proInsights": "Pro e insights",
+      "collaboration": "Colaboración"
+    },
+    "items": {
+      "settings": { "label": "Ajustes", "subtitle": "Perfil, notificaciones y preferencias" },
+      "budget": { "label": "Presupuesto", "subtitle": "Límites mensuales y por categoría" },
+      "spendingAnalytics": { "label": "Análisis de gastos", "subtitle": "Tendencias y desglose por categoría" },
+      "cartComparison": { "label": "Comparación de carrito", "subtitle": "Compara totales por tienda de tu lista" },
+      "pantry": { "label": "Despensa", "subtitle": "Sigue artículos de tus recibos" },
+      "shoppingLists": { "label": "Listas de compras", "subtitle": "Administra tus listas de compras" },
+      "scanReceipt": { "label": "Escanear recibo", "subtitle": "Captura o sube un recibo" },
+      "pro": { "label": "Penny Pantry Pro", "subtitle": "Suscripción y administración del plan" },
+      "spendingInsights": { "label": "Insights de gasto", "subtitle": "Desglose por categoría y tienda de tus recibos" },
+      "brandIntelligence": { "label": "Inteligencia de marcas", "subtitle": "Propiedad de marcas e insights corporativos" },
+      "inflationTracker": { "label": "Seguimiento de inflación", "subtitle": "Índice personal de precios desde recibos" },
+      "regionalInsights": { "label": "Insights regionales", "subtitle": "Compara gasto e inflación por estado/provincia" },
+      "usageStats": { "label": "Estadísticas de uso", "subtitle": "Métricas locales de uso y contribución" },
+      "familyPlans": { "label": "Planes familiares", "subtitle": "Comparte listas con tu hogar" }
+    },
+    "footerVersion": "Grocery Financial System"
+  },
+  "trackAlerts": {
+    "title": "Seguimiento y alertas",
+    "watchlist": "Lista de seguimiento",
+    "alerts": "Alertas",
+    "emptyWatchlist": "Agrega alertas de precio o escanea recibos para empezar a seguir artículos.",
+    "alertActive": "Alerta de precio activa",
+    "sampleItem": "Artículo de ejemplo",
+    "fromReceipts": "De tus recibos"
+  },
+  "features": {
+    "labels": {
+      "insights_pro": "Ve a dónde va tu presupuesto de comestibles",
+      "inflation_tracker": "Ve cómo te afecta la inflación en la canasta",
+      "community_pricing": "Comparación de precios multi-tienda",
+      "usage_analytics": "Historial completo de precios (todas las compras)",
+      "family_plans": "Listas de compras compartidas para tu hogar",
+      "price_drop_alerts": "Alertas inteligentes de ofertas",
+      "export_advanced": "Exportar datos de gastos",
+      "multi_user_sync": "Sincronización multiusuario en vivo",
+      "budget_forecasting": "Resumen mensual de gastos",
+      "cheapest_basket": "Carrito más barato entre tiendas",
+      "api_access": "Comparación de precios multi-tienda",
+      "pantry_unlimited": "Seguimiento ilimitado de despensa",
+      "custom_themes": "Temas y colores personalizados"
+    }
   },
   "onboarding": {
     "slides": {

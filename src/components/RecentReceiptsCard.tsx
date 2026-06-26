@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
@@ -38,6 +39,7 @@ function ReceiptRow({ receipt, onPress }: { receipt: Receipt; onPress: () => voi
 }
 
 export const RecentReceiptsCard = memo(function RecentReceiptsCard({ receipts }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
   const openReceipt = (id: string) => router.push(`/receipt/${id}`);
   const openAll = () => router.push('/(tabs)/receipts');
@@ -52,14 +54,14 @@ export const RecentReceiptsCard = memo(function RecentReceiptsCard({ receipts }:
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
-        <Text style={styles.title}>Recent Receipts</Text>
+        <Text style={styles.title}>{t('receipts.recentTitle')}</Text>
         <Pressable onPress={openAll}>
-          <Text style={styles.seeAll}>View All</Text>
+          <Text style={styles.seeAll}>{t('common.viewAll')}</Text>
         </Pressable>
       </View>
 
       {receipts.length === 0 ? (
-        <Text style={styles.empty}>No receipts yet</Text>
+        <Text style={styles.empty}>{t('receipts.emptyTitle')}</Text>
       ) : receipts.length <= MAX_VISIBLE_ROWS ? (
         <View style={styles.list}>{rows}</View>
       ) : (

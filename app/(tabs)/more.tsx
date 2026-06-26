@@ -2,6 +2,8 @@ import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import type { ComponentProps } from 'react';
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
@@ -19,125 +21,57 @@ type MenuSection = {
 };
 
 type MenuItem = {
-  label: string;
-  subtitle: string;
+  labelKey: string;
+  subtitleKey: string;
   icon: SymbolName;
   route: string;
   pro?: boolean;
 };
 
-const SECTIONS: MenuSection[] = [
-  {
-    title: 'Essentials',
-    items: [
+function useMenuSections(): MenuSection[] {
+  const { t } = useTranslation();
+  return useMemo(
+    () => [
       {
-        label: 'Settings',
-        subtitle: 'Profile, notifications & preferences',
-        icon: { ios: 'gearshape.fill', android: 'settings', web: 'settings' },
-        route: '/settings',
+        title: t('more.sections.essentials'),
+        items: [
+          { labelKey: 'more.items.settings.label', subtitleKey: 'more.items.settings.subtitle', icon: { ios: 'gearshape.fill', android: 'settings', web: 'settings' }, route: '/settings' },
+          { labelKey: 'more.items.budget.label', subtitleKey: 'more.items.budget.subtitle', icon: { ios: 'dollarsign.circle', android: 'payments', web: 'payments' }, route: '/settings/budget' },
+          { labelKey: 'more.items.spendingAnalytics.label', subtitleKey: 'more.items.spendingAnalytics.subtitle', icon: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' }, route: '/spending-analytics' },
+          { labelKey: 'more.items.cartComparison.label', subtitleKey: 'more.items.cartComparison.subtitle', icon: { ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' }, route: '/cart-comparison' },
+          { labelKey: 'more.items.pantry.label', subtitleKey: 'more.items.pantry.subtitle', icon: { ios: 'cabinet.fill', android: 'kitchen', web: 'kitchen' }, route: '/pantry' },
+          { labelKey: 'more.items.shoppingLists.label', subtitleKey: 'more.items.shoppingLists.subtitle', icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' }, route: '/(tabs)/shopping-lists?browse=1' },
+          { labelKey: 'more.items.scanReceipt.label', subtitleKey: 'more.items.scanReceipt.subtitle', icon: { ios: 'camera', android: 'photo_camera', web: 'photo_camera' }, route: '/(tabs)/scan' },
+        ],
       },
       {
-        label: 'Budget',
-        subtitle: 'Monthly limits & category budgets',
-        icon: { ios: 'dollarsign.circle', android: 'payments', web: 'payments' },
-        route: '/settings/budget',
+        title: t('more.sections.proInsights'),
+        items: [
+          { labelKey: 'more.items.pro.label', subtitleKey: 'more.items.pro.subtitle', icon: { ios: 'star.fill', android: 'star', web: 'star' }, route: '/subscriptions' },
+          { labelKey: 'more.items.spendingInsights.label', subtitleKey: 'more.items.spendingInsights.subtitle', icon: { ios: 'brain.head.profile', android: 'psychology', web: 'psychology' }, route: '/insights_pro', pro: true },
+          { labelKey: 'more.items.brandIntelligence.label', subtitleKey: 'more.items.brandIntelligence.subtitle', icon: { ios: 'building.columns.fill', android: 'corporate_fare', web: 'corporate_fare' }, route: '/brand-intelligence', pro: true },
+          { labelKey: 'more.items.inflationTracker.label', subtitleKey: 'more.items.inflationTracker.subtitle', icon: { ios: 'chart.xyaxis.line', android: 'show_chart', web: 'show_chart' }, route: '/inflation_tracker', pro: true },
+          { labelKey: 'more.items.regionalInsights.label', subtitleKey: 'more.items.regionalInsights.subtitle', icon: { ios: 'map.fill', android: 'map', web: 'map' }, route: '/regional_insights', pro: true },
+          { labelKey: 'more.items.usageStats.label', subtitleKey: 'more.items.usageStats.subtitle', icon: { ios: 'gauge.with.dots.needle.67percent', android: 'speed', web: 'speed' }, route: '/usage_tracking', pro: true },
+        ],
       },
       {
-        label: 'Spending Analytics',
-        subtitle: 'Trends and category breakdown',
-        icon: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' },
-        route: '/spending-analytics',
-      },
-      {
-        label: 'Cart Comparison',
-        subtitle: 'Compare store totals for your list',
-        icon: { ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' },
-        route: '/cart-comparison',
-      },
-      {
-        label: 'Pantry',
-        subtitle: 'Track items from your receipts',
-        icon: { ios: 'cabinet.fill', android: 'kitchen', web: 'kitchen' },
-        route: '/pantry',
-      },
-      {
-        label: 'Shopping Lists',
-        subtitle: 'Manage your grocery lists',
-        icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
-        route: '/(tabs)/shopping-lists?browse=1',
-      },
-      {
-        label: 'Scan Receipt',
-        subtitle: 'Capture or upload a receipt',
-        icon: { ios: 'camera', android: 'photo_camera', web: 'photo_camera' },
-        route: '/(tabs)/scan',
+        title: t('more.sections.collaboration'),
+        items: [
+          { labelKey: 'more.items.familyPlans.label', subtitleKey: 'more.items.familyPlans.subtitle', icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' }, route: '/family_plans', pro: true },
+        ],
       },
     ],
-  },
-  {
-    title: 'Pro & Insights',
-    items: [
-      {
-        label: 'Penny Pantry Pro',
-        subtitle: 'Subscription & plan management',
-        icon: { ios: 'star.fill', android: 'star', web: 'star' },
-        route: '/subscriptions',
-      },
-      {
-        label: 'Spending Insights',
-        subtitle: 'Category & store breakdowns from your receipts',
-        icon: { ios: 'brain.head.profile', android: 'psychology', web: 'psychology' },
-        route: '/insights_pro',
-        pro: true,
-      },
-      {
-        label: 'Brand Intelligence',
-        subtitle: 'Brand ownership & corporate insights',
-        icon: { ios: 'building.columns.fill', android: 'corporate_fare', web: 'corporate_fare' },
-        route: '/brand-intelligence',
-        pro: true,
-      },
-      {
-        label: 'Inflation Tracker',
-        subtitle: 'Personal price index from receipts',
-        icon: { ios: 'chart.xyaxis.line', android: 'show_chart', web: 'show_chart' },
-        route: '/inflation_tracker',
-        pro: true,
-      },
-      {
-        label: 'Regional Insights',
-        subtitle: 'Compare spend and inflation by state/province',
-        icon: { ios: 'map.fill', android: 'map', web: 'map' },
-        route: '/regional_insights',
-        pro: true,
-      },
-      {
-        label: 'Usage Stats',
-        subtitle: 'Local usage & contribution metrics',
-        icon: { ios: 'gauge.with.dots.needle.67percent', android: 'speed', web: 'speed' },
-        route: '/usage_tracking',
-        pro: true,
-      },
-    ],
-  },
-  {
-    title: 'Collaboration',
-    items: [
-      {
-        label: 'Family Plans',
-        subtitle: 'Share lists with household members',
-        icon: { ios: 'person.3.fill', android: 'groups', web: 'groups' },
-        route: '/family_plans',
-        pro: true,
-      },
-    ],
-  },
-];
+    [t]
+  );
+}
 
 export default function MoreScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tier = useSubscriptionStore((s) => s.tier);
+  const sections = useMenuSections();
 
   return (
     <ScrollView
@@ -150,8 +84,8 @@ export default function MoreScreen() {
         },
       ]}>
       <AppHeader />
-      <Text style={styles.title}>More</Text>
-      <Text style={styles.subtitle}>Settings & Pro features</Text>
+      <Text style={styles.title}>{t('more.title')}</Text>
+      <Text style={styles.subtitle}>{t('more.subtitle')}</Text>
 
       {tier === 'free' && (
         <Pressable
@@ -159,10 +93,8 @@ export default function MoreScreen() {
           onPress={() => router.push('/paywall' as never)}>
           <SymbolView name={{ ios: 'star.fill', android: 'star', web: 'star' }} tintColor="#fff" size={22} />
           <View style={styles.proBannerText}>
-            <Text style={styles.proBannerTitle}>Stop missing price drops</Text>
-            <Text style={styles.proBannerSub}>
-              Real-time alerts, inflation tracking & live multi-store comparison
-            </Text>
+            <Text style={styles.proBannerTitle}>{t('upgrade.stopMissingDrops')}</Text>
+            <Text style={styles.proBannerSub}>{t('upgrade.proBannerSub')}</Text>
           </View>
           <SymbolView
             name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
@@ -172,30 +104,33 @@ export default function MoreScreen() {
         </Pressable>
       )}
 
-      {SECTIONS.map((section) => (
+      {sections.map((section) => (
         <View key={section.title} style={styles.section}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
           <View style={styles.menu}>
-            {section.items.map((item) => (
+            {section.items.map((item) => {
+              const label = t(item.labelKey);
+              const subtitle = t(item.subtitleKey);
+              return (
               <Pressable
-                key={item.label}
+                key={item.labelKey}
                 style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
                 accessibilityRole="button"
-                accessibilityLabel={item.label}
+                accessibilityLabel={label}
                 onPress={() => router.push(item.route as never)}>
                 <View style={styles.menuIcon}>
                   <SymbolView name={item.icon} tintColor={SmartCartColors.primary} size={22} />
                 </View>
                 <View style={styles.menuText}>
                   <View style={styles.labelRow}>
-                    <Text style={styles.menuLabel}>{item.label}</Text>
+                    <Text style={styles.menuLabel}>{label}</Text>
                     {item.pro && tier === 'free' && (
                       <View style={styles.proPill}>
                         <Text style={styles.proPillText}>PRO</Text>
                       </View>
                     )}
                   </View>
-                  <Text style={styles.menuSub}>{item.subtitle}</Text>
+                  <Text style={styles.menuSub}>{subtitle}</Text>
                 </View>
                 <SymbolView
                   name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
@@ -203,14 +138,15 @@ export default function MoreScreen() {
                   size={16}
                 />
               </Pressable>
-            ))}
+            );
+            })}
           </View>
         </View>
       ))}
 
       <View style={styles.footer}>
         <PennyPantryLogo variant="inline" size={28} nameSize={18} style={styles.footerLogo} />
-        <Text style={styles.footerVersion}>Grocery Financial System</Text>
+        <Text style={styles.footerVersion}>{t('more.footerVersion')}</Text>
       </View>
     </ScrollView>
   );

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 
@@ -24,8 +25,9 @@ export function ProUpgradeBanner({
   variant = 'default',
   message,
 }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
-  const planName = 'Pro';
+  const planName = t('common.pro');
   const isCompact = variant === 'compact';
 
   return (
@@ -36,7 +38,11 @@ export function ProUpgradeBanner({
       ]}
       onPress={() => router.push('/paywall' as never)}
       accessibilityRole="button"
-      accessibilityLabel={isCompact ? message : `Unlock ${featureName} with ${planName}`}>
+      accessibilityLabel={
+        isCompact
+          ? message
+          : t('common.unlockWith', { feature: featureName, plan: planName })
+      }>
       <View style={isCompact ? styles.iconWrapCompact : styles.iconWrap}>
         <SymbolView
           name={{ ios: 'star.fill', android: 'star', web: 'star' }}
@@ -50,7 +56,9 @@ export function ProUpgradeBanner({
         </Text>
       ) : (
         <View style={styles.textCol}>
-          <Text style={styles.title}>Unlock {featureName} with {planName}</Text>
+          <Text style={styles.title}>
+            {t('common.unlockWith', { feature: featureName, plan: planName })}
+          </Text>
           <Text style={styles.sub}>{hook ?? PRO_UPGRADE_HOOK}</Text>
         </View>
       )}
