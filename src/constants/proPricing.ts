@@ -12,8 +12,6 @@ export const PRO_CTA_LABEL = 'Start saving with Pro';
 
 export const PRO_BADGE_LABEL = 'Best for families';
 
-export const PRO_CARD_FRAMING = 'Everything in Free, plus:';
-
 export const CONTINUE_FREE_LABEL = 'Try Free first';
 
 export const COMMIT_NOTE = 'Cancel anytime — no contracts.';
@@ -41,57 +39,6 @@ export const FREE_PLAN_FEATURES = [
   `Pantry capped at ${FREE_PANTRY_MAX_ITEMS} items`,
 ] as const;
 
-export type ProPlanFeatureDetail = {
-  upgradeLabel: string;
-  text: string;
-  freeLimit?: string;
-};
-
-export const PRO_PLAN_FEATURE_DETAILS: readonly ProPlanFeatureDetail[] = [
-  {
-    upgradeLabel: 'Unlimited',
-    text: 'Receipt scans — catch every price change',
-    freeLimit: `${FREE_RECEIPT_SCAN_LIMIT}/mo`,
-  },
-  {
-    upgradeLabel: 'Full',
-    text: 'Price history — see what you have actually paid',
-    freeLimit: `${FREE_PRICE_HISTORY_DAYS} days`,
-  },
-  {
-    upgradeLabel: 'Instant',
-    text: 'Sale alerts the moment your staples drop',
-    freeLimit: 'Manual only',
-  },
-  {
-    upgradeLabel: 'All stores',
-    text: 'Live price comparison across every store you shop',
-    freeLimit: `${FREE_MAX_STORES} store`,
-  },
-  {
-    upgradeLabel: 'Family sync',
-    text: 'Share lists with family or roommates in real time',
-  },
-  {
-    upgradeLabel: 'Forecast',
-    text: 'Grocery spend forecasts before month-end surprises',
-  },
-  {
-    upgradeLabel: 'Smart cart',
-    text: 'Auto-find the cheapest basket across your stores',
-  },
-  {
-    upgradeLabel: 'Export',
-    text: 'CSV & tax-ready spending logs',
-  },
-  {
-    upgradeLabel: 'Unlimited',
-    text: 'Pantry tracking — no item limits',
-    freeLimit: `${FREE_PANTRY_MAX_ITEMS} items`,
-  },
-];
-
-/** Flat strings for modals and legacy references — index-aligned with PRO_PLAN_FEATURE_DETAILS. */
 export const PRO_PLAN_FEATURES = [
   'Unlimited receipt scans — catch every price change',
   'Full price history — see what you have actually paid',

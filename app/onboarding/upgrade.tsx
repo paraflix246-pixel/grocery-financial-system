@@ -7,8 +7,6 @@ import {
   Text,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -24,13 +22,12 @@ import {
   PRO_UPGRADE_HOOK,
   proMonthlyLabel,
 } from '@/src/constants/proPricing';
-import { SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
 const BG = '#0F0F0F';
 const GREEN = '#22C55E';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_MUTED = 'rgba(255,255,255,0.52)';
-const PRO_GRADIENT = ['#0F1F14', '#122618', '#14532D'] as const;
+const CARD_BG = 'rgba(255,255,255,0.05)';
 
 export default function UpgradeScreen() {
   const router = useRouter();
@@ -70,28 +67,17 @@ export default function UpgradeScreen() {
           <Text style={styles.heroHook}>Less than one impulse buy — savings that compound every week.</Text>
         </View>
 
-        <View style={styles.proCardOuter}>
-          <LinearGradient
-            colors={[...PRO_GRADIENT]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.proCard}
-          >
-            <View style={styles.proBadge}>
-              <SymbolView
-                name={{ ios: 'star.fill', android: 'star', web: 'star' }}
-                tintColor={GREEN}
-                size={12}
-              />
-              <Text style={styles.proBadgeText}>Pro — {proMonthlyLabel} · {PRO_BADGE_LABEL}</Text>
-            </View>
-            <ProPlanFeaturesList
-              variant="premium"
-              accentColor={GREEN}
-              mutedColor={TEXT_MUTED}
-              featureTextStyle={styles.benefitText}
-            />
-          </LinearGradient>
+        <View style={styles.proCard}>
+          <View style={styles.proBadge}>
+            <Text style={styles.proBadgeText}>Pro — {proMonthlyLabel} · {PRO_BADGE_LABEL}</Text>
+          </View>
+          <Text style={styles.proCardLead}>Everything you need to shop smarter as a family:</Text>
+          <ProPlanFeaturesList
+            variant="full"
+            accentColor={GREEN}
+            mutedColor={TEXT_MUTED}
+            featureTextStyle={styles.benefitText}
+          />
         </View>
 
         <Pressable
@@ -147,7 +133,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
     lineHeight: 38,
     marginBottom: 12,
-    maxWidth: 340,
   },
   heroSubtitle: {
     color: GREEN,
@@ -166,45 +151,44 @@ const styles = StyleSheet.create({
     marginTop: 10,
     maxWidth: 300,
   },
-  proCardOuter: {
-    borderRadius: SmartCartRadius.lg,
-    marginBottom: 28,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: 'rgba(34,197,94,0.35)',
-    ...SmartCartShadow.glow,
-  },
   proCard: {
+    backgroundColor: CARD_BG,
+    borderRadius: 20,
     padding: 24,
-    gap: 12,
-    borderRadius: SmartCartRadius.lg,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+    marginBottom: 28,
+  },
+  proCardLead: {
+    color: TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    marginBottom: 2,
   },
   proBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(34,197,94,0.18)',
+    backgroundColor: 'rgba(34,197,94,0.12)',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.4)',
-    marginBottom: 2,
+    borderColor: 'rgba(34,197,94,0.3)',
+    marginBottom: 4,
   },
   proBadgeText: {
     color: GREEN,
     fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.2,
+    fontWeight: '700',
   },
   benefitText: {
     color: TEXT_PRIMARY,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     flex: 1,
     flexShrink: 1,
-    lineHeight: 19,
+    lineHeight: 20,
   },
   upgradeBtn: {
     backgroundColor: GREEN,
@@ -213,7 +197,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    ...SmartCartShadow.pill,
   },
   upgradeBtnPressed: {
     opacity: 0.82,
@@ -232,12 +215,11 @@ const styles = StyleSheet.create({
   },
   freeBtn: {
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.18)',
+    borderColor: 'rgba(255,255,255,0.22)',
     borderRadius: 999,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    opacity: 0.9,
   },
   freeBtnPressed: {
     backgroundColor: 'rgba(255,255,255,0.06)',
