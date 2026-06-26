@@ -95,6 +95,7 @@ async function sendViaResend(to: string, html: string): Promise<void> {
 
 export async function handleWelcomeEmailRequest(request: Request): Promise<Response> {
   if (!isSupabaseAdminConfigured()) {
+    console.warn('[auth/welcome] skipped: SUPABASE_SERVICE_ROLE_KEY not configured');
     return Response.json({ error: 'Welcome email is not configured on the server.' }, { status: 503 });
   }
 
@@ -104,10 +105,15 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
   }
 
   if (user.user_metadata?.welcome_email_sent === true) {
+    console.info('[auth/welcome] skipped: already_sent', { userId: user.id, email: user.email });
     return Response.json({ success: true, skipped: true, reason: 'already_sent' });
   }
 
   if (!isWelcomeEmailConfigured()) {
+    console.warn('[auth/welcome] skipped: RESEND_API_KEY not configured', {
+      userId: user.id,
+      email: user.email,
+    });
     return Response.json({ success: true, skipped: true, reason: 'resend_not_configured' });
   }
 
@@ -117,7 +123,7 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
   try {
     await sendViaResend(user.email, html);
   } catch (error) {
-    console.warn('[auth/welcome] send failed:', error);
+    console.warn('[auth/welcome] send failed:', { userId: user.id, email: user.email, error });
     return Response.json({ error: 'Could not send welcome email.' }, { status: 502 });
   }
 
@@ -137,5 +143,6 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
     console.warn('[auth/welcome] metadata update error:', error);
   }
 
+  console.info('[auth/welcome] sent', { userId: user.id, email: user.email });
   return Response.json({ success: true, sent: true });
 }

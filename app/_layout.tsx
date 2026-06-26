@@ -25,7 +25,6 @@ import { bootstrapExternalPriceProviders } from '@/src/services/externalPriceBoo
 import { syncUserProfile } from '@/src/services/admin/adminApiService';
 import {
   getSession,
-  maybeSendWelcomeEmail,
   syncAuthUserFromSession,
   syncProfileDisplayNameFromAuth,
 } from '@/src/services/authService';
@@ -242,10 +241,12 @@ export default function RootLayout() {
     if (!supabase) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || (event === 'INITIAL_SESSION' && session)) {
-        void syncAuthUserFromSession();
-        void maybeSendWelcomeEmail();
-        void syncUserProfile();
-        useBudgetStore.getState().completeOnboarding();
+        // Defer async Supabase calls — invoking auth APIs inside this callback can deadlock.
+        setTimeout(() => {
+          void syncAuthUserFromSession();
+          void syncUserProfile();
+          useBudgetStore.getState().completeOnboarding();
+        }, 0);
       } else if (event === 'SIGNED_OUT') {
         // Only redirect to onboarding if onboarding wasn't completed as guest
         useBudgetStore.getState().checkOnboarding();

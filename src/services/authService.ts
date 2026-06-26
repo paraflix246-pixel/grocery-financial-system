@@ -212,36 +212,90 @@ function resolveAuthApiUrl(path: string): string | null {
   return appUrl ? `${appUrl.replace(/\/$/, '')}${path}` : null;
 }
 
+type WelcomeEmailApiResponse = {
+  success?: boolean;
+  sent?: boolean;
+  skipped?: boolean;
+  reason?: string;
+  error?: string;
+};
+
+let welcomeEmailInFlight = false;
+
+function logWelcomeSkip(reason: string): void {
+  if (__DEV__) {
+    console.info(`[auth] welcome email skipped: ${reason}`);
+  }
+}
+
 /** Sends a one-time welcome email via POST /api/auth/welcome (Resend). Non-blocking.
  *  Server env: RESEND_API_KEY, WELCOME_FROM_EMAIL, SUPABASE_SERVICE_ROLE_KEY.
  *  Marks user_metadata.welcome_email_sent via service role after send. */
 export async function maybeSendWelcomeEmail(): Promise<void> {
-  if (!supabase) return;
+  if (!supabase) {
+    logWelcomeSkip('supabase unavailable');
+    return;
+  }
+  if (welcomeEmailInFlight) return;
 
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
-  if (!user?.email) return;
-  if (user.user_metadata?.welcome_email_sent === true) return;
-
-  const apiUrl = resolveAuthApiUrl('/api/auth/welcome');
-  if (!apiUrl) return;
-
-  const session = await getSession();
-  if (!session?.access_token) return;
-
+  welcomeEmailInFlight = true;
   try {
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    if (response.ok) {
-      await supabase.auth.refreshSession();
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (!user?.email) {
+      logWelcomeSkip('no user email');
+      return;
     }
-  } catch (error) {
-    console.warn('[auth] welcome email request failed:', error);
+    if (user.user_metadata?.welcome_email_sent === true) {
+      logWelcomeSkip('already sent');
+      return;
+    }
+
+    const apiUrl = resolveAuthApiUrl('/api/auth/welcome');
+    if (!apiUrl) {
+      logWelcomeSkip('welcome API URL unavailable');
+      return;
+    }
+
+    const session = await getSession();
+    if (!session?.access_token) {
+      logWelcomeSkip('no access token');
+      return;
+    }
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const body = (await response.json().catch(() => null)) as WelcomeEmailApiResponse | null;
+
+      if (response.ok && body?.sent) {
+        await supabase.auth.refreshSession();
+        if (__DEV__) {
+          console.info('[auth] welcome email sent');
+        }
+        return;
+      }
+
+      if (response.ok && body?.skipped) {
+        logWelcomeSkip(body.reason ?? 'server skipped');
+        return;
+      }
+
+      console.warn(
+        '[auth] welcome email request failed:',
+        response.status,
+        body?.error ?? body?.reason ?? response.statusText
+      );
+    } catch (error) {
+      console.warn('[auth] welcome email request failed:', error);
+    }
+  } finally {
+    welcomeEmailInFlight = false;
   }
 }
 
