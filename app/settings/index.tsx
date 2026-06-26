@@ -1,9 +1,10 @@
 import { SymbolView } from 'expo-symbols';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -30,6 +31,9 @@ import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet
 import { LanguagePicker, ThemePicker } from '@/src/components/settings/AppearanceSettings';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import { useAppTheme } from '@/src/theme/AppThemeProvider';
+import type { AppThemeId } from '@/src/theme/appThemes';
+import { i18n, previewAppLocale, setAppLocale, type AppLocale } from '@/src/i18n';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -63,7 +67,16 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const router = useRouter();  const { settings, loadSettings, saveSettings } = useSettingsStore();
+  const router = useRouter();
+  const navigation = useNavigation();
+  const {
+    themeId: persistedThemeId,
+    ready: themeReady,
+    previewTheme,
+    revertTheme,
+    setThemeId: persistThemeId,
+  } = useAppTheme();
+  const { settings, loadSettings, saveSettings } = useSettingsStore();
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
   const [notifyPriceAlerts, setNotifyPriceAlerts] = useState(true);
@@ -71,6 +84,12 @@ export default function SettingsScreen() {
   const [openLastList, setOpenLastList] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [savedThemeId, setSavedThemeId] = useState<AppThemeId | null>(null);
+  const [draftThemeId, setDraftThemeId] = useState<AppThemeId | null>(null);
+  const [savedLocale, setSavedLocale] = useState<AppLocale | null>(null);
+  const [draftLocale, setDraftLocale] = useState<AppLocale | null>(null);
+  const appearanceInitialized = useRef(false);
+  const allowLeaveRef = useRef(false);
   const [devResetting, setDevResetting] = useState(false);
   const [devTierSwitching, setDevTierSwitching] = useState(false);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
@@ -112,6 +131,107 @@ export default function SettingsScreen() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!themeReady || appearanceInitialized.current) return;
+    appearanceInitialized.current = true;
+    const locale: AppLocale = i18n.language === 'es' ? 'es' : 'en';
+    setSavedThemeId(persistedThemeId);
+    setDraftThemeId(persistedThemeId);
+    setSavedLocale(locale);
+    setDraftLocale(locale);
+  }, [themeReady, persistedThemeId]);
+
+  const appearanceDirty =
+    savedThemeId !== null &&
+    draftThemeId !== null &&
+    savedLocale !== null &&
+    draftLocale !== null &&
+    (draftThemeId !== savedThemeId || draftLocale !== savedLocale);
+
+  const saveAppearance = useCallback(async () => {
+    if (!draftThemeId || !draftLocale) return;
+    await persistThemeId(draftThemeId);
+    await setAppLocale(draftLocale);
+    setSavedThemeId(draftThemeId);
+    setSavedLocale(draftLocale);
+  }, [draftThemeId, draftLocale, persistThemeId]);
+
+  const discardAppearance = useCallback(() => {
+    if (savedThemeId) {
+      revertTheme();
+      setDraftThemeId(savedThemeId);
+    }
+    if (savedLocale) {
+      previewAppLocale(savedLocale);
+      setDraftLocale(savedLocale);
+    }
+  }, [savedThemeId, savedLocale, revertTheme]);
+
+  const handleDraftThemeSelect = useCallback(
+    (id: AppThemeId) => {
+      setDraftThemeId(id);
+      previewTheme(id);
+    },
+    [previewTheme],
+  );
+
+  const handleDraftLocaleSelect = useCallback((locale: AppLocale) => {
+    setDraftLocale(locale);
+    previewAppLocale(locale);
+  }, []);
+
+  const confirmLeaveSettings = useCallback(
+    (onLeave: () => void) => {
+      Alert.alert(t('settings.unsavedChangesTitle'), t('settings.unsavedChangesMessage'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('settings.discardChanges'),
+          style: 'destructive',
+          onPress: () => {
+            discardAppearance();
+            allowLeaveRef.current = true;
+            onLeave();
+          },
+        },
+        {
+          text: t('common.save'),
+          onPress: () => {
+            void (async () => {
+              setSaving(true);
+              try {
+                await saveAppearance();
+                allowLeaveRef.current = true;
+                onLeave();
+              } catch {
+                Alert.alert(t('common.saveFailed'));
+              } finally {
+                setSaving(false);
+              }
+            })();
+          },
+        },
+      ]);
+    },
+    [discardAppearance, saveAppearance, t],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      allowLeaveRef.current = false;
+    }, []),
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      if (allowLeaveRef.current || !appearanceDirty) return;
+
+      event.preventDefault();
+      confirmLeaveSettings(() => navigation.dispatch(event.data.action));
+    });
+
+    return unsubscribe;
+  }, [appearanceDirty, confirmLeaveSettings, navigation]);
 
   const handleDevTier = async (target: SubscriptionTier) => {
     if (target === tier) return;
@@ -180,6 +300,9 @@ export default function SettingsScreen() {
         notifyPriceAlerts,
         notifyBudgetAlerts,
       });
+      if (appearanceDirty) {
+        await saveAppearance();
+      }
       await refreshScheduledNotifications();
       await setOpenLastListPreference(openLastList);
       setSaveMessage(t('common.saved'));
@@ -201,9 +324,21 @@ export default function SettingsScreen() {
     <PremiumScreenBackground style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
-        <Text style={styles.headerTitle}>{t('settings.title')}</Text>
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.headerTitle}>{t('settings.title')}</Text>
+          {appearanceDirty ? (
+            <Text style={styles.unsavedHint}>{t('settings.unsavedChangesHint')}</Text>
+          ) : null}
+        </View>
         <Pressable onPress={handleSave} disabled={saving} hitSlop={8}>
-          <Text style={styles.saveLink}>{saving ? '...' : saveMessage ?? t('common.save')}</Text>
+          <Text
+            style={[
+              styles.saveLink,
+              appearanceDirty && styles.saveLinkActive,
+              saving && styles.saveLinkDisabled,
+            ]}>
+            {saving ? '...' : saveMessage ?? t('common.save')}
+          </Text>
         </Pressable>
       </View>
 
@@ -242,11 +377,15 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>{t('settings.theme')}</Text>
           <Text style={styles.fieldHint}>{t('settings.themeHint')}</Text>
-          <ThemePicker />
+          {draftThemeId ? (
+            <ThemePicker themeId={draftThemeId} onThemeSelect={handleDraftThemeSelect} />
+          ) : null}
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('common.language')}</Text>
           <Text style={styles.fieldHint}>{t('settings.languageHint')}</Text>
-          <LanguagePicker />
+          {draftLocale ? (
+            <LanguagePicker locale={draftLocale} onLocaleChange={handleDraftLocaleSelect} />
+          ) : null}
         </View>
 
         <Text style={styles.sectionTitle}>{t('settings.notifications')}</Text>
@@ -559,9 +698,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 12,
   },
-  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
+  headerTitleWrap: { flex: 1, alignItems: 'center' },
+  headerTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
   headerSpacer: { width: 72 },
   saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
+  saveLinkActive: { color: SmartCartColors.primaryDark },
+  saveLinkDisabled: { opacity: 0.5 },
+  unsavedHint: { fontSize: 11, fontWeight: '600', color: SmartCartColors.primary, marginTop: 2 },
   content: { padding: 16, paddingBottom: 40 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12, marginTop: 8 },
   card: {

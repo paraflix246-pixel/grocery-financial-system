@@ -11,18 +11,23 @@ import type { AppThemeId, AppThemeTokens } from '@/src/theme/appThemes';
 import { setAppLocale, type AppLocale } from '@/src/i18n';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
-type Props = {
+type LanguagePickerProps = {
   compact?: boolean;
+  locale?: AppLocale;
+  onLocaleChange?: (locale: AppLocale) => void;
 };
 
-export function LanguagePicker({ compact = false }: Props) {
+export function LanguagePicker({ compact = false, locale: controlledLocale, onLocaleChange }: LanguagePickerProps) {
   const { i18n, t } = useTranslation();
-  const locale = i18n.language === 'es' ? 'es' : 'en';
+  const locale = controlledLocale ?? (i18n.language === 'es' ? 'es' : 'en');
 
   const setLocale = (next: AppLocale) => {
-    if (next !== locale) {
-      void setAppLocale(next);
+    if (next === locale) return;
+    if (onLocaleChange) {
+      onLocaleChange(next);
+      return;
     }
+    void setAppLocale(next);
   };
 
   return (
@@ -47,15 +52,25 @@ export function LanguagePicker({ compact = false }: Props) {
   );
 }
 
-export function ThemePicker() {
+type ThemePickerProps = {
+  themeId?: AppThemeId;
+  onThemeSelect?: (id: AppThemeId) => void;
+};
+
+export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: ThemePickerProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { themeId, setThemeId, themes } = useAppTheme();
+  const { themeId: contextThemeId, setThemeId, themes } = useAppTheme();
+  const themeId = controlledThemeId ?? contextThemeId;
   const { unlocked, requestAccess } = useFeatureGate('custom_themes');
 
   const handleSelect = (id: AppThemeId) => {
     if (!unlocked) {
       requestAccess();
+      return;
+    }
+    if (onThemeSelect) {
+      onThemeSelect(id);
       return;
     }
     void setThemeId(id);

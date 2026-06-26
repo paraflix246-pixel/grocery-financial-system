@@ -24,8 +24,11 @@ const THEME_STORAGE_KEY = 'app_theme_id';
 type AppThemeContextValue = {
   theme: AppThemeTokens;
   themeId: AppThemeId;
+  savedThemeId: AppThemeId;
   ready: boolean;
   setThemeId: (id: AppThemeId) => Promise<void>;
+  previewTheme: (id: AppThemeId) => void;
+  revertTheme: () => void;
   themes: AppThemeTokens[];
 };
 
@@ -74,6 +77,7 @@ export function AppThemeProvider({
   initialThemeId?: AppThemeId;
 }) {
   const [themeId, setThemeIdState] = useState<AppThemeId>(initialThemeId ?? DEFAULT_THEME_ID);
+  const [savedThemeId, setSavedThemeId] = useState<AppThemeId>(initialThemeId ?? DEFAULT_THEME_ID);
   const [ready, setReady] = useState(Boolean(initialThemeId));
 
   const theme = useMemo(() => getAppTheme(themeId), [themeId]);
@@ -89,12 +93,22 @@ export function AppThemeProvider({
     }
     void loadStoredThemeId().then((stored) => {
       setThemeIdState(stored);
+      setSavedThemeId(stored);
       setReady(true);
     });
   }, [initialThemeId]);
 
+  const previewTheme = useCallback((id: AppThemeId) => {
+    setThemeIdState(id);
+  }, []);
+
+  const revertTheme = useCallback(() => {
+    setThemeIdState(savedThemeId);
+  }, [savedThemeId]);
+
   const setThemeId = useCallback(async (id: AppThemeId) => {
     setThemeIdState(id);
+    setSavedThemeId(id);
     await persistThemeId(id);
   }, []);
 
@@ -102,11 +116,14 @@ export function AppThemeProvider({
     () => ({
       theme,
       themeId,
+      savedThemeId,
       ready,
       setThemeId,
+      previewTheme,
+      revertTheme,
       themes: APP_THEME_LIST,
     }),
-    [theme, themeId, ready, setThemeId]
+    [theme, themeId, savedThemeId, ready, setThemeId, previewTheme, revertTheme]
   );
 
   return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;

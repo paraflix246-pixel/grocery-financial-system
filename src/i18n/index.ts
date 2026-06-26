@@ -58,6 +58,10 @@ export function initI18n(): Promise<void> {
   return initPromise;
 }
 
+export function previewAppLocale(locale: AppLocale): void {
+  void i18n.changeLanguage(locale);
+}
+
 export async function setAppLocale(locale: AppLocale): Promise<void> {
   await persistLocale(locale);
   await i18n.changeLanguage(locale);
