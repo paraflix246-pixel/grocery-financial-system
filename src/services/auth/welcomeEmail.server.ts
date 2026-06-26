@@ -1,4 +1,14 @@
 import {
+  buildEmailCard,
+  buildEmailCta,
+  buildEmailDocument,
+  buildEmailHeader,
+  buildEmailInnerFooter,
+  buildEmailSupportFooter,
+  EMAIL_BRAND,
+  getEmailLogoUrl,
+} from '@/src/services/auth/emailBranding';
+import {
   getSupabaseAdmin,
   getUserFromAuthHeader,
   isSupabaseAdminConfigured,
@@ -32,39 +42,51 @@ function extractDisplayName(metadata: Record<string, unknown> | undefined): stri
 
 export function buildWelcomeEmailHtml(displayName: string, appUrl: string): string {
   const greeting = displayName ? `Hi ${displayName},` : 'Hi there,';
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#F9FAFB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F9FAFB;padding:32px 16px;">
-    <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#FFFFFF;border-radius:16px;border:1px solid #E5E7EB;overflow:hidden;">
-        <tr><td style="background:#22C55E;padding:28px 32px;text-align:center;">
-          <p style="margin:0;color:#FFFFFF;font-size:24px;font-weight:800;letter-spacing:-0.5px;">Penny Pantry</p>
-        </td></tr>
-        <tr><td style="padding:32px;">
-          <p style="margin:0 0 16px;color:#111827;font-size:18px;font-weight:700;">${greeting}</p>
-          <p style="margin:0 0 20px;color:#4B5563;font-size:16px;line-height:1.6;">
-            Thanks for joining Penny Pantry. We're glad you're here.
-          </p>
-          <p style="margin:0 0 12px;color:#111827;font-size:15px;font-weight:600;">Here's what you can do:</p>
-          <ul style="margin:0 0 24px;padding-left:20px;color:#4B5563;font-size:15px;line-height:1.7;">
-            <li>Scan receipts to track spending automatically</li>
-            <li>Compare prices across stores</li>
-            <li>Build smart grocery lists</li>
-          </ul>
-          <p style="margin:0 0 28px;text-align:center;">
-            <a href="${appUrl}" style="display:inline-block;background:#22C55E;color:#FFFFFF;text-decoration:none;font-size:16px;font-weight:700;padding:14px 28px;border-radius:999px;">Open Penny Pantry</a>
-          </p>
-          <p style="margin:0;color:#9CA3AF;font-size:13px;line-height:1.5;text-align:center;">
-            Happy saving,<br>The Penny Pantry team
-          </p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body>
-</html>`;
+  const logoUrl = getEmailLogoUrl(appUrl);
+  const { text, textSecondary, fontFamily } = EMAIL_BRAND;
+
+  const cardBody = `<tr>
+            <td class="email-body" style="padding:32px;">
+              <p class="email-title" style="margin:0 0 16px;color:${text};font-family:${fontFamily};font-size:20px;font-weight:700;line-height:1.3;">${greeting}</p>
+              <p style="margin:0 0 20px;color:${textSecondary};font-family:${fontFamily};font-size:16px;line-height:1.6;">
+                Thanks for joining Penny Pantry. We're glad you're here — let's start saving on groceries.
+              </p>
+              <p style="margin:0 0 12px;color:${text};font-family:${fontFamily};font-size:15px;font-weight:600;">Here's how to get started:</p>
+              <ul style="margin:0 0 24px;padding-left:20px;color:${textSecondary};font-family:${fontFamily};font-size:15px;line-height:1.7;">
+                <li>Scan receipts to track spending automatically</li>
+                <li>Compare prices across stores</li>
+                <li>Build smart grocery lists</li>
+              </ul>
+              ${buildEmailCta(appUrl, 'Open Penny Pantry')}
+              ${buildEmailInnerFooter(appUrl)}
+            </td>
+          </tr>`;
+
+  return buildEmailDocument(
+    'Welcome to Penny Pantry',
+    `${buildEmailCard(`${buildEmailHeader(logoUrl)}${cardBody}`)}${buildEmailSupportFooter()}`,
+  );
+}
+
+export function buildTestEmailHtml(appUrl: string): string {
+  const logoUrl = getEmailLogoUrl(appUrl);
+  const { text, textSecondary, fontFamily } = EMAIL_BRAND;
+
+  const cardBody = `<tr>
+            <td class="email-body" style="padding:32px;">
+              <h1 class="email-title" style="margin:0 0 16px;color:${text};font-family:${fontFamily};font-size:20px;font-weight:700;line-height:1.3;">Email test</h1>
+              <p style="margin:0 0 20px;color:${textSecondary};font-family:${fontFamily};font-size:16px;line-height:1.6;">
+                If you received this, Resend is configured correctly and Penny Pantry email branding is working.
+              </p>
+              ${buildEmailCta(appUrl, 'Open Penny Pantry')}
+              ${buildEmailInnerFooter(appUrl)}
+            </td>
+          </tr>`;
+
+  return buildEmailDocument(
+    'Penny Pantry — email test',
+    `${buildEmailCard(`${buildEmailHeader(logoUrl)}${cardBody}`)}${buildEmailSupportFooter()}`,
+  );
 }
 
 async function sendViaResend(to: string, html: string): Promise<void> {

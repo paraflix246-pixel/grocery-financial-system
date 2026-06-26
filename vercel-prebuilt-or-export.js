@@ -52,16 +52,26 @@ function verifyDist() {
   console.log(`Verified client bundle: ${bundles[0]}`);
 }
 
-function copyWellKnownFiles() {
-  const sourceDir = path.join('public', '.well-known');
-  const targetDir = path.join('dist', 'client', '.well-known');
-  if (!fs.existsSync(sourceDir)) return;
+function copyPublicFiles() {
+  const publicDir = path.join('public');
+  const targetRoot = path.join('dist', 'client');
+  if (!fs.existsSync(publicDir)) return;
 
-  fs.mkdirSync(targetDir, { recursive: true });
-  for (const file of fs.readdirSync(sourceDir)) {
-    fs.copyFileSync(path.join(sourceDir, file), path.join(targetDir, file));
+  function copyRecursive(source, target) {
+    fs.mkdirSync(target, { recursive: true });
+    for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+      const sourcePath = path.join(source, entry.name);
+      const targetPath = path.join(target, entry.name);
+      if (entry.isDirectory()) {
+        copyRecursive(sourcePath, targetPath);
+      } else {
+        fs.copyFileSync(sourcePath, targetPath);
+      }
+    }
   }
-  console.log('Copied public/.well-known → dist/client/.well-known');
+
+  copyRecursive(publicDir, targetRoot);
+  console.log('Copied public/ → dist/client/');
 }
 
 const forceBuild = process.env.VERCEL === '1' || process.env.FORCE_VERCEL_BUILD === '1';
@@ -80,4 +90,4 @@ if (shouldBuild) {
 }
 
 verifyDist();
-copyWellKnownFiles();
+copyPublicFiles();

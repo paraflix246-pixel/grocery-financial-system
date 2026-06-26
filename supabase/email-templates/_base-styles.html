@@ -1,0 +1,44 @@
+<!--
+  Penny Pantry — shared email design reference
+  ===========================================
+  Source of truth for programmatic emails: src/services/auth/emailBranding.ts
+  Keep Supabase HTML templates visually in sync with that module.
+
+  Brand tokens (onboardingTheme / SmartCartColors)
+  ------------------------------------------------
+  Green primary:     #22C55E
+  Green dark links:  #16A34A
+  Page background:   #F9FAFB
+  Card background:   #FFFFFF
+  Text primary:      #1A1A1A
+  Text secondary:    #6B7280
+  Text muted:        #9CA3AF
+  Border:            #E5E7EB
+  Font stack:        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif
+
+  Logo (must be a public HTTPS URL for email clients)
+  ---------------------------------------------------
+  https://pennypantry.xyz/assets/images/penny-pantry-logo.png
+  Served from public/assets/images/ (copied to dist/client on Vercel deploy).
+
+  Layout
+  ------
+  - Table-based, max-width 520px white card, 16px rounded corners
+  - Centered 64×64 logo + "Penny Pantry" wordmark in header
+  - Green pill CTA button (#22C55E, white text, border-radius 999px)
+  - Inner footer: sign-off + pennypantry.xyz link
+  - Outer footer: hello@pennypantry.xyz support line
+  - Transactional emails: no unsubscribe link required
+
+  Responsive (@media max-width 600px)
+  -----------------------------------
+  .email-card  → width 100%
+  .email-body  → padding 24px 20px
+  .email-header → padding 24px 20px 16px
+  .email-logo   → 56×56px
+  .email-title  → font-size 18px
+
+  Supabase variables (do not edit)
+  --------------------------------
+  {{ .ConfirmationURL }} — auth action link
+-->

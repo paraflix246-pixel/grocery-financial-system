@@ -11,6 +11,8 @@ describe('welcomeEmail.server', () => {
     const html = buildWelcomeEmailHtml('Alex', 'https://pennypantry.xyz');
     assert.match(html, /Hi Alex,/);
     assert.match(html, /https:\/\/pennypantry\.xyz/);
+    assert.match(html, /penny-pantry-logo\.png/);
+    assert.match(html, /Open Penny Pantry/);
   });
 
   it('buildWelcomeEmailHtml uses generic greeting without display name', () => {

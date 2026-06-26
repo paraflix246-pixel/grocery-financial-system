@@ -7,8 +7,11 @@
  */
 import { readFileSync, existsSync } from 'node:fs';
 
+import { buildTestEmailHtml } from '../src/services/auth/welcomeEmail.server.ts';
+
 const DEFAULT_FROM = 'Penny Pantry <hello@pennypantry.xyz>';
 const DEFAULT_TO = 'pennypantry02@gmail.com';
+const DEFAULT_APP_URL = 'https://pennypantry.xyz';
 
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -37,6 +40,7 @@ loadEnvFile('.env');
 const apiKey = process.env.RESEND_API_KEY?.trim();
 const from = process.env.WELCOME_FROM_EMAIL?.trim() || DEFAULT_FROM;
 const to = process.env.TEST_EMAIL?.trim() || DEFAULT_TO;
+const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || DEFAULT_APP_URL;
 
 if (!apiKey) {
   console.error('❌ RESEND_API_KEY is missing. Add it to .env.local or .env and retry.');
@@ -57,14 +61,7 @@ const response = await fetch('https://api.resend.com/emails', {
     from,
     to: [to],
     subject: 'Penny Pantry — email test',
-    html: `<!DOCTYPE html>
-<html lang="en">
-<body style="font-family:sans-serif;padding:24px;">
-  <h1 style="color:#22C55E;">Penny Pantry — email test</h1>
-  <p>If you received this, Resend is configured correctly.</p>
-  <p style="color:#6B7280;font-size:14px;">From: ${from}</p>
-</body>
-</html>`,
+    html: buildTestEmailHtml(appUrl),
   }),
 });
 
