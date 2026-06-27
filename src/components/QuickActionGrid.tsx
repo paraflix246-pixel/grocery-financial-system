@@ -8,7 +8,13 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { useListStore } from '@/src/store/useListStore';
+import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
+import {
+  getPromoBorder,
+  getPromoIconBorder,
+  getPromoSurfaceGradient,
+} from '@/src/theme/themeColorUtils';
 import { skipOpenLastListOnNextFocus } from '@/src/utils/listNavigationPrefs';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
@@ -84,6 +90,7 @@ function SecondaryActionCard({
 export function QuickActionGrid() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { theme } = useAppTheme();
   const listCount = useListStore((s) => s.lists.length);
 
   const loadLists = useCallback(() => {
@@ -99,6 +106,27 @@ export function QuickActionGrid() {
     return t('quickActions.listsSubtitle', { count: listCount });
   }, [listCount, t]);
 
+  const promoGradient = useMemo(() => getPromoSurfaceGradient(theme), [theme]);
+  const promoBorder = useMemo(() => getPromoBorder(theme), [theme]);
+  const promoIconBorder = useMemo(() => getPromoIconBorder(theme), [theme]);
+  const featuredStyles = useMemo(
+    () => ({
+      card: {
+        shadowColor: theme.primary,
+      },
+      gradient: {
+        borderColor: promoBorder,
+      },
+      icon: {
+        borderColor: promoIconBorder,
+      },
+      countBadge: {
+        backgroundColor: theme.primary,
+      },
+    }),
+    [theme, promoBorder, promoIconBorder]
+  );
+
   function handleOpenShoppingLists() {
     skipOpenLastListOnNextFocus();
     router.push('/(tabs)/shopping-lists?browse=1' as never);
@@ -109,19 +137,23 @@ export function QuickActionGrid() {
   return (
     <View style={styles.grid}>
       <Pressable
-        style={({ pressed }) => [styles.featuredCard, pressed && styles.featuredCardPressed]}
+        style={({ pressed }) => [
+          styles.featuredCard,
+          featuredStyles.card,
+          pressed && styles.featuredCardPressed,
+        ]}
         accessibilityRole="button"
         accessibilityLabel={`${shoppingListsLabel}. ${listsSubtitle}`}
         onPress={handleOpenShoppingLists}>
         <LinearGradient
-          colors={['#ECFDF5', '#D1FAE5', '#BBF7D0']}
+          colors={promoGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={styles.featuredGradient}>
-          <View style={styles.featuredIcon}>
+          style={[styles.featuredGradient, featuredStyles.gradient]}>
+          <View style={[styles.featuredIcon, featuredStyles.icon]}>
             <SymbolView
               name={{ ios: 'list.bullet.clipboard.fill', android: 'checklist', web: 'checklist' }}
-              tintColor={SmartCartColors.primaryDark}
+              tintColor={theme.primary}
               size={24}
             />
           </View>
@@ -132,13 +164,13 @@ export function QuickActionGrid() {
             </Text>
           </View>
           {listCount > 0 ? (
-            <View style={styles.countBadge}>
+            <View style={[styles.countBadge, featuredStyles.countBadge]}>
               <Text style={styles.countBadgeText}>{listCount}</Text>
             </View>
           ) : (
             <SymbolView
               name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-              tintColor={SmartCartColors.primaryDark}
+              tintColor={theme.primary}
               size={18}
             />
           )}
@@ -165,7 +197,10 @@ const styles = StyleSheet.create({
   },
   featuredCard: {
     borderRadius: SmartCartRadius.lg,
-    ...SmartCartShadow.glow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 6,
   },
   featuredCardPressed: {
     opacity: 0.94,
@@ -179,7 +214,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: SmartCartRadius.lg,
     borderWidth: 1.5,
-    borderColor: '#86EFAC',
     minHeight: 80,
   },
   featuredIcon: {
@@ -190,7 +224,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
     flexShrink: 0,
   },
   featuredCopy: {
@@ -213,7 +246,6 @@ const styles = StyleSheet.create({
     minWidth: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: SmartCartColors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,

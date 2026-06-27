@@ -1,9 +1,18 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Text } from '@/components/Themed';
+import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
+import {
+  darken,
+  getPromoBorder,
+  getPromoGlowRing,
+  getPromoIconBorder,
+  getPromoSurfaceGradient,
+} from '@/src/theme/themeColorUtils';
 
 type Props = {
   onPress: () => void;
@@ -12,36 +21,61 @@ type Props = {
 };
 
 export function CreateShoppingListBanner({ onPress, variant = 'home' }: Props) {
+  const { theme } = useAppTheme();
   const ctaLabel = variant === 'empty' ? 'Create your first list' : 'Start a new list';
   const subtitle =
     variant === 'empty'
       ? 'Build a list, compare prices across stores, and track what you actually spend.'
       : 'Plan your trip, compare store prices, and see your cart total before you shop.';
 
+  const promoGradient = useMemo(() => getPromoSurfaceGradient(theme), [theme]);
+  const themedStyles = useMemo(
+    () => ({
+      wrapper: {
+        shadowColor: theme.primary,
+      },
+      gradient: {
+        borderColor: getPromoBorder(theme),
+      },
+      glowRing: {
+        borderColor: getPromoGlowRing(theme),
+      },
+      iconCircle: {
+        borderColor: getPromoIconBorder(theme),
+      },
+      ctaPill: {
+        backgroundColor: theme.primary,
+        borderColor: darken(theme.primary, 0.2),
+        shadowColor: darken(theme.primary, 0.35),
+      },
+    }),
+    [theme]
+  );
+
   return (
     <Pressable
-      style={({ pressed }) => [styles.wrapper, pressed && styles.wrapperPressed]}
+      style={({ pressed }) => [styles.wrapper, themedStyles.wrapper, pressed && styles.wrapperPressed]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`Create your shopping list. ${subtitle} ${ctaLabel}.`}>
       <LinearGradient
-        colors={['#ECFDF5', '#D1FAE5', '#BBF7D0']}
+        colors={promoGradient}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.gradient}>
-        <View style={styles.glowRing} pointerEvents="none" />
+        style={[styles.gradient, themedStyles.gradient]}>
+        <View style={[styles.glowRing, themedStyles.glowRing]} pointerEvents="none" />
         <View style={styles.content}>
-          <View style={styles.iconCircle}>
+          <View style={[styles.iconCircle, themedStyles.iconCircle]}>
             <SymbolView
               name={{ ios: 'list.bullet.clipboard.fill', android: 'checklist', web: 'checklist' }}
-              tintColor={SmartCartColors.primaryDark}
+              tintColor={theme.primary}
               size={28}
             />
           </View>
           <View style={styles.copy}>
             <Text style={styles.title}>Create your shopping list</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
-            <View style={styles.ctaPill}>
+            <View style={[styles.ctaPill, themedStyles.ctaPill]}>
               <SymbolView
                 name={{ ios: 'plus.circle.fill', android: 'add_circle', web: 'add_circle' }}
                 tintColor="#fff"
@@ -61,7 +95,10 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: SmartCartRadius.lg,
     marginBottom: 20,
-    ...SmartCartShadow.glow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 6,
   },
   wrapperPressed: {
     opacity: 0.94,
@@ -70,14 +107,12 @@ const styles = StyleSheet.create({
   gradient: {
     borderRadius: SmartCartRadius.lg,
     borderWidth: 1.5,
-    borderColor: '#86EFAC',
     overflow: 'hidden',
   },
   glowRing: {
     ...StyleSheet.absoluteFill,
     borderRadius: SmartCartRadius.lg,
     borderWidth: 2,
-    borderColor: 'rgba(34, 197, 94, 0.18)',
   },
   content: {
     flexDirection: 'row',
@@ -93,7 +128,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#BBF7D0',
     ...SmartCartShadow.pill,
   },
   copy: {
@@ -118,13 +152,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: SmartCartColors.primaryDark,
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderRadius: SmartCartRadius.pill,
     borderWidth: 2,
-    borderColor: '#15803D',
-    ...SmartCartShadow.fab,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 8,
   },
   ctaText: {
     color: '#FFFFFF',

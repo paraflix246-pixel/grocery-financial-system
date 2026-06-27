@@ -3,13 +3,16 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { SymbolView } from 'expo-symbols';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 
 import { PRO_UPGRADE_HOOK } from '@/src/constants/proPricing';
 
+import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { getPromoIconBorder, withAlpha } from '@/src/theme/themeColorUtils';
 
 type Props = {
   featureName?: string;
@@ -27,13 +30,30 @@ export function ProUpgradeBanner({
 }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { theme } = useAppTheme();
   const planName = t('common.pro');
   const isCompact = variant === 'compact';
+
+  const compactStyles = useMemo(
+    () => ({
+      banner: {
+        backgroundColor: withAlpha(theme.primary, 0.07),
+        borderColor: getPromoIconBorder(theme),
+      },
+      iconWrap: {
+        backgroundColor: withAlpha(theme.primary, 0.12),
+      },
+      message: {
+        color: theme.primary,
+      },
+    }),
+    [theme]
+  );
 
   return (
     <Pressable
       style={({ pressed }) => [
-        isCompact ? styles.bannerCompact : styles.banner,
+        isCompact ? [styles.bannerCompact, compactStyles.banner] : styles.banner,
         pressed && styles.bannerPressed,
       ]}
       onPress={() => router.push('/paywall' as never)}
@@ -43,15 +63,15 @@ export function ProUpgradeBanner({
           ? message
           : t('common.unlockWith', { feature: featureName, plan: planName })
       }>
-      <View style={isCompact ? styles.iconWrapCompact : styles.iconWrap}>
+      <View style={isCompact ? [styles.iconWrapCompact, compactStyles.iconWrap] : styles.iconWrap}>
         <SymbolView
           name={{ ios: 'star.fill', android: 'star', web: 'star' }}
-          tintColor={isCompact ? SmartCartColors.primaryDark : SmartCartColors.accentPurple}
+          tintColor={isCompact ? theme.primary : SmartCartColors.accentPurple}
           size={isCompact ? 14 : 20}
         />
       </View>
       {isCompact ? (
-        <Text style={styles.compactMessage} numberOfLines={2}>
+        <Text style={[styles.compactMessage, compactStyles.message]} numberOfLines={2}>
           {message}
         </Text>
       ) : (
@@ -64,7 +84,7 @@ export function ProUpgradeBanner({
       )}
       <SymbolView
         name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
-        tintColor={SmartCartColors.primary}
+        tintColor={isCompact ? theme.primary : SmartCartColors.primary}
         size={isCompact ? 14 : 16}
       />
     </Pressable>
@@ -88,13 +108,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: SmartCartColors.bannerGreen,
     borderRadius: SmartCartRadius.sm,
     paddingVertical: 10,
     paddingHorizontal: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
     ...SmartCartShadow.cardSoft,
   },
   bannerPressed: { opacity: 0.9 },
@@ -110,7 +128,6 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: SmartCartColors.badgeGreen,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -121,7 +138,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: '600',
-    color: SmartCartColors.primaryDark,
     lineHeight: 18,
   },
 });

@@ -2,28 +2,48 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
+import { useAppTheme } from '@/src/theme/AppThemeProvider';
+import { SmartCartRadius } from '@/src/theme/smartCart';
+import { darken, getHeroGradient } from '@/src/theme/themeColorUtils';
 
 const scanReceiptBanner = require('../../assets/images/scan-receipt-banner.png');
 
 export function HeroScanCard() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { theme } = useAppTheme();
   const [bannerFailed, setBannerFailed] = useState(false);
   const goToScan = () => router.push('/(tabs)/scan');
 
+  const heroGradient = useMemo(() => getHeroGradient(theme), [theme]);
+  const cardStyles = useMemo(
+    () => ({
+      wrapper: {
+        backgroundColor: darken(theme.primary, 0.35),
+        shadowColor: darken(theme.primary, 0.5),
+      },
+      scanButton: {
+        shadowColor: darken(theme.primary, 0.45),
+      },
+      scanButtonText: {
+        color: theme.primary,
+      },
+    }),
+    [theme]
+  );
+
   return (
     <Pressable
-      style={styles.wrapper}
+      style={[styles.wrapper, cardStyles.wrapper]}
       onPress={goToScan}
       accessibilityRole="button"
       accessibilityLabel={t('heroScan.a11y')}>
       <LinearGradient
-        colors={['#15803D', '#22C55E', '#86EFAC']}
+        colors={heroGradient}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={StyleSheet.absoluteFill}
@@ -41,13 +61,13 @@ export function HeroScanCard() {
       <View style={[styles.copyBlock, { pointerEvents: 'none' }]}>
         <Text style={styles.title}>{t('heroScan.title')}</Text>
         <Text style={styles.subtitle}>{t('heroScan.subtitle')}</Text>
-        <View style={styles.scanButton}>
+        <View style={[styles.scanButton, cardStyles.scanButton]}>
           <SymbolView
             name={{ ios: 'camera', android: 'photo_camera', web: 'photo_camera' }}
             size={24}
-            tintColor={SmartCartColors.primaryDark}
+            tintColor={theme.primary}
           />
-          <Text style={styles.scanButtonText}>{t('heroScan.scanNow')}</Text>
+          <Text style={[styles.scanButtonText, cardStyles.scanButtonText]}>{t('heroScan.scanNow')}</Text>
         </View>
         <Text style={styles.secureText}>{t('heroScan.secure')}</Text>
       </View>
@@ -63,9 +83,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     aspectRatio: 1024 / 617,
     borderRadius: 24,
-    backgroundColor: SmartCartColors.primaryDark,
     overflow: 'hidden',
-    shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
     shadowRadius: 18,
@@ -107,14 +125,12 @@ const styles = StyleSheet.create({
     gap: 9,
     paddingHorizontal: 19,
     paddingVertical: 10,
-    shadowColor: '#064E3B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.14,
     shadowRadius: 10,
     elevation: 3,
   },
   scanButtonText: {
-    color: SmartCartColors.primaryDark,
     fontSize: 16,
     fontWeight: '800',
   },
