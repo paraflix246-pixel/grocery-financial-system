@@ -69,11 +69,15 @@ const CARD_BG = 'rgba(255,255,255,0.05)';
 
 const CARD_BORDER = 'rgba(255,255,255,0.1)';
 
-const PLANS_CONTAINER_MAX_WIDTH = 520;
+const PLANS_CONTAINER_MAX_WIDTH = 1024;
 
-const COMPACT_LAYOUT_MAX_WIDTH = 400;
+const COMPACT_LAYOUT_MAX_WIDTH = 600;
 
-const FOOTER_ESTIMATE = 320;
+const STACKED_PLANS_MAX_WIDTH = 360;
+
+const WIDE_LAYOUT_MIN_WIDTH = 960;
+
+const SCROLL_FOOTER_PADDING = 340;
 
 const OUTCOME_KEYS = ['save', 'track', 'alerts'] as const;
 
@@ -202,6 +206,73 @@ function PaywallAvatarPreview({ label }: { label: string }) {
   );
 }
 
+type FamilyPlanCardProps = {
+  billing: 'monthly' | 'yearly';
+  horizontal: boolean;
+  column: boolean;
+  upgradingFamily: boolean;
+  onUpgrade: () => void;
+  onJoin: () => void;
+  t: (key: string, opts?: Record<string, string>) => string;
+};
+
+function FamilyPlanCard({
+  billing,
+  horizontal,
+  column,
+  upgradingFamily,
+  onUpgrade,
+  onJoin,
+  t,
+}: FamilyPlanCardProps) {
+  return (
+    <View style={[styles.familyCard, column && styles.familyCardColumn]}>
+      <View style={[styles.familyCardInner, horizontal && styles.familyCardInnerHorizontal]}>
+        <View style={[styles.familyCardContent, horizontal && styles.familyCardContentHorizontal]}>
+          <Text style={styles.familyBadge}>{FAMILY_BADGE_LABEL}</Text>
+          <Text style={[styles.familyTitle, column && styles.familyTitleColumn]}>{t('paywall.familyTitle')}</Text>
+          <Text style={styles.familySubtitle}>{t('paywall.familySubtitle')}</Text>
+          <View style={styles.priceRow}>
+            <Text style={[styles.planPrice, { color: PURPLE }, column && styles.planPriceCompact]}>
+              {getFamilyPrice(billing)}
+            </Text>
+            <Text style={[styles.planPeriod, column && styles.planPeriodCompact]}>
+              {getFamilyPeriod(billing, t)}
+            </Text>
+          </View>
+          {billing === 'yearly' ? (
+            <Text style={styles.yearlyNote}>{t('paywall.billedAnnually', { price: FAMILY_YEARLY_PRICE })}</Text>
+          ) : null}
+          <FamilyPlanFeaturesList
+            leadLabel={FAMILY_PLAN_LEAD}
+            accentColor={PURPLE}
+            mutedColor={TEXT_MUTED}
+            featureTextStyle={[styles.featureText, column && styles.featureTextCompact]}
+            leadTextStyle={[styles.featureText, column && styles.featureTextCompact]}
+          />
+        </View>
+        <View style={[styles.familyCardActions, horizontal && styles.familyCardActionsHorizontal]}>
+          <Pressable
+            style={[styles.familyBtn, upgradingFamily && styles.btnDisabled]}
+            disabled={upgradingFamily}
+            onPress={onUpgrade}
+            accessibilityRole="button"
+            accessibilityLabel={FAMILY_SUBSCRIBE_LABEL}>
+            <Text style={styles.familyBtnText}>
+              {upgradingFamily
+                ? t('common.processing')
+                : `${t('paywall.familySubscribe')} — ${getFamilyPrice(billing)}/mo`}
+            </Text>
+          </Pressable>
+          <Pressable style={styles.familyLink} onPress={onJoin}>
+            <Text style={styles.familyLinkText}>{t('paywall.familyJoin')}</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -209,6 +280,8 @@ export default function PaywallScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_LAYOUT_MAX_WIDTH;
+  const isStackedPlans = width < STACKED_PLANS_MAX_WIDTH;
+  const isWide = width >= WIDE_LAYOUT_MIN_WIDTH;
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const startProTrial = useSubscriptionStore((s) => s.startProTrial);
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
@@ -216,7 +289,6 @@ export default function PaywallScreen() {
   const [upgrading, setUpgrading] = useState(false);
   const [upgradingFamily, setUpgradingFamily] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
-  const [footerHeight, setFooterHeight] = useState(FOOTER_ESTIMATE);
   const billingMode = getSubscriptionBillingMode();
 
   const freeFeatures = [
@@ -284,7 +356,7 @@ export default function PaywallScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: footerHeight + getScreenBottomPadding(insets.bottom, 0) },
+          { paddingBottom: SCROLL_FOOTER_PADDING + getScreenBottomPadding(insets.bottom, 0) },
         ]}>
         <View style={styles.hero}>
           <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
@@ -326,18 +398,20 @@ export default function PaywallScreen() {
         </View>
 
         <View style={styles.plansContainer}>
-          <View style={[styles.plansRow, isCompact && styles.plansRowCompact]}>
+          <View style={[styles.plansRow, isStackedPlans && !isWide && styles.plansRowCompact]}>
             <View
               style={[
                 styles.planCard,
                 styles.planCardFree,
-                isCompact && styles.planCardCompact,
-                isCompact && styles.planCardStacked,
+                isStackedPlans && !isWide && styles.planCardCompact,
+                isStackedPlans && !isWide && styles.planCardStacked,
               ]}>
-              <Text style={[styles.planName, isCompact && styles.planNameCompact]}>{t('paywall.freePlan')}</Text>
+              <Text style={[styles.planName, isStackedPlans && !isWide && styles.planNameCompact]}>
+                {t('paywall.freePlan')}
+              </Text>
               <View style={styles.priceRow}>
-                <Text style={[styles.planPrice, isCompact && styles.planPriceCompact]}>$0</Text>
-                <Text style={[styles.planPeriod, isCompact && styles.planPeriodCompact]}>
+                <Text style={[styles.planPrice, isStackedPlans && !isWide && styles.planPriceCompact]}>$0</Text>
+                <Text style={[styles.planPeriod, isStackedPlans && !isWide && styles.planPeriodCompact]}>
                   {t('paywall.forever')}
                 </Text>
               </View>
@@ -348,10 +422,12 @@ export default function PaywallScreen() {
                       <SymbolView
                         name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
                         tintColor={TEXT_MUTED}
-                        size={isCompact ? 16 : 18}
+                        size={isStackedPlans && !isWide ? 16 : 18}
                       />
                     </View>
-                    <Text style={[styles.featureText, isCompact && styles.featureTextCompact]}>{f}</Text>
+                    <Text style={[styles.featureText, isStackedPlans && !isWide && styles.featureTextCompact]}>
+                      {f}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -361,25 +437,32 @@ export default function PaywallScreen() {
               onPress={() => setSelectedPro(true)}
               style={[
                 styles.planCard,
-                isCompact && styles.planCardCompact,
-                isCompact && styles.planCardStacked,
+                isStackedPlans && !isWide && styles.planCardCompact,
+                isStackedPlans && !isWide && styles.planCardStacked,
                 styles.planCardHighlighted,
                 selectedPro && { borderColor: GREEN, borderWidth: 2 },
               ]}>
               <View style={styles.proBadgeRow}>
                 <ProShimmerBadge label={t('paywall.proBadge')} />
               </View>
-              <Text style={[styles.planName, isCompact && styles.planNameCompact]}>{t('paywall.proPlan')}</Text>
+              <Text style={[styles.planName, isStackedPlans && !isWide && styles.planNameCompact]}>
+                {t('paywall.proPlan')}
+              </Text>
               <View style={styles.priceRow}>
-                <Text style={[styles.planPrice, { color: GREEN }, isCompact && styles.planPriceCompact]}>
+                <Text
+                  style={[
+                    styles.planPrice,
+                    { color: GREEN },
+                    isStackedPlans && !isWide && styles.planPriceCompact,
+                  ]}>
                   {getProPrice(billing)}
                 </Text>
-                <Text style={[styles.planPeriod, isCompact && styles.planPeriodCompact]}>
+                <Text style={[styles.planPeriod, isStackedPlans && !isWide && styles.planPeriodCompact]}>
                   {getProPeriod(billing, t)}
                 </Text>
               </View>
               {billing === 'yearly' ? (
-                <Text style={[styles.yearlyNote, isCompact && styles.yearlyNoteCompact]}>
+                <Text style={[styles.yearlyNote, isStackedPlans && !isWide && styles.yearlyNoteCompact]}>
                   {t('paywall.billedAnnually', { price: PRO_YEARLY_PRICE })}
                 </Text>
               ) : null}
@@ -389,8 +472,8 @@ export default function PaywallScreen() {
                   leadLabel={t('paywall.proLead')}
                   accentColor={GREEN}
                   mutedColor={TEXT_MUTED}
-                  featureTextStyle={[styles.featureText, isCompact && styles.featureTextCompact]}
-                  leadTextStyle={[styles.featureText, isCompact && styles.featureTextCompact]}
+                  featureTextStyle={[styles.featureText, isStackedPlans && !isWide && styles.featureTextCompact]}
+                  leadTextStyle={[styles.featureText, isStackedPlans && !isWide && styles.featureTextCompact]}
                 />
               </View>
               <View style={[styles.selectIndicator, selectedPro && { backgroundColor: `${GREEN}22` }]}>
@@ -400,7 +483,34 @@ export default function PaywallScreen() {
                 </Text>
               </View>
             </Pressable>
+
+            {isWide ? (
+              <FamilyPlanCard
+                billing={billing}
+                horizontal={false}
+                column
+                upgradingFamily={upgradingFamily}
+                onUpgrade={() => void handleFamilyUpgrade()}
+                onJoin={() => router.push('/family_plans' as never)}
+                t={t}
+              />
+            ) : null}
           </View>
+
+          {!isWide ? (
+            <View style={styles.familySection}>
+              <Text style={styles.sectionLabel}>{t('paywall.familySection')}</Text>
+              <FamilyPlanCard
+                billing={billing}
+                horizontal={!isCompact}
+                column={false}
+                upgradingFamily={upgradingFamily}
+                onUpgrade={() => void handleFamilyUpgrade()}
+                onJoin={() => router.push('/family_plans' as never)}
+                t={t}
+              />
+            </View>
+          ) : null}
 
           <View style={styles.proPreviewSection}>
             <PaywallThemePreview label={t('features.labels.custom_themes')} />
@@ -408,49 +518,9 @@ export default function PaywallScreen() {
             <PaywallAvatarPreview label={t('features.labels.custom_avatars')} />
           </View>
         </View>
-
-        <View style={styles.familySection}>
-          <Text style={styles.sectionLabel}>{t('paywall.familySection')}</Text>
-          <View style={styles.familyCard}>
-            <Text style={styles.familyBadge}>{FAMILY_BADGE_LABEL}</Text>
-            <Text style={styles.familyTitle}>{t('paywall.familyTitle')}</Text>
-            <Text style={styles.familySubtitle}>{t('paywall.familySubtitle')}</Text>
-            <View style={styles.priceRow}>
-              <Text style={[styles.planPrice, { color: PURPLE }]}>{getFamilyPrice(billing)}</Text>
-              <Text style={styles.planPeriod}>{getFamilyPeriod(billing, t)}</Text>
-            </View>
-            {billing === 'yearly' ? (
-              <Text style={styles.yearlyNote}>{t('paywall.billedAnnually', { price: FAMILY_YEARLY_PRICE })}</Text>
-            ) : null}
-            <FamilyPlanFeaturesList
-              leadLabel={FAMILY_PLAN_LEAD}
-              accentColor={PURPLE}
-              mutedColor={TEXT_MUTED}
-              featureTextStyle={styles.featureText}
-              leadTextStyle={styles.featureText}
-            />
-            <Pressable
-              style={[styles.familyBtn, upgradingFamily && styles.btnDisabled]}
-              disabled={upgradingFamily}
-              onPress={() => void handleFamilyUpgrade()}
-              accessibilityRole="button"
-              accessibilityLabel={FAMILY_SUBSCRIBE_LABEL}>
-              <Text style={styles.familyBtnText}>
-                {upgradingFamily
-                  ? t('common.processing')
-                  : `${t('paywall.familySubscribe')} — ${getFamilyPrice(billing)}/mo`}
-              </Text>
-            </Pressable>
-            <Pressable style={styles.familyLink} onPress={() => router.push('/family_plans' as never)}>
-              <Text style={styles.familyLinkText}>{t('paywall.familyJoin')}</Text>
-            </Pressable>
-          </View>
-        </View>
       </ScrollView>
 
-      <View
-        style={[styles.footer, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}
-        onLayout={(e) => setFooterHeight(e.nativeEvent.layout.height)}>
+      <View style={[styles.footer, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}>
         <Pressable
           style={[styles.upgradeBtn, startingTrial && styles.btnDisabled]}
           disabled={startingTrial || upgrading}
@@ -688,7 +758,37 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: 'rgba(124,58,237,0.28)',
+  },
+  familyCardColumn: {
+    flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
+    padding: 16,
+  },
+  familyCardInner: {
     gap: 10,
+  },
+  familyCardInnerHorizontal: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 20,
+  },
+  familyCardContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 10,
+  },
+  familyCardContentHorizontal: {
+    flex: 1,
+  },
+  familyCardActions: {
+    gap: 8,
+  },
+  familyCardActionsHorizontal: {
+    flexShrink: 0,
+    justifyContent: 'center',
+    minWidth: 200,
+    paddingTop: 8,
   },
   familyBadge: {
     fontSize: 12,
@@ -700,13 +800,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: TEXT_PRIMARY,
   },
+  familyTitleColumn: {
+    fontSize: 18,
+  },
   familySubtitle: {
     fontSize: 13,
     color: TEXT_MUTED,
     lineHeight: 19,
   },
   familyBtn: {
-    marginTop: 6,
     borderRadius: 999,
     paddingVertical: 12,
     alignItems: 'center',
