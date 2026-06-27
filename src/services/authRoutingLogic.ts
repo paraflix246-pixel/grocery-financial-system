@@ -15,6 +15,7 @@ export type AuthRoutingContext = {
   lastActivityAt: number | null;
   now: number;
   platform: 'web' | 'native';
+  isAdmin: boolean;
 };
 
 export type InitialRouteResult = {
@@ -66,6 +67,10 @@ export function resolveInitialRoute(ctx: AuthRoutingContext): InitialRouteResult
       reason,
       requiresSignOut: ctx.hasSupabaseSession,
     };
+  }
+
+  if (ctx.isAdmin && ctx.platform === 'web') {
+    return { href: '/admin', reason: 'dashboard' };
   }
 
   return { href: '/(tabs)', reason: 'dashboard' };

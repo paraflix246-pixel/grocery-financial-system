@@ -57,6 +57,7 @@ import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackgroun
 import { getAppAvatar } from '@/src/components/avatars/appAvatars';
 import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import { translateCategory } from '@/src/i18n/helpers';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 import { formatCurrency } from '@/src/utils/priceParser';
@@ -75,6 +76,7 @@ export default function HomeScreen() {
   const { unlocked: hasProAvatars } = useFeatureGate('custom_avatars');
   const notifyBudgetAlerts = useSettingsStore((s) => s.settings?.notifyBudgetAlerts ?? true);
   const subscriptionTier = useSubscriptionStore((s) => s.tier);
+  const { isAdmin } = useAdminStatus();
   const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
   const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
   const [homeInsight, setHomeInsight] = useState<HomeInsight | null>(null);
@@ -186,7 +188,7 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {subscriptionTier === 'free' ? (
+      {subscriptionTier === 'free' && !isAdmin ? (
         <ProUpgradeBanner
           variant="compact"
           message={t('home.proBannerCompact', { price: PRO_MONTHLY_PRICE.replace('$', '') })}

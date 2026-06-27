@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
+import { isAdminUser, syncUserProfile } from '@/src/services/admin/adminApiService';
 import { getSession, getStoredUser } from '@/src/services/authService';
 
 export {
@@ -52,6 +53,12 @@ export async function loadAuthRoutingContext(
     getLastActivityTimestamp(),
   ]);
 
+  let isAdmin = false;
+  if (session) {
+    await syncUserProfile();
+    isAdmin = isAdminUser();
+  }
+
   return {
     onboardingComplete,
     hasSupabaseSession: Boolean(session),
@@ -60,5 +67,6 @@ export async function loadAuthRoutingContext(
     lastActivityAt,
     now,
     platform: Platform.OS === 'web' ? 'web' : 'native',
+    isAdmin,
   };
 }

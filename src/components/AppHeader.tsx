@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/Themed';
 import { BackButton } from '@/src/components/BackButton';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import { getStoredUser, isSignedInAccount, signOut } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 import { SmartCartColors } from '@/src/theme/smartCart';
@@ -20,6 +21,7 @@ type Props = {
 export function AppHeader({ notificationCount = 0, onNotificationPress, showBack = true }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { isAdmin } = useAdminStatus();
   const [showLogout, setShowLogout] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
 
@@ -87,6 +89,15 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
 
       <View style={styles.rightSlot}>
         <View style={styles.rightActions}>
+          {showLogout && isAdmin ? (
+            <Pressable
+              style={styles.logoutBtn}
+              accessibilityLabel={t('admin.nav.dashboard')}
+              accessibilityRole="button"
+              onPress={() => router.push('/admin' as never)}>
+              <Text style={styles.adminText}>{t('admin.nav.short')}</Text>
+            </Pressable>
+          ) : null}
           {showLogout ? (
             <Pressable
               style={styles.logoutBtn}
@@ -159,6 +170,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: SmartCartColors.text,
+  },
+  adminText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: SmartCartColors.primary,
   },
   signInText: {
     fontSize: 14,

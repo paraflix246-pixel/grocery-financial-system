@@ -206,6 +206,14 @@
     "addStore": "Add a store",
     "removeTitle": "Remove {{name}}?"
   },
+  "admin": {
+    "nav": {
+      "short": "Admin",
+      "controlPanel": "CEO Control Panel",
+      "dashboard": "Admin Dashboard",
+      "dashboardSub": "Users, stats, bans & audit log"
+    }
+  },
   "more": {
     "title": "More",
     "subtitle": "Settings & Pro features",

@@ -10,6 +10,7 @@ import { Text } from '@/components/Themed';
 
 import { PRO_UPGRADE_HOOK } from '@/src/constants/proPricing';
 
+import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { getPromoBodyText, getPromoIconBorder, withAlpha } from '@/src/theme/themeColorUtils';
@@ -30,9 +31,12 @@ export function ProUpgradeBanner({
 }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { isAdmin } = useAdminStatus();
   const { theme } = useAppTheme();
   const planName = t('common.pro');
   const isCompact = variant === 'compact';
+
+  if (isAdmin) return null;
 
   const compactStyles = useMemo(
     () => ({

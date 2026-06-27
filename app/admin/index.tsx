@@ -23,6 +23,7 @@ import {
   type AdminStats,
   type AdminUserDetailResponse,
 } from '@/src/services/admin/adminApiService';
+import { getSession } from '@/src/services/authService';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
@@ -62,6 +63,7 @@ function StatusBadge({ profile }: { profile: AdminProfile }) {
 }
 
 export default function AdminDashboardScreen() {
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminProfile[]>([]);
   const [total, setTotal] = useState(0);
@@ -100,6 +102,9 @@ export default function AdminDashboardScreen() {
 
   useEffect(() => {
     if (Platform.OS !== 'web') return;
+    void getSession().then((session) => {
+      setAdminEmail(session?.user?.email ?? null);
+    });
     void loadDashboard();
   }, [loadDashboard]);
 
@@ -197,7 +202,9 @@ export default function AdminDashboardScreen() {
         <PennyPantryLogo variant="inline" size={40} showName />
         <View style={styles.heroText}>
           <Text style={styles.heroTitle}>CEO Control Panel</Text>
-          <Text style={styles.heroSubtitle}>Platform oversight for Penny Pantry</Text>
+          <Text style={styles.heroSubtitle}>
+            {adminEmail ? `Welcome, ${adminEmail}` : 'Platform oversight for Penny Pantry'}
+          </Text>
         </View>
       </View>
 

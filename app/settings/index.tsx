@@ -30,6 +30,7 @@ import {
   setOpenLastListPreference,
 } from '@/src/utils/listNavigationPrefs';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
+import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import {
   AppearanceSectionReset,
   LanguagePicker,
@@ -131,6 +132,7 @@ export default function SettingsScreen() {
   const [changingEmail, setChangingEmail] = useState(false);
   const [emailChangeMessage, setEmailChangeMessage] = useState<string | null>(null);
   const tier = useSubscriptionStore((s) => s.tier);
+  const { isAdmin } = useAdminStatus();
   const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const downgradeToFree = useSubscriptionStore((s) => s.downgradeToFree);
@@ -476,6 +478,36 @@ export default function SettingsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={Platform.OS === 'web'}>
+        {isAdmin ? (
+          <>
+            <Text style={styles.sectionTitle}>{t('more.sections.essentials')}</Text>
+            <View style={styles.menu}>
+              <Pressable
+                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                onPress={() => router.push('/admin' as never)}
+                accessibilityRole="button"
+                accessibilityLabel={t('admin.nav.dashboard')}>
+                <View style={styles.menuIcon}>
+                  <SymbolView
+                    name={{ ios: 'shield.lefthalf.filled', android: 'admin_panel_settings', web: 'admin_panel_settings' }}
+                    tintColor={SmartCartColors.primary}
+                    size={20}
+                  />
+                </View>
+                <View style={styles.menuText}>
+                  <Text style={styles.menuLabel}>{t('admin.nav.dashboard')}</Text>
+                  <Text style={styles.menuSub}>{t('admin.nav.dashboardSub')}</Text>
+                </View>
+                <SymbolView
+                  name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+                  tintColor={SmartCartColors.textMuted}
+                  size={16}
+                />
+              </Pressable>
+            </View>
+          </>
+        ) : null}
+
         <Text style={styles.sectionTitle}>{t('settings.profile')}</Text>
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>{t('settings.displayName')}</Text>

@@ -10,6 +10,7 @@ import { Text } from '@/components/Themed';
 import { AppHeader } from '@/src/components/AppHeader';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
@@ -76,6 +77,7 @@ export default function MoreScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const tier = useSubscriptionStore((s) => s.tier);
+  const { isAdmin } = useAdminStatus();
   const sections = useMenuSections();
 
   return (
@@ -93,7 +95,37 @@ export default function MoreScreen() {
       <Text style={styles.title}>{t('more.title')}</Text>
       <Text style={styles.subtitle}>{t('more.subtitle')}</Text>
 
-      {tier === 'free' && (
+      {isAdmin ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{t('admin.nav.controlPanel')}</Text>
+          <View style={styles.menu}>
+            <Pressable
+              style={({ pressed }) => [styles.menuItem, styles.adminMenuItem, pressed && styles.menuItemPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={t('admin.nav.dashboard')}
+              onPress={() => router.push('/admin' as never)}>
+              <View style={[styles.menuIcon, styles.adminMenuIcon]}>
+                <SymbolView
+                  name={{ ios: 'shield.lefthalf.filled', android: 'admin_panel_settings', web: 'admin_panel_settings' }}
+                  tintColor={SmartCartColors.primaryDark}
+                  size={22}
+                />
+              </View>
+              <View style={styles.menuText}>
+                <Text style={styles.menuLabel}>{t('admin.nav.dashboard')}</Text>
+                <Text style={styles.menuSub}>{t('admin.nav.dashboardSub')}</Text>
+              </View>
+              <SymbolView
+                name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+                tintColor={SmartCartColors.textMuted}
+                size={16}
+              />
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {tier === 'free' && !isAdmin && (
         <Pressable
           style={({ pressed }) => [styles.proBanner, pressed && styles.proBannerPressed]}
           onPress={() => router.push('/paywall' as never)}>
@@ -203,6 +235,13 @@ const styles = StyleSheet.create({
     borderColor: SmartCartColors.primary,
     backgroundColor: SmartCartColors.badge,
     opacity: 0.92,
+  },
+  adminMenuItem: {
+    borderColor: SmartCartColors.primaryDark,
+    backgroundColor: `${SmartCartColors.primaryDark}08`,
+  },
+  adminMenuIcon: {
+    backgroundColor: `${SmartCartColors.primaryDark}18`,
   },
   menuIcon: {
     width: 44,

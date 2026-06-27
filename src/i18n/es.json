@@ -206,6 +206,14 @@
     "addStore": "Agregar tienda",
     "removeTitle": "¿Quitar {{name}}?"
   },
+  "admin": {
+    "nav": {
+      "short": "Admin",
+      "controlPanel": "Panel de control CEO",
+      "dashboard": "Panel de administración",
+      "dashboardSub": "Usuarios, estadísticas, bloqueos y registro de auditoría"
+    }
+  },
   "more": {
     "title": "Más",
     "subtitle": "Ajustes y funciones Pro",
