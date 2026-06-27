@@ -411,7 +411,10 @@
     "familyTitle": "Family workspace",
     "familySubtitle": "One subscription for your household. Invite members free.",
     "familySubscribe": "Subscribe to Family",
+    "subscribeFamilyPrice": "Subscribe to Family — {{price}}",
     "familyJoin": "Create or join a household",
+    "customThemesLine": "6 custom themes",
+    "householdThemesLine": "Personal Pro themes + household sync",
     "billingDisclaimer": {
       "stripe": "Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.",
       "revenuecat": "Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.",
@@ -427,6 +430,18 @@
         "alerts": "Manual price alerts",
         "stores": "{{count}} store tracking",
         "pantry": "Pantry up to {{count}} items"
+      },
+      "proCompact": {
+        "unlimitedScans": "Unlimited receipt scans",
+        "historyAlerts": "Full price history & smart alerts",
+        "multiStore": "Multi-store compare & cheapest cart",
+        "pantryExport": "Unlimited pantry & export"
+      },
+      "familyCompact": {
+        "sharedLists": "Shared shopping lists",
+        "liveSync": "Live sync across phones",
+        "inviteFree": "Invite members free — no Pro required",
+        "onePayer": "One subscription covers all"
       },
       "pro": {
         "unlimitedScans": "Unlimited receipt scans",

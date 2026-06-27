@@ -411,7 +411,10 @@
     "familyTitle": "Espacio familiar",
     "familySubtitle": "Una suscripción para tu hogar. Invita miembros gratis.",
     "familySubscribe": "Suscribirse a Familiar",
+    "subscribeFamilyPrice": "Suscribirse a Familiar — {{price}}",
     "familyJoin": "Crear o unirse a un hogar",
+    "customThemesLine": "6 temas personalizados",
+    "householdThemesLine": "Temas Pro personales + sync familiar",
     "billingDisclaimer": {
       "stripe": "Pago seguro con Stripe. Administra o cancela en ajustes de suscripción.",
       "revenuecat": "Las suscripciones se facturan en App Store o Google Play. Adminístralas en ajustes del dispositivo.",
@@ -427,6 +430,18 @@
         "alerts": "Alertas de precio manual",
         "stores": "Seguimiento de {{count}} tiendas",
         "pantry": "Despensa hasta {{count}} artículos"
+      },
+      "proCompact": {
+        "unlimitedScans": "Escaneos de recibos ilimitados",
+        "historyAlerts": "Historial completo y alertas inteligentes",
+        "multiStore": "Comparación multi-tienda y carrito más barato",
+        "pantryExport": "Despensa ilimitada y exportar datos"
+      },
+      "familyCompact": {
+        "sharedLists": "Listas de compras compartidas",
+        "liveSync": "Sincronización en vivo entre teléfonos",
+        "inviteFree": "Invita miembros gratis — sin Pro",
+        "onePayer": "Una suscripción para todos"
       },
       "pro": {
         "unlimitedScans": "Escaneos de recibos ilimitados",

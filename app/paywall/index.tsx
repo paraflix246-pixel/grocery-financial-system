@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { ComponentProps } from 'react';
@@ -16,8 +16,6 @@ import { Text } from '@/components/Themed';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { LegalFooter } from '@/src/components/legal/LegalFooter';
-import { FamilyPlanFeaturesList } from '@/src/components/FamilyPlanFeaturesList';
-import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 import { ThemePreviewMini } from '@/src/components/ThemePreviewMini';
 import { AvatarBadge } from '@/src/components/avatars/AvatarBadge';
 import { APP_AVATAR_LIST } from '@/src/components/avatars/appAvatars';
@@ -28,19 +26,13 @@ import {
   COMMIT_NOTE,
   CONTINUE_FREE_LABEL,
   FAMILY_BADGE_LABEL,
-  FAMILY_CTA_SUBTEXT,
   FAMILY_MONTHLY_PRICE,
-  FAMILY_PLAN_LEAD,
-  FAMILY_SUBSCRIBE_LABEL,
   FAMILY_YEARLY_PRICE,
   FAMILY_YEARLY_PRICE_PER_MONTH,
   FREE_MAX_STORES,
   FREE_PANTRY_MAX_ITEMS,
-  FREE_PRICE_HISTORY_DAYS,
   FREE_RECEIPT_SCAN_LIMIT,
   PRO_MONTHLY_PRICE,
-  PRO_PLAN_LEAD,
-  PRO_SUBSCRIBE_LABEL,
   PRO_YEARLY_PRICE,
   PRO_YEARLY_PRICE_PER_MONTH,
   YEARLY_SAVINGS_PERCENT,
@@ -73,23 +65,27 @@ const PLANS_CONTAINER_MAX_WIDTH = 1024;
 
 const COMPACT_LAYOUT_MAX_WIDTH = 600;
 
-const PAID_PLANS_STACK_MAX_WIDTH = 400;
+const PLAN_CARD_GAP = 12;
 
-const OUTCOME_KEYS = ['save', 'track', 'alerts'] as const;
+const MOBILE_CARD_WIDTH_RATIO = 0.78;
+
+type PlanId = 'free' | 'pro' | 'family';
+
+type PaywallT = (key: string, opts?: Record<string, string | number>) => string;
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
-const OUTCOME_ICONS: Record<(typeof OUTCOME_KEYS)[number], SymbolName> = {
-  save: { ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' },
-  track: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' },
-  alerts: { ios: 'bell.badge.fill', android: 'notifications_active', web: 'notifications_active' },
+const CHECK_ICON: SymbolName = {
+  ios: 'checkmark.circle.fill',
+  android: 'check_circle',
+  web: 'check_circle',
 };
 
 function getProPrice(billing: 'monthly' | 'yearly'): string {
   return billing === 'yearly' ? PRO_YEARLY_PRICE_PER_MONTH : PRO_MONTHLY_PRICE;
 }
 
-function getProPeriod(billing: 'monthly' | 'yearly', t: (key: string) => string): string {
+function getProPeriod(billing: 'monthly' | 'yearly', t: PaywallT): string {
   return billing === 'yearly' ? t('paywall.perMonthBilledYearly') : t('paywall.perMonth');
 }
 
@@ -97,7 +93,7 @@ function getFamilyPrice(billing: 'monthly' | 'yearly'): string {
   return billing === 'yearly' ? FAMILY_YEARLY_PRICE_PER_MONTH : FAMILY_MONTHLY_PRICE;
 }
 
-function getFamilyPeriod(billing: 'monthly' | 'yearly', t: (key: string) => string): string {
+function getFamilyPeriod(billing: 'monthly' | 'yearly', t: PaywallT): string {
   return billing === 'yearly' ? t('paywall.perMonthBilledYearly') : t('paywall.perMonth');
 }
 
@@ -111,9 +107,22 @@ function getSubscribeLabel(
   return t('paywall.subscribeProPrice', { price });
 }
 
+function getFamilySubscribeLabel(
+  billing: 'monthly' | 'yearly',
+  upgrading: boolean,
+  t: (key: string, opts?: Record<string, string>) => string
+): string {
+  if (upgrading) return t('common.processing');
+  const price =
+    billing === 'yearly'
+      ? `${FAMILY_YEARLY_PRICE}/yr`
+      : `${FAMILY_MONTHLY_PRICE}${t('paywall.perMonth')}`;
+  return t('paywall.subscribeFamilyPrice', { price });
+}
+
 function getBillingDisclaimer(
   billingMode: ReturnType<typeof getSubscriptionBillingMode>,
-  t: (key: string) => string
+  t: PaywallT
 ): string {
   if (billingMode === 'stripe') return t('paywall.billingDisclaimer.stripe');
   if (billingMode === 'revenuecat') return t('paywall.billingDisclaimer.revenuecat');
@@ -152,158 +161,268 @@ function FamilyBadge({ label }: { label: string }) {
   );
 }
 
-function PaywallThemePreview({ label }: { label: string }) {
-  const proThemes = APP_THEME_LIST.filter((preset) => preset.isPremium);
+function FeatureBullet({
+  text,
+  accent,
+  compact,
+}: {
+  text: string;
+  accent: string;
+  compact?: boolean;
+}) {
+  return (
+    <View style={styles.featureRow}>
+      <SymbolView name={CHECK_ICON} tintColor={accent} size={compact ? 14 : 16} />
+      <Text style={[styles.featureText, compact && styles.featureTextCompact]} numberOfLines={3}>
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+function CardThemeSwatches({ label, themeCount }: { label: string; themeCount?: number }) {
+  const themes = APP_THEME_LIST.slice(0, themeCount ?? APP_THEME_LIST.length);
 
   return (
-    <View style={styles.themePreviewSection}>
-      <Text style={styles.themePreviewLabel}>{label}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.previewScrollContent}>
-        {proThemes.map((preset) => (
+    <View style={styles.cardThemeBlock}>
+      <Text style={styles.cardThemeLabel}>{label}</Text>
+      <View style={styles.cardThemeRow}>
+        {themes.map((preset) => (
           <ThemePreviewMini key={preset.id} preset={preset} size="sm" />
         ))}
-      </ScrollView>
+      </View>
     </View>
   );
 }
 
-function PaywallFontPreview({ label }: { label: string }) {
-  const proFonts = APP_FONT_LIST.filter((preset) => preset.isPro).slice(0, 4);
-
-  return (
-    <View style={styles.themePreviewSection}>
-      <Text style={styles.themePreviewLabel}>{label}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.previewScrollContent}>
-        {proFonts.map((preset) => (
-          <View key={preset.id} style={styles.fontPreviewChip}>
-            <Text
-              style={[
-                styles.fontPreviewText,
-                preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
-              ]}
-              numberOfLines={1}>
-              Aa
-            </Text>
-          </View>
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-function PaywallAvatarPreview({ label }: { label: string }) {
-  const previewAvatars = APP_AVATAR_LIST.slice(0, 6);
-
-  return (
-    <View style={styles.themePreviewSection}>
-      <Text style={styles.themePreviewLabel}>{label}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.previewScrollContent}>
-        {previewAvatars.map((preset) => (
-          <AvatarBadge key={preset.id} preset={preset} size="sm" />
-        ))}
-      </ScrollView>
-    </View>
-  );
-}
-
-type FamilyComparisonCardProps = {
-  compact: boolean;
-  billing: 'monthly' | 'yearly';
+function SelectIndicator({
+  selected,
+  accent,
+  t,
+}: {
   selected: boolean;
-  upgradingFamily: boolean;
+  accent: string;
+  t: PaywallT;
+}) {
+  return (
+    <View style={[styles.selectIndicator, selected && { backgroundColor: `${accent}22` }]}>
+      <View style={[styles.selectDot, selected && { backgroundColor: accent }]} />
+      <Text style={[styles.selectText, selected && { color: TEXT_PRIMARY }]}>
+        {selected ? t('common.selected') : t('common.selectPlan')}
+      </Text>
+    </View>
+  );
+}
+
+type PlanCardShellProps = {
+  compact: boolean;
+  selected: boolean;
   onSelect: () => void;
-  onUpgrade: () => void;
-  onJoin: () => void;
-  t: (key: string, opts?: Record<string, string>) => string;
+  cardStyle?: object;
+  selectedStyle?: object;
+  children: ReactNode;
+  width?: number;
 };
 
-function FamilyComparisonCard({
-  billing,
+function PlanCardShell({
   compact,
   selected,
-  upgradingFamily,
   onSelect,
-  onUpgrade,
-  onJoin,
-  t,
-}: FamilyComparisonCardProps) {
+  cardStyle,
+  selectedStyle,
+  children,
+  width,
+}: PlanCardShellProps) {
   return (
     <Pressable
       onPress={onSelect}
       style={[
-        styles.comparisonCard,
-        compact && styles.comparisonCardCompact,
-        styles.familyComparisonCard,
-        selected && styles.familyComparisonCardSelected,
+        styles.planCard,
+        compact && styles.planCardCompact,
+        cardStyle,
+        selected && selectedStyle,
+        width != null ? { width } : styles.planCardFlex,
       ]}>
-      <View style={styles.comparisonCardBody}>
-        <View style={styles.planBadgeRow}>
-          <FamilyBadge label={FAMILY_BADGE_LABEL} />
-        </View>
-        <Text style={[styles.planName, compact && styles.planNameCompact]}>{t('paywall.familyTitle')}</Text>
-        <Text style={[styles.familyPlanSubtitle, compact && styles.familyPlanSubtitleCompact]}>
-          {FAMILY_CTA_SUBTEXT}
-        </Text>
-        <View style={styles.priceRow}>
-          <Text style={[styles.planPrice, { color: PURPLE }, compact && styles.planPriceCompact]}>
-            {getFamilyPrice(billing)}
-          </Text>
-          <Text style={[styles.planPeriod, compact && styles.planPeriodCompact]}>
-            {getFamilyPeriod(billing, t)}
-          </Text>
-        </View>
-        {billing === 'yearly' ? (
-          <Text style={[styles.yearlyNote, compact && styles.yearlyNoteCompact]}>
-            {t('paywall.billedAnnually', { price: FAMILY_YEARLY_PRICE })}
-          </Text>
-        ) : null}
-        <View style={styles.featureList}>
-          <FamilyPlanFeaturesList
-            leadLabel={FAMILY_PLAN_LEAD}
-            accentColor={PURPLE}
-            mutedColor={TEXT_MUTED}
-            featureTextStyle={[styles.featureText, compact && styles.featureTextCompact]}
-            leadTextStyle={[styles.featureText, compact && styles.featureTextCompact]}
-          />
-        </View>
-      </View>
-      <View style={styles.comparisonCardFooter}>
-        <Pressable
-          style={[styles.familyCardBtn, upgradingFamily && styles.btnDisabled]}
-          disabled={upgradingFamily}
-          onPress={onUpgrade}
-          accessibilityRole="button"
-          accessibilityLabel={FAMILY_SUBSCRIBE_LABEL}>
-          <Text style={[styles.familyCardBtnText, compact && styles.familyCardBtnTextCompact]}>
-            {upgradingFamily
-              ? t('common.processing')
-              : `${t('paywall.familySubscribe')} — ${getFamilyPrice(billing)}/mo`}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={styles.familyCardLink}
-          onPress={onJoin}>
-          <Text style={[styles.familyCardLinkText, compact && styles.familyCardLinkTextCompact]}>
-            {t('paywall.familyJoin')}
-          </Text>
-        </Pressable>
-        <View style={[styles.selectIndicator, selected && styles.familySelectIndicatorSelected]}>
-          <View style={[styles.selectDot, selected && { backgroundColor: PURPLE }]} />
-          <Text style={[styles.selectText, selected && { color: TEXT_PRIMARY }]}>
-            {selected ? t('common.selected') : t('common.selectPlan')}
-          </Text>
-        </View>
-      </View>
+      {children}
     </Pressable>
+  );
+}
+
+type FreePlanCardProps = {
+  compact: boolean;
+  selected: boolean;
+  onSelect: () => void;
+  bullets: string[];
+  t: PaywallT;
+  width?: number;
+};
+
+function FreePlanCard({ compact, selected, onSelect, bullets, t, width }: FreePlanCardProps) {
+  return (
+    <PlanCardShell
+      compact={compact}
+      selected={selected}
+      onSelect={onSelect}
+      selectedStyle={styles.freeCardSelected}
+      width={width}>
+      <Text style={[styles.planName, compact && styles.planNameCompact]}>{t('paywall.freePlan')}</Text>
+      <View style={styles.priceRow}>
+        <Text style={[styles.planPrice, compact && styles.planPriceCompact]}>$0</Text>
+        <Text style={[styles.planPeriod, compact && styles.planPeriodCompact]}>{t('paywall.forever')}</Text>
+      </View>
+      <View style={styles.featureList}>
+        {bullets.map((text) => (
+          <FeatureBullet key={text} text={text} accent={TEXT_MUTED} compact={compact} />
+        ))}
+      </View>
+      <View style={styles.cardFooter}>
+        <SelectIndicator selected={selected} accent={TEXT_MUTED} t={t} />
+      </View>
+    </PlanCardShell>
+  );
+}
+
+type ProPlanCardProps = {
+  compact: boolean;
+  selected: boolean;
+  billing: 'monthly' | 'yearly';
+  onSelect: () => void;
+  bullets: string[];
+  t: PaywallT;
+  width?: number;
+};
+
+function ProPlanCard({ compact, selected, billing, onSelect, bullets, t, width }: ProPlanCardProps) {
+  return (
+    <PlanCardShell
+      compact={compact}
+      selected={selected}
+      onSelect={onSelect}
+      cardStyle={styles.proCard}
+      selectedStyle={styles.proCardSelected}
+      width={width}>
+      <View style={styles.planBadgeRow}>
+        <ProShimmerBadge label={t('paywall.proBadge')} />
+      </View>
+      <Text style={[styles.planName, compact && styles.planNameCompact]}>{t('paywall.proPlan')}</Text>
+      <View style={styles.priceRow}>
+        <Text style={[styles.planPrice, styles.proPrice, compact && styles.planPriceCompact]}>
+          {getProPrice(billing)}
+        </Text>
+        <Text style={[styles.planPeriod, compact && styles.planPeriodCompact]}>
+          {getProPeriod(billing, t)}
+        </Text>
+      </View>
+      {billing === 'yearly' ? (
+        <Text style={[styles.yearlyNote, compact && styles.yearlyNoteCompact]}>
+          {t('paywall.billedAnnually', { price: PRO_YEARLY_PRICE })}
+        </Text>
+      ) : null}
+      <View style={styles.featureList}>
+        {bullets.map((text) => (
+          <FeatureBullet key={text} text={text} accent={GREEN} compact={compact} />
+        ))}
+      </View>
+      <CardThemeSwatches label={t('paywall.customThemesLine')} />
+      <View style={styles.cardFooter}>
+        <SelectIndicator selected={selected} accent={GREEN} t={t} />
+      </View>
+    </PlanCardShell>
+  );
+}
+
+type FamilyPlanCardProps = {
+  compact: boolean;
+  selected: boolean;
+  billing: 'monthly' | 'yearly';
+  onSelect: () => void;
+  bullets: string[];
+  t: PaywallT;
+  width?: number;
+};
+
+function FamilyPlanCard({
+  compact,
+  selected,
+  billing,
+  onSelect,
+  bullets,
+  t,
+  width,
+}: FamilyPlanCardProps) {
+  return (
+    <PlanCardShell
+      compact={compact}
+      selected={selected}
+      onSelect={onSelect}
+      cardStyle={styles.familyCard}
+      selectedStyle={styles.familyCardSelected}
+      width={width}>
+      <View style={styles.planBadgeRow}>
+        <FamilyBadge label={FAMILY_BADGE_LABEL} />
+      </View>
+      <Text style={[styles.planName, compact && styles.planNameCompact]}>{t('paywall.familyTitle')}</Text>
+      <Text style={[styles.familySubtitle, compact && styles.familySubtitleCompact]}>
+        {t('paywall.familySubtitle')}
+      </Text>
+      <View style={styles.priceRow}>
+        <Text style={[styles.planPrice, styles.familyPrice, compact && styles.planPriceCompact]}>
+          {getFamilyPrice(billing)}
+        </Text>
+        <Text style={[styles.planPeriod, compact && styles.planPeriodCompact]}>
+          {getFamilyPeriod(billing, t)}
+        </Text>
+      </View>
+      {billing === 'yearly' ? (
+        <Text style={[styles.yearlyNote, compact && styles.yearlyNoteCompact]}>
+          {t('paywall.billedAnnually', { price: FAMILY_YEARLY_PRICE })}
+        </Text>
+      ) : null}
+      <View style={styles.featureList}>
+        {bullets.map((text) => (
+          <FeatureBullet key={text} text={text} accent={PURPLE} compact={compact} />
+        ))}
+      </View>
+      <CardThemeSwatches label={t('paywall.householdThemesLine')} themeCount={2} />
+      <View style={styles.cardFooter}>
+        <SelectIndicator selected={selected} accent={PURPLE} t={t} />
+      </View>
+    </PlanCardShell>
+  );
+}
+
+function ProPersonalizationStrip({ t }: { t: PaywallT }) {
+  const proFonts = APP_FONT_LIST.filter((preset) => preset.isPro).slice(0, 4);
+  const previewAvatars = APP_AVATAR_LIST.slice(0, 5);
+
+  return (
+    <View style={styles.personalizationStrip}>
+      <View style={styles.personalizationGroup}>
+        <Text style={styles.personalizationLabel}>{t('features.labels.custom_fonts')}</Text>
+        <View style={styles.personalizationRow}>
+          {proFonts.map((preset) => (
+            <View key={preset.id} style={styles.fontPreviewChip}>
+              <Text
+                style={[
+                  styles.fontPreviewText,
+                  preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
+                ]}
+                numberOfLines={1}>
+                Aa
+              </Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={styles.personalizationGroup}>
+        <Text style={styles.personalizationLabel}>{t('features.labels.custom_avatars')}</Text>
+        <View style={styles.personalizationRow}>
+          {previewAvatars.map((preset) => (
+            <AvatarBadge key={preset.id} preset={preset} size="sm" />
+          ))}
+        </View>
+      </View>
+    </View>
   );
 }
 
@@ -314,23 +433,36 @@ export default function PaywallScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_LAYOUT_MAX_WIDTH;
-  const stackPaidPlans = width < PAID_PLANS_STACK_MAX_WIDTH;
+  const mobileCardWidth = Math.min(width * MOBILE_CARD_WIDTH_RATIO, 280);
+  const snapInterval = mobileCardWidth + PLAN_CARD_GAP;
+
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const startProTrial = useSubscriptionStore((s) => s.startProTrial);
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
-  const [selectedPlan, setSelectedPlan] = useState<'pro' | 'family'>('pro');
+  const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
   const [upgrading, setUpgrading] = useState(false);
   const [upgradingFamily, setUpgradingFamily] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const billingMode = getSubscriptionBillingMode();
 
-  const freeFeatures = [
+  const freeBullets = [
     t('paywall.features.free.scans', { count: FREE_RECEIPT_SCAN_LIMIT }),
-    t('paywall.features.free.list'),
-    t('paywall.features.free.history', { days: FREE_PRICE_HISTORY_DAYS }),
-    t('paywall.features.free.alerts'),
     t('paywall.features.free.stores', { count: FREE_MAX_STORES }),
     t('paywall.features.free.pantry', { count: FREE_PANTRY_MAX_ITEMS }),
+  ];
+
+  const proBullets = [
+    t('paywall.features.proCompact.unlimitedScans'),
+    t('paywall.features.proCompact.historyAlerts'),
+    t('paywall.features.proCompact.multiStore'),
+    t('paywall.features.proCompact.pantryExport'),
+  ];
+
+  const familyBullets = [
+    t('paywall.features.familyCompact.sharedLists'),
+    t('paywall.features.familyCompact.liveSync'),
+    t('paywall.features.familyCompact.inviteFree'),
+    t('paywall.features.familyCompact.onePayer'),
   ];
 
   const handleStartTrial = async () => {
@@ -362,8 +494,7 @@ export default function PaywallScreen() {
     }
   };
 
-  const handleUpgrade = async () => {
-    if (selectedPlan !== 'pro') return;
+  const handleProUpgrade = async () => {
     setUpgrading(true);
     try {
       if (Platform.OS === 'web' && billingMode === 'stripe') {
@@ -380,6 +511,51 @@ export default function PaywallScreen() {
     }
   };
 
+  const handlePrimaryAction = () => {
+    if (selectedPlan === 'free') {
+      router.back();
+      return;
+    }
+    if (selectedPlan === 'family') {
+      void handleFamilyUpgrade();
+      return;
+    }
+    void handleProUpgrade();
+  };
+
+  const isBusy = upgrading || upgradingFamily || startingTrial;
+
+  const planCards = (
+    <>
+      <FreePlanCard
+        compact={isCompact}
+        selected={selectedPlan === 'free'}
+        onSelect={() => setSelectedPlan('free')}
+        bullets={freeBullets}
+        t={t}
+        width={isCompact ? mobileCardWidth : undefined}
+      />
+      <ProPlanCard
+        compact={isCompact}
+        selected={selectedPlan === 'pro'}
+        billing={billing}
+        onSelect={() => setSelectedPlan('pro')}
+        bullets={proBullets}
+        t={t}
+        width={isCompact ? mobileCardWidth : undefined}
+      />
+      <FamilyPlanCard
+        compact={isCompact}
+        selected={selectedPlan === 'family'}
+        billing={billing}
+        onSelect={() => setSelectedPlan('family')}
+        bullets={familyBullets}
+        t={t}
+        width={isCompact ? mobileCardWidth : undefined}
+      />
+    </>
+  );
+
   return (
     <View style={styles.container}>
       <ScreenHeader title={t('paywall.title')} />
@@ -395,22 +571,6 @@ export default function PaywallScreen() {
           <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
           <Text style={styles.heroTitle}>{t('paywall.headline')}</Text>
           <Text style={styles.heroSub}>{t('paywall.subhead')}</Text>
-        </View>
-
-        <View style={styles.outcomesSection}>
-          <Text style={styles.outcomesTitle}>{t('paywall.outcomeTitle')}</Text>
-          <Text style={styles.outcomesSub}>{t('paywall.outcomeSubtitle')}</Text>
-          <View style={styles.outcomesGrid}>
-            {OUTCOME_KEYS.map((key) => (
-              <View key={key} style={styles.outcomeCard}>
-                <View style={styles.outcomeIconWrap}>
-                  <SymbolView name={OUTCOME_ICONS[key]} tintColor={GREEN} size={20} />
-                </View>
-                <Text style={styles.outcomeCardTitle}>{t(`paywall.outcomes.${key}.title`)}</Text>
-                <Text style={styles.outcomeCardBody}>{t(`paywall.outcomes.${key}.body`)}</Text>
-              </View>
-            ))}
-          </View>
         </View>
 
         <View style={styles.billingToggle}>
@@ -431,136 +591,84 @@ export default function PaywallScreen() {
         </View>
 
         <View style={styles.plansContainer}>
-          <View style={[styles.freePlanRow, isCompact && styles.freePlanRowCompact]}>
-            <View style={[styles.freePlanCard, isCompact && styles.freePlanCardCompact]}>
-              <View style={styles.freePlanHeader}>
-                <Text style={[styles.freePlanName, isCompact && styles.freePlanNameCompact]}>
-                  {t('paywall.freePlan')}
-                </Text>
-                <View style={styles.freePriceRow}>
-                  <Text style={[styles.freePlanPrice, isCompact && styles.freePlanPriceCompact]}>$0</Text>
-                  <Text style={[styles.freePlanPeriod, isCompact && styles.freePlanPeriodCompact]}>
-                    {t('paywall.forever')}
-                  </Text>
-                </View>
-              </View>
-              <View style={[styles.freeFeatureList, isCompact && styles.freeFeatureListCompact]}>
-                {freeFeatures.map((f) => (
-                  <View key={f} style={styles.freeFeatureRow}>
-                    <SymbolView
-                      name={{ ios: 'checkmark.circle.fill', android: 'check_circle', web: 'check_circle' }}
-                      tintColor={TEXT_MUTED}
-                      size={isCompact ? 14 : 16}
-                    />
-                    <Text style={[styles.freeFeatureText, isCompact && styles.freeFeatureTextCompact]} numberOfLines={2}>
-                      {f}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
+          {isCompact ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={snapInterval}
+              snapToAlignment="start"
+              contentContainerStyle={styles.plansScrollContent}>
+              {planCards}
+            </ScrollView>
+          ) : (
+            <View style={styles.plansRow}>{planCards}</View>
+          )}
 
-          <View style={[styles.paidComparisonRow, stackPaidPlans && styles.paidComparisonRowStacked]}>
-            <Pressable
-              onPress={() => setSelectedPlan('pro')}
-              style={[
-                styles.comparisonCard,
-                isCompact && styles.comparisonCardCompact,
-                styles.proComparisonCard,
-                selectedPlan === 'pro' && styles.proComparisonCardSelected,
-              ]}>
-              <View style={styles.comparisonCardBody}>
-                <View style={styles.planBadgeRow}>
-                  <ProShimmerBadge label={t('paywall.proBadge')} />
-                </View>
-                <Text style={[styles.planName, isCompact && styles.planNameCompact]}>{t('paywall.proPlan')}</Text>
-                <View style={styles.priceRow}>
-                  <Text
-                    style={[
-                      styles.planPrice,
-                      { color: GREEN },
-                      isCompact && styles.planPriceCompact,
-                    ]}>
-                    {getProPrice(billing)}
-                  </Text>
-                  <Text style={[styles.planPeriod, isCompact && styles.planPeriodCompact]}>
-                    {getProPeriod(billing, t)}
-                  </Text>
-                </View>
-                {billing === 'yearly' ? (
-                  <Text style={[styles.yearlyNote, isCompact && styles.yearlyNoteCompact]}>
-                    {t('paywall.billedAnnually', { price: PRO_YEARLY_PRICE })}
-                  </Text>
-                ) : null}
-                <View style={styles.featureList}>
-                  <ProPlanFeaturesList
-                    variant="grouped"
-                    leadLabel={t('paywall.proLead')}
-                    accentColor={GREEN}
-                    mutedColor={TEXT_MUTED}
-                    featureTextStyle={[styles.featureText, isCompact && styles.featureTextCompact]}
-                    leadTextStyle={[styles.featureText, isCompact && styles.featureTextCompact]}
-                  />
-                </View>
-              </View>
-              <View style={styles.comparisonCardFooter}>
-                <View style={[styles.selectIndicator, selectedPlan === 'pro' && styles.proSelectIndicatorSelected]}>
-                  <View style={[styles.selectDot, selectedPlan === 'pro' && { backgroundColor: GREEN }]} />
-                  <Text style={[styles.selectText, selectedPlan === 'pro' && { color: TEXT_PRIMARY }]}>
-                    {selectedPlan === 'pro' ? t('common.selected') : t('common.selectPlan')}
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-
-            <FamilyComparisonCard
-              billing={billing}
-              compact={isCompact}
-              selected={selectedPlan === 'family'}
-              upgradingFamily={upgradingFamily}
-              onSelect={() => setSelectedPlan('family')}
-              onUpgrade={() => void handleFamilyUpgrade()}
-              onJoin={() => router.push('/family_plans' as never)}
-              t={t}
-            />
-          </View>
-
-          <View style={styles.proPreviewSection}>
-            <PaywallThemePreview label={t('features.labels.custom_themes')} />
-            <PaywallFontPreview label={t('features.labels.custom_fonts')} />
-            <PaywallAvatarPreview label={t('features.labels.custom_avatars')} />
-          </View>
+          {!isCompact ? <ProPersonalizationStrip t={t} /> : null}
         </View>
 
         <View style={styles.ctaSection}>
+          {selectedPlan === 'pro' ? (
+            <>
+              <Pressable
+                style={[styles.upgradeBtn, isBusy && styles.btnDisabled]}
+                disabled={isBusy}
+                onPress={handleStartTrial}
+                accessibilityRole="button"
+                accessibilityLabel={t('paywall.startTrial')}>
+                <Text style={styles.upgradeBtnText}>
+                  {startingTrial ? t('paywall.startingTrial') : t('paywall.startTrial')}
+                </Text>
+              </Pressable>
+              <Text style={styles.ctaSubtext}>{t('paywall.trialSubtext')}</Text>
+            </>
+          ) : null}
+
           <Pressable
-            style={[styles.upgradeBtn, startingTrial && styles.btnDisabled]}
-            disabled={startingTrial || upgrading}
-            onPress={handleStartTrial}
+            style={[
+              selectedPlan === 'pro' ? styles.subscribeBtn : styles.upgradeBtn,
+              selectedPlan === 'family' && styles.familyPrimaryBtn,
+              selectedPlan === 'free' && styles.freePrimaryBtn,
+              isBusy && styles.btnDisabled,
+            ]}
+            disabled={isBusy}
+            onPress={handlePrimaryAction}
             accessibilityRole="button"
-            accessibilityLabel={t('paywall.startTrial')}>
-            <Text style={styles.upgradeBtnText}>
-              {startingTrial ? t('paywall.startingTrial') : t('paywall.startTrial')}
+            accessibilityLabel={
+              selectedPlan === 'free'
+                ? CONTINUE_FREE_LABEL || t('paywall.continueFree')
+                : selectedPlan === 'family'
+                  ? t('paywall.familySubscribe')
+                  : getSubscribeLabel(billing, upgrading, t)
+            }>
+            <Text
+              style={[
+                selectedPlan === 'pro' ? styles.subscribeBtnText : styles.upgradeBtnText,
+                selectedPlan === 'family' && styles.familyPrimaryBtnText,
+                selectedPlan === 'free' && styles.freePrimaryBtnText,
+              ]}>
+              {selectedPlan === 'free'
+                ? CONTINUE_FREE_LABEL || t('paywall.continueFree')
+                : selectedPlan === 'family'
+                  ? getFamilySubscribeLabel(billing, upgradingFamily, t)
+                  : getSubscribeLabel(billing, upgrading, t)}
             </Text>
           </Pressable>
 
-          <Text style={styles.ctaSubtext}>{t('paywall.trialSubtext')}</Text>
+          {selectedPlan === 'family' ? (
+            <Pressable style={styles.familyLink} onPress={() => router.push('/family_plans' as never)}>
+              <Text style={styles.familyLinkText}>{t('paywall.familyJoin')}</Text>
+            </Pressable>
+          ) : null}
 
-          <Pressable
-            style={[styles.subscribeBtn, (upgrading || startingTrial) && styles.btnDisabled]}
-            disabled={upgrading || startingTrial || selectedPlan !== 'pro'}
-            onPress={handleUpgrade}
-            accessibilityRole="button"
-            accessibilityLabel={PRO_SUBSCRIBE_LABEL}>
-            <Text style={styles.subscribeBtnText}>{getSubscribeLabel(billing, upgrading, t)}</Text>
-          </Pressable>
+          {selectedPlan !== 'free' ? (
+            <Pressable style={styles.freeLink} onPress={() => router.back()}>
+              <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL || t('paywall.continueFree')}</Text>
+            </Pressable>
+          ) : null}
 
           <Text style={styles.commitNote}>{COMMIT_NOTE || t('paywall.commitNote')}</Text>
-
-          <Pressable style={styles.freeLink} onPress={() => router.back()}>
-            <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL || t('paywall.continueFree')}</Text>
-          </Pressable>
 
           <Text style={styles.disclaimer}>{getBillingDisclaimer(billingMode, t)}</Text>
 
@@ -591,51 +699,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
     lineHeight: 21,
-    maxWidth: 320,
-  },
-  outcomesSection: { marginBottom: 22 },
-  outcomesTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: TEXT_PRIMARY,
-    textAlign: 'center',
-    letterSpacing: -0.2,
-  },
-  outcomesSub: {
-    fontSize: 13,
-    color: TEXT_MUTED,
-    textAlign: 'center',
-    marginTop: 6,
-    marginBottom: 14,
-    lineHeight: 19,
-  },
-  outcomesGrid: { gap: 10 },
-  outcomeCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.2)',
-  },
-  outcomeIconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(34,197,94,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-  },
-  outcomeCardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
-    marginBottom: 4,
-  },
-  outcomeCardBody: {
-    fontSize: 12,
-    color: TEXT_MUTED,
-    lineHeight: 18,
+    maxWidth: 360,
   },
   billingToggle: {
     flexDirection: 'row',
@@ -656,135 +720,54 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     gap: 14,
   },
-  freePlanRow: {
-    width: '100%',
-  },
-  freePlanRowCompact: {
-    marginBottom: 2,
-  },
-  freePlanCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    opacity: 0.92,
-  },
-  freePlanCardCompact: {
-    padding: 12,
-    borderRadius: 14,
-  },
-  freePlanHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 10,
-  },
-  freePlanName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: TEXT_PRIMARY,
-  },
-  freePlanNameCompact: {
-    fontSize: 14,
-  },
-  freePriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  freePlanPrice: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: TEXT_PRIMARY,
-  },
-  freePlanPriceCompact: {
-    fontSize: 18,
-  },
-  freePlanPeriod: {
-    fontSize: 12,
-    color: TEXT_MUTED,
-  },
-  freePlanPeriodCompact: {
-    fontSize: 10,
-  },
-  freeFeatureList: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  freeFeatureListCompact: {
-    gap: 6,
-  },
-  freeFeatureRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    width: '48%',
-    minWidth: 120,
-  },
-  freeFeatureText: {
-    flex: 1,
-    fontSize: 12,
-    color: TEXT_MUTED,
-    lineHeight: 17,
-  },
-  freeFeatureTextCompact: {
-    fontSize: 10,
-    lineHeight: 14,
-  },
-  paidComparisonRow: {
+  plansRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 10,
+    gap: PLAN_CARD_GAP,
     width: '100%',
   },
-  paidComparisonRowStacked: {
-    flexDirection: 'column',
+  plansScrollContent: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: PLAN_CARD_GAP,
+    paddingHorizontal: 2,
+    paddingBottom: 4,
   },
-  comparisonCard: {
-    flex: 1,
-    flexBasis: '48%',
+  planCard: {
     alignSelf: 'stretch',
-    minWidth: 0,
     backgroundColor: CARD_BG,
-    borderRadius: 20,
-    padding: 16,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: CARD_BORDER,
-    overflow: 'hidden',
+    minWidth: 0,
   },
-  comparisonCardCompact: {
+  planCardFlex: {
+    flex: 1,
+    minWidth: 0,
+  },
+  planCardCompact: {
     padding: 12,
     borderRadius: 16,
   },
-  comparisonCardBody: {
-    flex: 1,
+  freeCardSelected: {
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderWidth: 2,
   },
-  comparisonCardFooter: {
-    marginTop: 'auto',
-    paddingTop: 12,
-    gap: 8,
-  },
-  proComparisonCard: {
+  proCard: {
     borderColor: 'rgba(34,197,94,0.35)',
   },
-  proComparisonCardSelected: {
+  proCardSelected: {
     borderColor: GREEN,
     borderWidth: 2,
   },
-  familyComparisonCard: {
+  familyCard: {
     backgroundColor: 'rgba(124,58,237,0.08)',
     borderColor: 'rgba(124,58,237,0.28)',
   },
-  familyComparisonCardSelected: {
+  familyCardSelected: {
     borderColor: PURPLE,
     borderWidth: 2,
-  },
-  proPreviewSection: {
-    marginTop: 4,
-    gap: 4,
   },
   planBadgeRow: { marginBottom: 8 },
   shimmerBadge: {
@@ -821,36 +804,66 @@ const styles = StyleSheet.create({
     color: PURPLE,
     letterSpacing: 0.2,
   },
-  planName: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY },
-  planNameCompact: { fontSize: 15 },
-  familyPlanSubtitle: {
-    fontSize: 12,
+  planName: { fontSize: 18, fontWeight: '800', color: TEXT_PRIMARY },
+  planNameCompact: { fontSize: 16 },
+  familySubtitle: {
+    fontSize: 11,
     color: TEXT_MUTED,
-    lineHeight: 17,
-    marginTop: 4,
+    lineHeight: 16,
+    marginTop: 2,
   },
-  familyPlanSubtitleCompact: {
+  familySubtitleCompact: {
     fontSize: 10,
     lineHeight: 14,
   },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 4, flexWrap: 'wrap' },
-  planPrice: { fontSize: 32, fontWeight: '800', color: TEXT_PRIMARY },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 6, flexWrap: 'wrap' },
+  planPrice: { fontSize: 28, fontWeight: '800', color: TEXT_PRIMARY },
   planPriceCompact: { fontSize: 22 },
-  planPeriod: { fontSize: 14, color: TEXT_MUTED },
-  planPeriodCompact: { fontSize: 10 },
-  yearlyNote: { fontSize: 12, color: TEXT_MUTED, marginTop: 2 },
-  yearlyNoteCompact: { fontSize: 9, lineHeight: 13 },
+  proPrice: { color: GREEN },
+  familyPrice: { color: PURPLE },
+  planPeriod: { fontSize: 13, color: TEXT_MUTED },
+  planPeriodCompact: { fontSize: 11 },
+  yearlyNote: { fontSize: 11, color: TEXT_MUTED, marginTop: 2 },
+  yearlyNoteCompact: { fontSize: 10, lineHeight: 14 },
   featureList: { marginTop: 12, gap: 8 },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    width: '100%',
+  },
   featureText: {
     flex: 1,
     flexShrink: 1,
-    fontSize: 13,
+    fontSize: 12,
     color: 'rgba(255,255,255,0.88)',
-    lineHeight: 20,
+    lineHeight: 17,
   },
   featureTextCompact: {
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 15,
+  },
+  cardThemeBlock: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: CARD_BORDER,
+    gap: 8,
+  },
+  cardThemeLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: TEXT_MUTED,
+    letterSpacing: 0.2,
+  },
+  cardThemeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  cardFooter: {
+    marginTop: 'auto',
+    paddingTop: 12,
   },
   selectIndicator: {
     flexDirection: 'row',
@@ -861,12 +874,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignSelf: 'flex-start',
   },
-  proSelectIndicatorSelected: {
-    backgroundColor: `${GREEN}22`,
-  },
-  familySelectIndicatorSelected: {
-    backgroundColor: `${PURPLE}22`,
-  },
   selectDot: {
     width: 8,
     height: 8,
@@ -874,25 +881,41 @@ const styles = StyleSheet.create({
     backgroundColor: TEXT_MUTED,
   },
   selectText: { fontSize: 12, fontWeight: '600', color: TEXT_MUTED },
-  familyCardBtn: {
-    borderRadius: 999,
-    paddingVertical: 10,
+  personalizationStrip: {
+    marginTop: 4,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: CARD_BORDER,
+    gap: 14,
+  },
+  personalizationGroup: { gap: 8 },
+  personalizationLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: TEXT_MUTED,
+  },
+  personalizationRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(124,58,237,0.5)',
-    backgroundColor: 'rgba(124,58,237,0.12)',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  familyCardBtnText: {
-    fontSize: 13,
+  fontPreviewChip: {
+    minWidth: 40,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  fontPreviewText: {
+    fontSize: 15,
     fontWeight: '700',
-    color: PURPLE,
+    color: TEXT_PRIMARY,
   },
-  familyCardBtnTextCompact: {
-    fontSize: 11,
-  },
-  familyCardLink: { alignItems: 'center', paddingVertical: 2 },
-  familyCardLinkText: { fontSize: 11, fontWeight: '600', color: TEXT_MUTED },
-  familyCardLinkTextCompact: { fontSize: 10 },
   ctaSection: {
     marginTop: 28,
     paddingTop: 20,
@@ -906,8 +929,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
+  familyPrimaryBtn: {
+    backgroundColor: PURPLE,
+  },
+  freePrimaryBtn: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+  },
   btnDisabled: { opacity: 0.7 },
   upgradeBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
+  familyPrimaryBtnText: { color: '#FFF' },
+  freePrimaryBtnText: { color: TEXT_PRIMARY },
   subscribeBtn: {
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.22)',
@@ -929,6 +962,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 17,
   },
+  familyLink: { alignItems: 'center', paddingVertical: 2 },
+  familyLinkText: { fontSize: 13, fontWeight: '600', color: PURPLE },
   freeLink: { alignItems: 'center', paddingVertical: 4 },
   freeLinkText: { fontSize: 14, fontWeight: '600', color: TEXT_MUTED },
   disclaimer: {
@@ -941,39 +976,5 @@ const styles = StyleSheet.create({
   legalFooter: {
     marginTop: 0,
     paddingBottom: 2,
-  },
-  themePreviewSection: {
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: CARD_BORDER,
-    gap: 10,
-  },
-  themePreviewLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: TEXT_MUTED,
-  },
-  previewScrollContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingRight: 4,
-  },
-  fontPreviewChip: {
-    minWidth: 44,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: CARD_BORDER,
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  fontPreviewText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: TEXT_PRIMARY,
   },
 });
