@@ -77,8 +77,6 @@ const STACKED_PLANS_MAX_WIDTH = 360;
 
 const WIDE_LAYOUT_MIN_WIDTH = 960;
 
-const SCROLL_FOOTER_PADDING = 340;
-
 const OUTCOME_KEYS = ['save', 'track', 'alerts'] as const;
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
@@ -356,7 +354,7 @@ export default function PaywallScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: SCROLL_FOOTER_PADDING + getScreenBottomPadding(insets.bottom, 0) },
+          { paddingBottom: getScreenBottomPadding(insets.bottom, 16) },
         ]}>
         <View style={styles.hero}>
           <PennyPantryLogo variant="hero" size={52} style={styles.heroLogo} />
@@ -518,41 +516,41 @@ export default function PaywallScreen() {
             <PaywallAvatarPreview label={t('features.labels.custom_avatars')} />
           </View>
         </View>
+
+        <View style={styles.ctaSection}>
+          <Pressable
+            style={[styles.upgradeBtn, startingTrial && styles.btnDisabled]}
+            disabled={startingTrial || upgrading}
+            onPress={handleStartTrial}
+            accessibilityRole="button"
+            accessibilityLabel={t('paywall.startTrial')}>
+            <Text style={styles.upgradeBtnText}>
+              {startingTrial ? t('paywall.startingTrial') : t('paywall.startTrial')}
+            </Text>
+          </Pressable>
+
+          <Text style={styles.ctaSubtext}>{t('paywall.trialSubtext')}</Text>
+
+          <Pressable
+            style={[styles.subscribeBtn, (upgrading || startingTrial) && styles.btnDisabled]}
+            disabled={upgrading || startingTrial || !selectedPro}
+            onPress={handleUpgrade}
+            accessibilityRole="button"
+            accessibilityLabel={PRO_SUBSCRIBE_LABEL}>
+            <Text style={styles.subscribeBtnText}>{getSubscribeLabel(billing, upgrading, t)}</Text>
+          </Pressable>
+
+          <Text style={styles.commitNote}>{COMMIT_NOTE || t('paywall.commitNote')}</Text>
+
+          <Pressable style={styles.freeLink} onPress={() => router.back()}>
+            <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL || t('paywall.continueFree')}</Text>
+          </Pressable>
+
+          <Text style={styles.disclaimer}>{getBillingDisclaimer(billingMode, t)}</Text>
+
+          <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor={PURPLE} style={styles.legalFooter} />
+        </View>
       </ScrollView>
-
-      <View style={[styles.footer, { paddingBottom: getScreenBottomPadding(insets.bottom) }]}>
-        <Pressable
-          style={[styles.upgradeBtn, startingTrial && styles.btnDisabled]}
-          disabled={startingTrial || upgrading}
-          onPress={handleStartTrial}
-          accessibilityRole="button"
-          accessibilityLabel={t('paywall.startTrial')}>
-          <Text style={styles.upgradeBtnText}>
-            {startingTrial ? t('paywall.startingTrial') : t('paywall.startTrial')}
-          </Text>
-        </Pressable>
-
-        <Text style={styles.ctaSubtext}>{t('paywall.trialSubtext')}</Text>
-
-        <Pressable
-          style={[styles.subscribeBtn, (upgrading || startingTrial) && styles.btnDisabled]}
-          disabled={upgrading || startingTrial || !selectedPro}
-          onPress={handleUpgrade}
-          accessibilityRole="button"
-          accessibilityLabel={PRO_SUBSCRIBE_LABEL}>
-          <Text style={styles.subscribeBtnText}>{getSubscribeLabel(billing, upgrading, t)}</Text>
-        </Pressable>
-
-        <Text style={styles.commitNote}>{COMMIT_NOTE || t('paywall.commitNote')}</Text>
-
-        <Pressable style={styles.freeLink} onPress={() => router.back()}>
-          <Text style={styles.freeLinkText}>{CONTINUE_FREE_LABEL || t('paywall.continueFree')}</Text>
-        </Pressable>
-
-        <Text style={styles.disclaimer}>{getBillingDisclaimer(billingMode, t)}</Text>
-
-        <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor={PURPLE} style={styles.legalFooter} />
-      </View>
     </View>
   );
 }
@@ -823,17 +821,12 @@ const styles = StyleSheet.create({
   },
   familyLink: { alignItems: 'center', paddingVertical: 4 },
   familyLinkText: { fontSize: 12, fontWeight: '600', color: TEXT_MUTED },
-  footer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+  ctaSection: {
+    marginTop: 28,
+    paddingTop: 20,
     gap: 10,
     borderTopWidth: 1,
     borderTopColor: CARD_BORDER,
-    backgroundColor: BG,
   },
   upgradeBtn: {
     backgroundColor: GREEN,
