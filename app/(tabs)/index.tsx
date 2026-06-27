@@ -141,10 +141,12 @@ export default function HomeScreen() {
 
   const greetingText = useMemo(() => {
     const base = formatHomeGreetingI18n(displayName, t);
-    if (!hasProAvatars) return base;
     const firstName = getGreetingFirstName(displayName);
     if (!firstName) return base;
-    return `${base} ${getAppAvatar(avatarId).emoji}`;
+    if (hasProAvatars) {
+      return `${base} ${getAppAvatar(avatarId).emoji}`;
+    }
+    return `${base} 👋`;
   }, [displayName, t, hasProAvatars, avatarId]);
 
   const { blocking } = useFocusReload(load);
