@@ -1,4 +1,5 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useTranslation } from 'react-i18next';
@@ -9,12 +10,15 @@ import { AvatarBadge } from '@/src/components/avatars/AvatarBadge';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { useAppFont } from '@/src/theme/AppFontProvider';
-import type { AppFontId } from '@/src/theme/appFonts';
+import type { AppFontId, AppFontPreset } from '@/src/theme/appFonts';
 import type { AppThemeId, AppThemeTokens } from '@/src/theme/appThemes';
-import type { AppAvatarId } from '@/src/components/avatars/appAvatars';
+import type { AppAvatarId, AppAvatarPreset } from '@/src/components/avatars/appAvatars';
 import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { setAppLocale, type AppLocale } from '@/src/i18n';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
+
+const VISIBLE_FONT_COUNT = 3;
+const VISIBLE_AVATAR_COUNT = 4;
 
 type LanguagePickerProps = {
   compact?: boolean;
@@ -124,6 +128,15 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
   const { fontId: contextFontId, setFontId, fonts } = useAppFont();
   const fontId = controlledFontId ?? contextFontId;
   const { unlocked, requestAccess } = useFeatureGate('custom_fonts');
+  const visibleFonts = fonts.slice(0, VISIBLE_FONT_COUNT);
+  const extraFonts = fonts.slice(VISIBLE_FONT_COUNT);
+  const [expanded, setExpanded] = useState(() => extraFonts.some((f) => f.id === fontId));
+
+  useEffect(() => {
+    if (extraFonts.some((f) => f.id === fontId)) {
+      setExpanded(true);
+    }
+  }, [fontId, extraFonts]);
 
   const handleSelect = (id: AppFontId) => {
     const preset = fonts.find((f) => f.id === id);
@@ -153,53 +166,37 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
       ) : null}
 
       <View style={styles.fontList}>
-        {fonts.map((preset) => {
-          const locked = preset.isPro && !unlocked;
-          const selected = fontId === preset.id;
-          return (
-            <Pressable
-              key={preset.id}
-              style={[
-                styles.fontCard,
-                selected && !locked && [styles.fontCardSelected, { borderColor: SmartCartColors.primary }],
-                locked && styles.swatchLocked,
-              ]}
-              onPress={() => handleSelect(preset.id)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected, disabled: locked }}
-              accessibilityLabel={
-                locked
-                  ? `${t(preset.nameKey)} — ${t('settings.fontLocked')}`
-                  : t(preset.nameKey)
-              }>
-              <View style={styles.fontSampleWrap}>
-                <Text
-                  style={[
-                    styles.fontSample,
-                    preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
-                    selected && !locked && { color: SmartCartColors.primary },
-                  ]}
-                  numberOfLines={1}>
-                  {t(preset.sampleKey)}
-                </Text>
-                {locked ? (
-                  <View style={styles.fontLockOverlay}>
-                    <SymbolView
-                      name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-                      tintColor="rgba(255,255,255,0.92)"
-                      size={12}
-                    />
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.fontName} numberOfLines={1}>
-                {t(preset.nameKey)}
-                {preset.isPro && !unlocked ? ` · Pro` : ''}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {visibleFonts.map((preset) => (
+          <FontOption
+            key={preset.id}
+            preset={preset}
+            selected={fontId === preset.id}
+            locked={preset.isPro && !unlocked}
+            onPress={() => handleSelect(preset.id)}
+            showProBadge={preset.isPro && !unlocked}
+          />
+        ))}
+        {expanded
+          ? extraFonts.map((preset) => (
+              <FontOption
+                key={preset.id}
+                preset={preset}
+                selected={fontId === preset.id}
+                locked={preset.isPro && !unlocked}
+                onPress={() => handleSelect(preset.id)}
+                showProBadge={preset.isPro && !unlocked}
+              />
+            ))
+          : null}
       </View>
+
+      {extraFonts.length > 0 ? (
+        <ShowMoreToggle
+          expanded={expanded}
+          label={expanded ? t('settings.showLess') : t('settings.showMoreFonts')}
+          onPress={() => setExpanded((v) => !v)}
+        />
+      ) : null}
     </View>
   );
 }
@@ -215,6 +212,15 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
   const { avatarId: contextAvatarId, setAvatarId, avatars } = useAvatar();
   const avatarId = controlledAvatarId ?? contextAvatarId;
   const { unlocked, requestAccess } = useFeatureGate('custom_avatars');
+  const visibleAvatars = avatars.slice(0, VISIBLE_AVATAR_COUNT);
+  const extraAvatars = avatars.slice(VISIBLE_AVATAR_COUNT);
+  const [expanded, setExpanded] = useState(() => extraAvatars.some((a) => a.id === avatarId));
+
+  useEffect(() => {
+    if (extraAvatars.some((a) => a.id === avatarId)) {
+      setExpanded(true);
+    }
+  }, [avatarId, extraAvatars]);
 
   const handleSelect = (id: AppAvatarId) => {
     if (!unlocked) {
@@ -243,25 +249,163 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
       ) : null}
 
       <View style={styles.avatarGrid}>
-        {avatars.map((preset) => {
-          const selected = avatarId === preset.id;
-          return (
-            <Pressable
-              key={preset.id}
-              style={[styles.avatarCell, selected && styles.avatarCellSelected]}
-              onPress={() => handleSelect(preset.id)}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              accessibilityLabel={t(preset.nameKey)}>
-              <AvatarBadge preset={preset} size="md" />
-              <Text style={styles.avatarName} numberOfLines={1}>
-                {t(preset.nameKey)}
-              </Text>
-            </Pressable>
-          );
-        })}
+        {visibleAvatars.map((preset) => (
+          <AvatarOption
+            key={preset.id}
+            preset={preset}
+            selected={avatarId === preset.id}
+            locked={!unlocked}
+            onPress={() => handleSelect(preset.id)}
+          />
+        ))}
+        {expanded
+          ? extraAvatars.map((preset) => (
+              <AvatarOption
+                key={preset.id}
+                preset={preset}
+                selected={avatarId === preset.id}
+                locked={!unlocked}
+                onPress={() => handleSelect(preset.id)}
+              />
+            ))
+          : null}
       </View>
+
+      {extraAvatars.length > 0 ? (
+        <ShowMoreToggle
+          expanded={expanded}
+          label={expanded ? t('settings.showLess') : t('settings.showMoreAvatars')}
+          onPress={() => setExpanded((v) => !v)}
+        />
+      ) : null}
     </View>
+  );
+}
+
+function ShowMoreToggle({
+  expanded,
+  label,
+  onPress,
+}: {
+  expanded: boolean;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={styles.showMoreRow}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+      accessibilityLabel={label}>
+      <Text style={styles.showMoreText}>{label}</Text>
+      <SymbolView
+        name={{
+          ios: expanded ? 'chevron.up' : 'chevron.down',
+          android: expanded ? 'expand_less' : 'expand_more',
+          web: expanded ? 'expand_less' : 'expand_more',
+        }}
+        tintColor={SmartCartColors.primary}
+        size={14}
+      />
+    </Pressable>
+  );
+}
+
+function FontOption({
+  preset,
+  selected,
+  locked,
+  onPress,
+  showProBadge,
+}: {
+  preset: AppFontPreset;
+  selected: boolean;
+  locked: boolean;
+  onPress: () => void;
+  showProBadge: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Pressable
+      style={[
+        styles.fontCard,
+        selected && !locked && [styles.fontCardSelected, { borderColor: SmartCartColors.primary }],
+        locked && styles.swatchLocked,
+      ]}
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled: locked }}
+      accessibilityLabel={
+        locked ? `${t(preset.nameKey)} — ${t('settings.fontLocked')}` : t(preset.nameKey)
+      }>
+      <View style={styles.fontSampleWrap}>
+        <Text
+          style={[
+            styles.fontSample,
+            preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
+            selected && !locked && { color: SmartCartColors.primary },
+          ]}
+          numberOfLines={1}>
+          {t(preset.sampleKey)}
+        </Text>
+        {locked ? (
+          <View style={styles.fontLockOverlay}>
+            <SymbolView
+              name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
+              tintColor="rgba(255,255,255,0.92)"
+              size={12}
+            />
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.fontName} numberOfLines={1}>
+        {t(preset.nameKey)}
+        {showProBadge ? ` · Pro` : ''}
+      </Text>
+    </Pressable>
+  );
+}
+
+function AvatarOption({
+  preset,
+  selected,
+  locked,
+  onPress,
+}: {
+  preset: AppAvatarPreset;
+  selected: boolean;
+  locked: boolean;
+  onPress: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <Pressable
+      style={[styles.avatarCell, selected && !locked && styles.avatarCellSelected, locked && styles.swatchLocked]}
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ selected, disabled: locked }}
+      accessibilityLabel={
+        locked ? `${t(preset.nameKey)} — ${t('settings.avatarLocked')}` : t(preset.nameKey)
+      }>
+      <View style={styles.avatarBadgeWrap}>
+        <AvatarBadge preset={preset} size="md" />
+        {locked ? (
+          <View style={styles.avatarLockOverlay}>
+            <SymbolView
+              name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
+              tintColor="rgba(255,255,255,0.92)"
+              size={10}
+            />
+          </View>
+        ) : null}
+      </View>
+      <Text style={styles.avatarName} numberOfLines={1}>
+        {t(preset.nameKey)}
+      </Text>
+    </Pressable>
   );
 }
 
@@ -503,5 +647,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: SmartCartColors.textMuted,
     textAlign: 'center',
+  },
+  showMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    backgroundColor: SmartCartColors.card,
+  },
+  showMoreText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: SmartCartColors.primary,
+  },
+  avatarBadgeWrap: {
+    position: 'relative',
+  },
+  avatarLockOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

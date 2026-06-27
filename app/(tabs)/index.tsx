@@ -52,10 +52,11 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
 import { PRO_MONTHLY_PRICE } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
-import { formatHomeGreetingI18n, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { formatHomeGreetingI18n, getGreetingFirstName, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
-import { HomeGreetingAvatar } from '@/src/components/avatars/HomeGreetingAvatar';
+import { getAppAvatar } from '@/src/components/avatars/appAvatars';
 import { useAvatar } from '@/src/components/avatars/AvatarProvider';
+import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { translateCategory } from '@/src/i18n/helpers';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 import { formatCurrency } from '@/src/utils/priceParser';
@@ -71,6 +72,7 @@ export default function HomeScreen() {
   const alertThresholdSetting = useBudgetStore((s) => s.settings?.alertThreshold ?? 0.9);
   const displayName = useSettingsStore((s) => s.settings?.displayName ?? '');
   const { avatarId } = useAvatar();
+  const { unlocked: hasProAvatars } = useFeatureGate('custom_avatars');
   const notifyBudgetAlerts = useSettingsStore((s) => s.settings?.notifyBudgetAlerts ?? true);
   const subscriptionTier = useSubscriptionStore((s) => s.tier);
   const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
@@ -137,6 +139,14 @@ export default function HomeScreen() {
     }));
   }, [allReceipts, spendingPeriod, t]);
 
+  const greetingText = useMemo(() => {
+    const base = formatHomeGreetingI18n(displayName, t);
+    if (!hasProAvatars) return base;
+    const firstName = getGreetingFirstName(displayName);
+    if (!firstName) return base;
+    return `${base} ${getAppAvatar(avatarId).emoji}`;
+  }, [displayName, t, hasProAvatars, avatarId]);
+
   const { blocking } = useFocusReload(load);
 
   if (blocking) {
@@ -149,7 +159,6 @@ export default function HomeScreen() {
   const budgetPercentLabel = t('home.percentOfWeeklyBudget', {
     percent: Math.round((homeInsight?.budgetPercent ?? 0) * 100),
   });
-  const greetingText = formatHomeGreetingI18n(displayName, t);
 
   return (
     <PremiumScreenBackground>
@@ -169,13 +178,8 @@ export default function HomeScreen() {
       />
 
       <View style={styles.greetingBlock}>
-        <View style={styles.greetingRow}>
-          <HomeGreetingAvatar avatarId={avatarId} />
-          <View style={styles.greetingTextWrap}>
-            <Text style={styles.greeting}>{greetingText} 👋</Text>
-            <Text style={styles.greetingSub}>{t('home.greetingSub')}</Text>
-          </View>
-        </View>
+        <Text style={styles.greeting}>{greetingText}</Text>
+        <Text style={styles.greetingSub}>{t('home.greetingSub')}</Text>
       </View>
 
       {subscriptionTier === 'free' ? (
@@ -331,8 +335,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   content: { paddingHorizontal: 16 },
   greetingBlock: { marginBottom: 16 },
-  greetingRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  greetingTextWrap: { flex: 1 },
   greeting: { fontSize: 24, fontWeight: '800', color: SmartCartColors.text, letterSpacing: -0.5 },
   greetingSub: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4 },
   insightRow: { gap: 10, marginBottom: 20, width: '100%' },
