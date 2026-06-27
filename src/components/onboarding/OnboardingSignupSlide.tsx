@@ -11,7 +11,6 @@ import {
 import { useTranslation } from 'react-i18next';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
-import { LanguagePicker } from '@/src/components/settings/AppearanceSettings';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
 const SHOW_APPLE = Platform.OS === 'ios' || Platform.OS === 'web';
@@ -49,10 +48,6 @@ export function OnboardingSignupSlide({
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.content}>
-        <View style={styles.langRow}>
-          <LanguagePicker compact />
-        </View>
-
         <View style={styles.hero}>
           <PennyPantryLogo variant="hero" size={72} style={styles.logo} />
           <Text style={styles.headline}>
@@ -165,11 +160,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignItems: 'center',
-  },
-  langRow: {
-    width: '100%',
-    alignItems: 'flex-end',
-    marginBottom: 8,
   },
   hero: {
     alignItems: 'center',
