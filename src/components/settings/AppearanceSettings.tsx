@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useTranslation } from 'react-i18next';
 
@@ -20,6 +20,8 @@ import { getFontReadabilityStyle, fontPairsWithTheme } from '@/src/theme/fontThe
 
 const VISIBLE_FONT_COUNT = 3;
 const VISIBLE_AVATAR_COUNT = 4;
+const VISIBLE_THEME_COUNT = 4;
+const MOBILE_LAYOUT_BREAKPOINT = 768;
 
 type AppearanceSectionResetProps = {
   visible: boolean;
@@ -105,6 +107,15 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
   const { theme, themeId: contextThemeId, setThemeId, themes } = useAppTheme();
   const themeId = controlledThemeId ?? contextThemeId;
   const { unlocked, requestAccess } = useFeatureGate('custom_themes');
+  const visibleThemes = themes.slice(0, VISIBLE_THEME_COUNT);
+  const extraThemes = themes.slice(VISIBLE_THEME_COUNT);
+  const [expanded, setExpanded] = useState(() => extraThemes.some((preset) => preset.id === themeId));
+
+  useEffect(() => {
+    if (extraThemes.some((preset) => preset.id === themeId)) {
+      setExpanded(true);
+    }
+  }, [themeId, extraThemes]);
 
   const handleSelect = (id: AppThemeId) => {
     if (!unlocked) {
@@ -118,8 +129,20 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
     void setThemeId(id);
   };
 
+  const renderSwatch = (preset: AppThemeTokens) => (
+    <ThemeSwatch
+      key={preset.id}
+      preset={preset}
+      selected={themeId === preset.id}
+      locked={!unlocked}
+      compact={compact}
+      onPress={() => handleSelect(preset.id)}
+      activeTheme={theme}
+    />
+  );
+
   return (
-    <View style={styles.themeSection}>
+    <View style={styles.themeSection} accessibilityRole="radiogroup" accessibilityLabel={t('settings.theme')}>
       {!unlocked ? (
         <Pressable
           style={[
@@ -140,18 +163,18 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
       ) : null}
 
       <View style={styles.swatches}>
-        {themes.map((preset) => (
-          <ThemeSwatch
-            key={preset.id}
-            preset={preset}
-            selected={themeId === preset.id}
-            locked={!unlocked}
-            compact={compact}
-            onPress={() => handleSelect(preset.id)}
-            activeTheme={theme}
-          />
-        ))}
+        {visibleThemes.map(renderSwatch)}
+        {expanded ? extraThemes.map(renderSwatch) : null}
       </View>
+
+      {extraThemes.length > 0 ? (
+        <ShowMoreToggle
+          expanded={expanded}
+          label={expanded ? t('settings.showLessThemes') : t('settings.showMoreThemes')}
+          onPress={() => setExpanded((v) => !v)}
+          theme={theme}
+        />
+      ) : null}
     </View>
   );
 }
@@ -261,12 +284,14 @@ type AvatarPickerProps = {
 export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: AvatarPickerProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isMobileLayout = Platform.OS !== 'web' || width < MOBILE_LAYOUT_BREAKPOINT;
   const { theme } = useAppTheme();
   const { avatarId: contextAvatarId, setAvatarId, avatars } = useAvatar();
   const avatarId = controlledAvatarId ?? contextAvatarId;
   const { unlocked, requestAccess } = useFeatureGate('custom_avatars');
-  const visibleAvatars = avatars.slice(0, VISIBLE_AVATAR_COUNT);
-  const extraAvatars = avatars.slice(VISIBLE_AVATAR_COUNT);
+  const visibleAvatars = isMobileLayout ? avatars.slice(0, VISIBLE_AVATAR_COUNT) : avatars;
+  const extraAvatars = isMobileLayout ? avatars.slice(VISIBLE_AVATAR_COUNT) : [];
   const [expanded, setExpanded] = useState(() => extraAvatars.some((a) => a.id === avatarId));
 
   useEffect(() => {
@@ -333,7 +358,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
           : null}
       </View>
 
-      {extraAvatars.length > 0 ? (
+      {isMobileLayout && extraAvatars.length > 0 ? (
         <ShowMoreToggle
           expanded={expanded}
           label={expanded ? t('settings.showLess') : t('settings.showMoreAvatars')}
@@ -552,7 +577,7 @@ function ThemeSwatch({
           </View>
         ) : null}
       </View>
-      <Text style={styles.swatchName} numberOfLines={1}>
+      <Text style={styles.swatchName} numberOfLines={2}>
         {t(preset.nameKey)}
       </Text>
       <Text style={[styles.swatchDesc, compact && styles.swatchDescCompact]} muted>
