@@ -558,6 +558,135 @@
       "description": "Bold display weight for headlines."
     }
   },
+  "familyPlans": {
+    "title": "Family Plans",
+    "tierFamily": "Family",
+    "hero": {
+      "title": "Your whole household, one workspace",
+      "subtitle": "Share shopping lists with family or roommates. Members join free — one Family subscription funds the household."
+    },
+    "freeHero": {
+      "title": "Shop solo on Free",
+      "subtitle": "Your basic grocery list works great for one person. Subscribe to Family workspace to share lists and sync with your household."
+    },
+    "getFamilyWorkspace": "Get Family workspace",
+    "howItWorks": "How it works",
+    "steps": {
+      "step1": {
+        "title": "Get your family code",
+        "body": "Every household gets a unique code. Share it with your spouse or kids so they can join."
+      },
+      "step2": {
+        "title": "Share a shopping list",
+        "body": "When your list is ready, tap Share with family to send it to everyone."
+      },
+      "step3": {
+        "title": "They add it on their phone",
+        "body": "Family members paste the invite you sent and choose to merge or start a new list."
+      },
+      "sync": {
+        "title": "Stay in sync automatically",
+        "body": "With an active Family workspace, everyone sees list updates without copying and pasting each time."
+      }
+    },
+    "familyCode": {
+      "title": "Your family code",
+      "hintUnlocked": "Available with Family workspace — share lists with your household.",
+      "hintLocked": "Subscribe to Family workspace — invite members free.",
+      "tapToUnlock": "Tap to unlock with Family workspace",
+      "copyInvite": "Copy household invite code"
+    },
+    "unlockWithFamily": "Unlock with Family workspace",
+    "shareList": {
+      "title": "Share a shopping list",
+      "hint": "Send your active list to family members so they can shop from the same plan.",
+      "button": "Share with family",
+      "openFullScreen": "Open full share screen",
+      "lastShared": "Last shared {{date}}"
+    },
+    "sync": {
+      "title": "Multi-user sync",
+      "liveBadge": "Live",
+      "hintActive": "Lists update across every family member's phone — no copy and paste needed.",
+      "lastSync": "Last sync",
+      "pending": "Pending",
+      "notYet": "Not yet",
+      "syncNow": "Sync now",
+      "supabaseHint": "Live sync needs Supabase configured (EXPO_PUBLIC_SUPABASE_URL). Copy/paste sharing still works.",
+      "upgradeHint": "Upgrade to Family workspace for automatic sync — everyone sees the same list."
+    },
+    "receive": {
+      "title": "Receive a shared list",
+      "hint": "Paste the invite link or code a family member sent you.",
+      "placeholder": "Paste invite link or code from family member…",
+      "addToLists": "Add to my lists"
+    },
+    "compare": {
+      "title": "What you get with Family workspace",
+      "item1": "• Shared lists & live sync for your household",
+      "item2": "• Invite members free — no Pro required",
+      "comparePlans": "Compare plans"
+    },
+    "alerts": {
+      "noLists": {
+        "title": "No lists yet",
+        "message": "Create a shopping list first, then share it with your family."
+      },
+      "shareFailed": {
+        "title": "Share failed",
+        "buildMessage": "Could not build your list for sharing. Try again.",
+        "genericMessage": "Could not share your list. Try again."
+      },
+      "shareSuccess": {
+        "title": "Shared with family",
+        "syncedMessage": "Your list is live for your household — invite link copied to the share sheet.",
+        "upgradeMessage": "List shared via invite link. Upgrade to Pro for automatic sync.",
+        "supabaseMessage": "List shared via invite link. Connect Supabase for live sync across devices."
+      },
+      "shareSubject": "Share: {{listName}}",
+      "listAdded": {
+        "title": "List added",
+        "message": "Added {{added}} {{items}}{{skipped}}.",
+        "skipped_one": " · skipped {{count}} duplicate",
+        "skipped_other": " · skipped {{count}} duplicates"
+      },
+      "importFailed": {
+        "title": "Import failed",
+        "genericMessage": "Could not add this list."
+      },
+      "couldNotReadInvite": {
+        "title": "Couldn't read invite",
+        "message": "Paste a family code, invite link, or the full list JSON your family member sent.",
+        "fallbackMessage": "Paste the invite link or code your family member sent."
+      },
+      "joinedFamily": {
+        "title": "Joined family",
+        "message": "You're now connected to family {{code}}."
+      },
+      "joinFailed": {
+        "title": "Join failed",
+        "genericMessage": "Could not join this family."
+      },
+      "addSharedList": {
+        "title": "Add shared list",
+        "message": "\"{{listName}}\" has {{count}} items."
+      },
+      "mergeIntoList": "Merge into my list",
+      "createNewList": "Create new list",
+      "syncComplete": {
+        "title": "Sync complete",
+        "updated_one": "Updated {{count}} shared list across your household.",
+        "updated_other": "Updated {{count}} shared lists across your household.",
+        "upToDate": "Everything is already up to date."
+      },
+      "inviteCopied": {
+        "title": "Invite copied",
+        "message": "Send this to family members so they can join and receive your lists."
+      },
+      "inviteMessage": "Join our Penny Pantry family list!\nCode: {{code}}\n{{url}}"
+    },
+    "sharedListFallback": "Shared list"
+  },
   "avatars": {
     "cart": { "name": "Cart Buddy" },
     "pennyPig": { "name": "Penny Pig" },

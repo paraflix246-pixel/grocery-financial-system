@@ -1,7 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { Stack, useRouter } from 'expo-router';
 import { SymbolView } from 'expo-symbols';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Alert,
   Pressable,
@@ -13,9 +14,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
-import {
-  FAMILY_CTA_SUBTEXT,
-} from '@/src/constants/proPricing';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import {
   buildFamilyInviteUrl,
@@ -59,29 +57,19 @@ type StepIconName = {
   web: 'group' | 'share' | 'phone_android' | 'sync';
 };
 
-const SHARE_STEPS = [
-  {
-    title: 'Get your family code',
-    body: 'Every household gets a unique code. Share it with your spouse or kids so they can join.',
-    icon: { ios: 'person.2.fill', android: 'group', web: 'group' },
-  },
-  {
-    title: 'Share a shopping list',
-    body: 'When your list is ready, tap Share with family to send it to everyone.',
-    icon: { ios: 'square.and.arrow.up.fill', android: 'share', web: 'share' },
-  },
-  {
-    title: 'They add it on their phone',
-    body: 'Family members paste the invite you sent and choose to merge or start a new list.',
-    icon: { ios: 'iphone.and.arrow.forward', android: 'phone_android', web: 'phone_android' },
-  },
-] as const satisfies ReadonlyArray<{ title: string; body: string; icon: StepIconName }>;
+const SHARE_STEP_KEYS = ['step1', 'step2', 'step3'] as const;
 
-const SYNC_STEP = {
-  title: 'Stay in sync automatically',
-  body: 'With an active Family workspace, everyone sees list updates without copying and pasting each time.',
-  icon: { ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' },
-} as const satisfies { title: string; body: string; icon: StepIconName };
+const SHARE_STEP_ICONS: ReadonlyArray<StepIconName> = [
+  { ios: 'person.2.fill', android: 'group', web: 'group' },
+  { ios: 'square.and.arrow.up.fill', android: 'share', web: 'share' },
+  { ios: 'iphone.and.arrow.forward', android: 'phone_android', web: 'phone_android' },
+];
+
+const SYNC_STEP_ICON: StepIconName = {
+  ios: 'arrow.triangle.2.circlepath',
+  android: 'sync',
+  web: 'sync',
+};
 
 type TierBadgeProps = {
   label: string;
@@ -131,6 +119,7 @@ function StepRow({ step, title, body, icon, accent, locked }: StepRowProps) {
 export default function FamilyPlansScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { t, i18n } = useTranslation();
   const { unlocked, requestAccess } = useFeatureGate('family_plans');
   const { unlocked: syncUnlocked, requestAccess: requestSyncAccess } = useFeatureGate('multi_user_sync');
   const hasLiveSync = syncUnlocked;
@@ -139,6 +128,20 @@ export default function FamilyPlansScreen() {
   const [importText, setImportText] = useState('');
   const [lastExportAt, setLastExportAt] = useState<string | null>(null);
   const [syncQueueSize, setSyncQueueSize] = useState(0);
+
+  const locale = i18n.language.startsWith('es') ? 'es' : 'en';
+  const formatDateTime = (iso: string) => new Date(iso).toLocaleString(locale);
+
+  const shareSteps = useMemo(
+    () =>
+      SHARE_STEP_KEYS.map((key, index) => ({
+        key,
+        title: t(`familyPlans.steps.${key}.title`),
+        body: t(`familyPlans.steps.${key}.body`),
+        icon: SHARE_STEP_ICONS[index],
+      })),
+    [t]
+  );
 
   const loadCode = useCallback(async () => {
     const code = await getOrCreateFamilyCode();
@@ -164,7 +167,10 @@ export default function FamilyPlansScreen() {
     const lists = await getAllLists();
     const active = lists.find((l) => l.isActive) ?? lists[0];
     if (!active) {
-      showInfoAlert('No lists yet', 'Create a shopping list first, then share it with your family.');
+      showInfoAlert(
+        t('familyPlans.alerts.noLists.title'),
+        t('familyPlans.alerts.noLists.message')
+      );
       return;
     }
     try {
@@ -182,7 +188,10 @@ export default function FamilyPlansScreen() {
         const code = familyCode || (await getOrCreateFamilyCode());
         const localSnapshot = await buildListSnapshot(active.id, code);
         if (!localSnapshot) {
-          showInfoAlert('Share failed', 'Could not build your list for sharing. Try again.');
+          showInfoAlert(
+            t('familyPlans.alerts.shareFailed.title'),
+            t('familyPlans.alerts.shareFailed.buildMessage')
+          );
           return;
         }
         snapshot = localSnapshot;
@@ -191,18 +200,21 @@ export default function FamilyPlansScreen() {
 
       const payload = JSON.stringify(snapshot, null, 2);
       const shareMessage = `${inviteUrl}\n\n${payload}`;
-      await shareText(shareMessage, `Share: ${snapshot.listName}`, {
-        successTitle: 'Shared with family',
+      await shareText(shareMessage, t('familyPlans.alerts.shareSubject', { listName: snapshot.listName }), {
+        successTitle: t('familyPlans.alerts.shareSuccess.title'),
         successMessage: synced
-          ? 'Your list is live for your household — invite link copied to the share sheet.'
+          ? t('familyPlans.alerts.shareSuccess.syncedMessage')
           : isFamilySyncAvailable()
-            ? 'List shared via invite link. Upgrade to Pro for automatic sync.'
-            : 'List shared via invite link. Connect Supabase for live sync across devices.',
+            ? t('familyPlans.alerts.shareSuccess.upgradeMessage')
+            : t('familyPlans.alerts.shareSuccess.supabaseMessage'),
       });
       setLastExportAt(snapshot.exportedAt ?? null);
       setSyncQueueSize((await getFamilySyncQueue()).length);
     } catch {
-      showInfoAlert('Share failed', 'Could not share your list. Try again.');
+      showInfoAlert(
+        t('familyPlans.alerts.shareFailed.title'),
+        t('familyPlans.alerts.shareFailed.genericMessage')
+      );
     }
   };
 
@@ -216,13 +228,23 @@ export default function FamilyPlansScreen() {
       await useListStore.getState().loadLists();
       await useListStore.getState().loadListItems(result.listId);
       setImportText('');
+      const skippedPart = result.skipped
+        ? t('familyPlans.alerts.listAdded.skipped', { count: result.skipped })
+        : '';
       Alert.alert(
-        'List added',
-        `Added ${result.added} item${result.added === 1 ? '' : 's'}${result.skipped ? ` · skipped ${result.skipped} duplicate${result.skipped === 1 ? '' : 's'}` : ''}.`
+        t('familyPlans.alerts.listAdded.title'),
+        t('familyPlans.alerts.listAdded.message', {
+          added: result.added,
+          items: t('common.items', { count: result.added }),
+          skipped: skippedPart,
+        })
       );
       router.push(`/list/${result.listId}`);
     } catch (error) {
-      Alert.alert('Import failed', error instanceof Error ? error.message : 'Could not add this list.');
+      Alert.alert(
+        t('familyPlans.alerts.importFailed.title'),
+        error instanceof Error ? error.message : t('familyPlans.alerts.importFailed.genericMessage')
+      );
     }
   };
 
@@ -231,8 +253,8 @@ export default function FamilyPlansScreen() {
     const parsed = parseFamilyInviteInput(importText);
     if (!parsed) {
       Alert.alert(
-        "Couldn't read invite",
-        'Paste a family code, invite link, or the full list JSON your family member sent.'
+        t('familyPlans.alerts.couldNotReadInvite.title'),
+        t('familyPlans.alerts.couldNotReadInvite.message')
       );
       return;
     }
@@ -243,9 +265,15 @@ export default function FamilyPlansScreen() {
         setFamilyCode(result.code);
         if (syncUnlocked) await startFamilyRealtimeSync();
         setImportText('');
-        Alert.alert('Joined family', `You're now connected to family ${result.code}.`);
+        Alert.alert(
+          t('familyPlans.alerts.joinedFamily.title'),
+          t('familyPlans.alerts.joinedFamily.message', { code: result.code })
+        );
       } catch (error) {
-        Alert.alert('Join failed', error instanceof Error ? error.message : 'Could not join this family.');
+        Alert.alert(
+          t('familyPlans.alerts.joinFailed.title'),
+          error instanceof Error ? error.message : t('familyPlans.alerts.joinFailed.genericMessage')
+        );
       }
       return;
     }
@@ -253,18 +281,23 @@ export default function FamilyPlansScreen() {
     try {
       const snapshot = parseFamilyListSnapshot(parsed.raw);
       Alert.alert(
-        'Add shared list',
-        `"${snapshot.listName ?? 'Shared list'}" has ${snapshot.items.length} items.`,
+        t('familyPlans.alerts.addSharedList.title'),
+        t('familyPlans.alerts.addSharedList.message', {
+          listName: snapshot.listName ?? t('familyPlans.sharedListFallback'),
+          count: snapshot.items.length,
+        }),
         [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Merge into my list', onPress: () => void runImport(snapshot, 'merge') },
-          { text: 'Create new list', onPress: () => void runImport(snapshot, 'new') },
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('familyPlans.alerts.mergeIntoList'), onPress: () => void runImport(snapshot, 'merge') },
+          { text: t('familyPlans.alerts.createNewList'), onPress: () => void runImport(snapshot, 'new') },
         ]
       );
     } catch (error) {
       Alert.alert(
-        "Couldn't read invite",
-        error instanceof Error ? error.message : 'Paste the invite link or code your family member sent.'
+        t('familyPlans.alerts.couldNotReadInvite.title'),
+        error instanceof Error
+          ? error.message
+          : t('familyPlans.alerts.couldNotReadInvite.fallbackMessage')
       );
     }
   };
@@ -274,10 +307,10 @@ export default function FamilyPlansScreen() {
     const flushed = await flushFamilySyncQueue();
     setSyncQueueSize((await getFamilySyncQueue()).length);
     Alert.alert(
-      'Sync complete',
+      t('familyPlans.alerts.syncComplete.title'),
       flushed > 0
-        ? `Updated ${flushed} shared list${flushed === 1 ? '' : 's'} across your household.`
-        : 'Everything is already up to date.'
+        ? t('familyPlans.alerts.syncComplete.updated', { count: flushed })
+        : t('familyPlans.alerts.syncComplete.upToDate')
     );
   };
 
@@ -285,10 +318,10 @@ export default function FamilyPlansScreen() {
     if (!requestAccess()) return;
     if (!familyCode) return;
     const inviteUrl = buildFamilyInviteUrl(familyCode);
-    const message = `Join our Penny Pantry family list!\nCode: ${familyCode}\n${inviteUrl}`;
+    const message = t('familyPlans.alerts.inviteMessage', { code: familyCode, url: inviteUrl });
     await copyText(message, {
-      title: 'Invite copied',
-      message: 'Send this to family members so they can join and receive your lists.',
+      title: t('familyPlans.alerts.inviteCopied.title'),
+      message: t('familyPlans.alerts.inviteCopied.message'),
     });
   };
 
@@ -304,7 +337,7 @@ export default function FamilyPlansScreen() {
       />
 
       <View style={[styles.pageHeader, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.pageTitle}>Family Plans</Text>
+        <Text style={styles.pageTitle}>{t('familyPlans.title')}</Text>
       </View>
 
       <ScrollView
@@ -317,39 +350,35 @@ export default function FamilyPlansScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.heroGradient}>
             <TierBadge
-              label="Family"
+              label={t('familyPlans.tierFamily')}
               accent={GOLD}
               accentBg="rgba(22,163,74,0.22)"
               accentBorder="rgba(234,179,8,0.45)"
             />
-            <Text style={styles.heroTitle}>Your whole household, one workspace</Text>
-            <Text style={styles.heroSubtitle}>
-              Share shopping lists with family or roommates. Members join free — one Family subscription funds the household.
-            </Text>
+            <Text style={styles.heroTitle}>{t('familyPlans.hero.title')}</Text>
+            <Text style={styles.heroSubtitle}>{t('familyPlans.hero.subtitle')}</Text>
           </LinearGradient>
         ) : (
           <View style={[styles.heroCard, styles.heroCardFree]}>
             <TierBadge
-              label="Free"
+              label={t('common.free')}
               accent={TEXT_MUTED}
               accentBg="rgba(255,255,255,0.06)"
               accentBorder={CARD_BORDER}
             />
-            <Text style={[styles.heroTitle, styles.heroTitleMuted]}>Shop solo on Free</Text>
-            <Text style={styles.heroSubtitle}>
-              Your basic grocery list works great for one person. Subscribe to Family workspace to share lists and sync with your household.
-            </Text>
+            <Text style={[styles.heroTitle, styles.heroTitleMuted]}>{t('familyPlans.freeHero.title')}</Text>
+            <Text style={styles.heroSubtitle}>{t('familyPlans.freeHero.subtitle')}</Text>
             <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall?family=1' as never)}>
-              <Text style={styles.upgradeBtnText}>Get Family workspace</Text>
+              <Text style={styles.upgradeBtnText}>{t('familyPlans.getFamilyWorkspace')}</Text>
             </Pressable>
           </View>
         )}
 
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionLabel}>How it works</Text>
-          {SHARE_STEPS.map((step, index) => (
+          <Text style={styles.sectionLabel}>{t('familyPlans.howItWorks')}</Text>
+          {shareSteps.map((step, index) => (
             <StepRow
-              key={step.title}
+              key={step.key}
               step={index + 1}
               title={step.title}
               body={step.body}
@@ -360,10 +389,10 @@ export default function FamilyPlansScreen() {
           ))}
           {unlocked && (
             <StepRow
-              step={SHARE_STEPS.length + 1}
-              title={SYNC_STEP.title}
-              body={SYNC_STEP.body}
-              icon={SYNC_STEP.icon}
+              step={shareSteps.length + 1}
+              title={t('familyPlans.steps.sync.title')}
+              body={t('familyPlans.steps.sync.body')}
+              icon={SYNC_STEP_ICON}
               accent={GREEN_DARK}
               locked={!syncUnlocked}
             />
@@ -377,12 +406,12 @@ export default function FamilyPlansScreen() {
               tintColor={unlocked ? (hasLiveSync ? GREEN_DARK : GREEN) : TEXT_DIM}
               size={20}
             />
-            <Text style={styles.sectionTitle}>Your family code</Text>
+            <Text style={styles.sectionTitle}>{t('familyPlans.familyCode.title')}</Text>
           </View>
           <Text style={styles.sectionHint}>
             {unlocked
-              ? 'Available with Family workspace — share lists with your household.'
-              : 'Subscribe to Family workspace — invite members free.'}
+              ? t('familyPlans.familyCode.hintUnlocked')
+              : t('familyPlans.familyCode.hintLocked')}
           </Text>
           <Pressable
             onPress={() => void (unlocked ? handleCopyCode() : requestAccess())}
@@ -390,7 +419,7 @@ export default function FamilyPlansScreen() {
             <Text style={[styles.codeValue, !unlocked && styles.codeValueLocked]}>
               {unlocked ? familyCode || '…' : '••••-••••'}
             </Text>
-            {!unlocked ? <Text style={styles.codeTapHint}>Tap to unlock with Family workspace</Text> : null}
+            {!unlocked ? <Text style={styles.codeTapHint}>{t('familyPlans.familyCode.tapToUnlock')}</Text> : null}
           </Pressable>
           <Pressable
             style={[styles.primaryBtn, hasLiveSync && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
@@ -401,7 +430,7 @@ export default function FamilyPlansScreen() {
               size={18}
             />
             <Text style={[styles.primaryBtnText, !unlocked && styles.primaryBtnTextMuted]}>
-              {unlocked ? 'Copy household invite code' : 'Unlock with Family workspace'}
+              {unlocked ? t('familyPlans.familyCode.copyInvite') : t('familyPlans.unlockWithFamily')}
             </Text>
           </Pressable>
         </View>
@@ -413,11 +442,9 @@ export default function FamilyPlansScreen() {
               tintColor={unlocked ? GREEN : TEXT_DIM}
               size={20}
             />
-            <Text style={styles.sectionTitle}>Share a shopping list</Text>
+            <Text style={styles.sectionTitle}>{t('familyPlans.shareList.title')}</Text>
           </View>
-          <Text style={styles.sectionHint}>
-            Send your active list to family members so they can shop from the same plan.
-          </Text>
+          <Text style={styles.sectionHint}>{t('familyPlans.shareList.hint')}</Text>
           <Pressable
             style={[styles.primaryBtn, !unlocked && styles.primaryBtnMuted]}
             onPress={handleExportList}>
@@ -427,17 +454,17 @@ export default function FamilyPlansScreen() {
               size={18}
             />
             <Text style={[styles.primaryBtnText, !unlocked && styles.primaryBtnTextMuted]}>
-              Share with family
+              {t('familyPlans.shareList.button')}
             </Text>
           </Pressable>
           {unlocked && (
             <Pressable style={styles.secondaryBtn} onPress={() => router.push('/list/share' as never)}>
-              <Text style={styles.secondaryBtnText}>Open full share screen</Text>
+              <Text style={styles.secondaryBtnText}>{t('familyPlans.shareList.openFullScreen')}</Text>
             </Pressable>
           )}
           {unlocked && lastExportAt && (
             <Text style={styles.metaText}>
-              Last shared {new Date(lastExportAt).toLocaleString()}
+              {t('familyPlans.shareList.lastShared', { date: formatDateTime(lastExportAt) })}
             </Text>
           )}
         </View>
@@ -454,46 +481,40 @@ export default function FamilyPlansScreen() {
                 tintColor={hasLiveSync ? GREEN_DARK : TEXT_MUTED}
                 size={20}
               />
-              <Text style={styles.sectionTitle}>Multi-user sync</Text>
+              <Text style={styles.sectionTitle}>{t('familyPlans.sync.title')}</Text>
               {hasLiveSync && (
                 <View style={styles.liveBadge}>
-                  <Text style={styles.liveBadgeText}>Live</Text>
+                  <Text style={styles.liveBadgeText}>{t('familyPlans.sync.liveBadge')}</Text>
                 </View>
               )}
             </View>
             {syncUnlocked ? (
               <>
-                <Text style={styles.sectionHint}>
-                  Lists update across every family member&apos;s phone — no copy and paste needed.
-                </Text>
+                <Text style={styles.sectionHint}>{t('familyPlans.sync.hintActive')}</Text>
                 <View style={styles.syncStats}>
                   <View style={styles.syncStat}>
-                    <Text style={styles.syncStatLabel}>Last sync</Text>
+                    <Text style={styles.syncStatLabel}>{t('familyPlans.sync.lastSync')}</Text>
                     <Text style={styles.syncStatValue}>
-                      {lastExportAt ? new Date(lastExportAt).toLocaleString() : 'Not yet'}
+                      {lastExportAt ? formatDateTime(lastExportAt) : t('familyPlans.sync.notYet')}
                     </Text>
                   </View>
                   <View style={styles.syncStat}>
-                    <Text style={styles.syncStatLabel}>Pending</Text>
+                    <Text style={styles.syncStatLabel}>{t('familyPlans.sync.pending')}</Text>
                     <Text style={styles.syncStatValue}>{syncQueueSize}</Text>
                   </View>
                 </View>
                 <Pressable style={[styles.primaryBtn, styles.primaryBtnHousehold]} onPress={() => void handleFlushSync()}>
-                  <Text style={styles.primaryBtnText}>Sync now</Text>
+                  <Text style={styles.primaryBtnText}>{t('familyPlans.sync.syncNow')}</Text>
                 </Pressable>
                 {!isFamilySyncAvailable() ? (
-                  <Text style={styles.metaText}>
-                    Live sync needs Supabase configured (EXPO_PUBLIC_SUPABASE_URL). Copy/paste sharing still works.
-                  </Text>
+                  <Text style={styles.metaText}>{t('familyPlans.sync.supabaseHint')}</Text>
                 ) : null}
               </>
             ) : (
               <>
-                <Text style={styles.sectionHint}>
-                  Upgrade to Family workspace for automatic sync — everyone sees the same list.
-                </Text>
+                <Text style={styles.sectionHint}>{t('familyPlans.sync.upgradeHint')}</Text>
                 <Pressable style={[styles.primaryBtn, styles.primaryBtnHousehold]} onPress={() => router.push('/paywall?family=1' as never)}>
-                  <Text style={styles.primaryBtnText}>Get Family workspace</Text>
+                  <Text style={styles.primaryBtnText}>{t('familyPlans.getFamilyWorkspace')}</Text>
                 </Pressable>
               </>
             )}
@@ -507,16 +528,14 @@ export default function FamilyPlansScreen() {
               tintColor={unlocked ? (hasLiveSync ? GREEN_DARK : GREEN) : TEXT_DIM}
               size={20}
             />
-            <Text style={styles.sectionTitle}>Receive a shared list</Text>
+            <Text style={styles.sectionTitle}>{t('familyPlans.receive.title')}</Text>
           </View>
-          <Text style={styles.sectionHint}>
-            Paste the invite link or code a family member sent you.
-          </Text>
+          <Text style={styles.sectionHint}>{t('familyPlans.receive.hint')}</Text>
           <TextInput
             style={[styles.textArea, !unlocked && styles.textAreaLocked]}
             multiline
             editable={unlocked}
-            placeholder="Paste invite link or code from family member…"
+            placeholder={t('familyPlans.receive.placeholder')}
             placeholderTextColor={TEXT_DIM}
             value={importText}
             onChangeText={setImportText}
@@ -525,18 +544,18 @@ export default function FamilyPlansScreen() {
             style={[styles.primaryBtn, hasLiveSync && styles.primaryBtnHousehold, !unlocked && styles.primaryBtnMuted]}
             onPress={handleImport}>
             <Text style={[styles.primaryBtnText, !unlocked && styles.primaryBtnTextMuted]}>
-              {unlocked ? 'Add to my lists' : 'Unlock with Family workspace'}
+              {unlocked ? t('familyPlans.receive.addToLists') : t('familyPlans.unlockWithFamily')}
             </Text>
           </Pressable>
         </View>
 
         {!unlocked && (
           <View style={styles.planCompareCard}>
-            <Text style={styles.planCompareTitle}>What you get with Family workspace</Text>
-            <Text style={styles.planCompareItem}>• Shared lists & live sync for your household</Text>
-            <Text style={styles.planCompareItem}>• Invite members free — no Pro required</Text>
+            <Text style={styles.planCompareTitle}>{t('familyPlans.compare.title')}</Text>
+            <Text style={styles.planCompareItem}>{t('familyPlans.compare.item1')}</Text>
+            <Text style={styles.planCompareItem}>{t('familyPlans.compare.item2')}</Text>
             <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall?family=1' as never)}>
-              <Text style={styles.upgradeBtnText}>Compare plans</Text>
+              <Text style={styles.upgradeBtnText}>{t('familyPlans.compare.comparePlans')}</Text>
             </Pressable>
           </View>
         )}

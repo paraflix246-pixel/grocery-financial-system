@@ -558,6 +558,135 @@
       "description": "Peso display en negrita para titulares."
     }
   },
+  "familyPlans": {
+    "title": "Planes familiares",
+    "tierFamily": "Familiar",
+    "hero": {
+      "title": "Todo tu hogar, un solo espacio",
+      "subtitle": "Comparte listas de compras con familia o roommates. Los miembros se unen gratis — una suscripción Familiar cubre el hogar."
+    },
+    "freeHero": {
+      "title": "Compra solo con Gratis",
+      "subtitle": "Tu lista básica funciona muy bien para una persona. Suscríbete al espacio familiar para compartir listas y sincronizar con tu hogar."
+    },
+    "getFamilyWorkspace": "Obtener espacio familiar",
+    "howItWorks": "Cómo funciona",
+    "steps": {
+      "step1": {
+        "title": "Obtén tu código familiar",
+        "body": "Cada hogar recibe un código único. Compártelo con tu pareja o hijos para que puedan unirse."
+      },
+      "step2": {
+        "title": "Comparte una lista de compras",
+        "body": "Cuando tu lista esté lista, toca Compartir con familia para enviarla a todos."
+      },
+      "step3": {
+        "title": "La agregan en su teléfono",
+        "body": "Los miembros de la familia pegan la invitación que enviaste y eligen combinar o crear una lista nueva."
+      },
+      "sync": {
+        "title": "Mantente sincronizado automáticamente",
+        "body": "Con un espacio familiar activo, todos ven las actualizaciones de la lista sin copiar y pegar cada vez."
+      }
+    },
+    "familyCode": {
+      "title": "Tu código familiar",
+      "hintUnlocked": "Disponible con espacio familiar — comparte listas con tu hogar.",
+      "hintLocked": "Suscríbete al espacio familiar — invita miembros gratis.",
+      "tapToUnlock": "Toca para desbloquear con espacio familiar",
+      "copyInvite": "Copiar código de invitación del hogar"
+    },
+    "unlockWithFamily": "Desbloquear con espacio familiar",
+    "shareList": {
+      "title": "Compartir una lista de compras",
+      "hint": "Envía tu lista activa a familiares para que compren con el mismo plan.",
+      "button": "Compartir con familia",
+      "openFullScreen": "Abrir pantalla completa de compartir",
+      "lastShared": "Última vez compartida {{date}}"
+    },
+    "sync": {
+      "title": "Sincronización multiusuario",
+      "liveBadge": "En vivo",
+      "hintActive": "Las listas se actualizan en el teléfono de cada miembro — sin copiar y pegar.",
+      "lastSync": "Última sincronización",
+      "pending": "Pendiente",
+      "notYet": "Aún no",
+      "syncNow": "Sincronizar ahora",
+      "supabaseHint": "La sincronización en vivo requiere Supabase configurado (EXPO_PUBLIC_SUPABASE_URL). Compartir por copiar/pegar sigue funcionando.",
+      "upgradeHint": "Mejora al espacio familiar para sincronización automática — todos ven la misma lista."
+    },
+    "receive": {
+      "title": "Recibir una lista compartida",
+      "hint": "Pega el enlace de invitación o el código que te envió un familiar.",
+      "placeholder": "Pega el enlace o código de invitación de un familiar…",
+      "addToLists": "Agregar a mis listas"
+    },
+    "compare": {
+      "title": "Lo que obtienes con el espacio familiar",
+      "item1": "• Listas compartidas y sincronización en vivo para tu hogar",
+      "item2": "• Invita miembros gratis — no se requiere Pro",
+      "comparePlans": "Comparar planes"
+    },
+    "alerts": {
+      "noLists": {
+        "title": "Aún no hay listas",
+        "message": "Crea una lista de compras primero y luego compártela con tu familia."
+      },
+      "shareFailed": {
+        "title": "Error al compartir",
+        "buildMessage": "No se pudo preparar tu lista para compartir. Inténtalo de nuevo.",
+        "genericMessage": "No se pudo compartir tu lista. Inténtalo de nuevo."
+      },
+      "shareSuccess": {
+        "title": "Compartido con la familia",
+        "syncedMessage": "Tu lista está activa para tu hogar — enlace de invitación copiado al panel de compartir.",
+        "upgradeMessage": "Lista compartida por enlace de invitación. Mejora a Pro para sincronización automática.",
+        "supabaseMessage": "Lista compartida por enlace de invitación. Conecta Supabase para sincronización en vivo entre dispositivos."
+      },
+      "shareSubject": "Compartir: {{listName}}",
+      "listAdded": {
+        "title": "Lista agregada",
+        "message": "Se agregaron {{added}} {{items}}{{skipped}}.",
+        "skipped_one": " · se omitió {{count}} duplicado",
+        "skipped_other": " · se omitieron {{count}} duplicados"
+      },
+      "importFailed": {
+        "title": "Error al importar",
+        "genericMessage": "No se pudo agregar esta lista."
+      },
+      "couldNotReadInvite": {
+        "title": "No se pudo leer la invitación",
+        "message": "Pega un código familiar, enlace de invitación o el JSON completo de la lista que te envió un familiar.",
+        "fallbackMessage": "Pega el enlace o código de invitación que te envió un familiar."
+      },
+      "joinedFamily": {
+        "title": "Te uniste a la familia",
+        "message": "Ahora estás conectado a la familia {{code}}."
+      },
+      "joinFailed": {
+        "title": "Error al unirse",
+        "genericMessage": "No se pudo unir a esta familia."
+      },
+      "addSharedList": {
+        "title": "Agregar lista compartida",
+        "message": "\"{{listName}}\" tiene {{count}} artículos."
+      },
+      "mergeIntoList": "Combinar con mi lista",
+      "createNewList": "Crear lista nueva",
+      "syncComplete": {
+        "title": "Sincronización completa",
+        "updated_one": "Se actualizó {{count}} lista compartida en tu hogar.",
+        "updated_other": "Se actualizaron {{count}} listas compartidas en tu hogar.",
+        "upToDate": "Todo ya está actualizado."
+      },
+      "inviteCopied": {
+        "title": "Invitación copiada",
+        "message": "Envíala a familiares para que se unan y reciban tus listas."
+      },
+      "inviteMessage": "¡Únete a nuestra lista familiar de Penny Pantry!\nCódigo: {{code}}\n{{url}}"
+    },
+    "sharedListFallback": "Lista compartida"
+  },
   "avatars": {
     "cart": { "name": "Amigo Carrito" },
     "pennyPig": { "name": "Cerdo Penny" },
