@@ -142,7 +142,9 @@
     "title": "Comparación del carrito más barato",
     "loadingPrices": "Cargando precios de tiendas…",
     "previewMeta": " · vista previa · artículo {{current}} de {{total}}",
-    "comparisonsMeta": " · {{count}} comparaciones"
+    "comparisonsMeta": " · {{count}} comparaciones",
+    "previousItem": "Mostrar artículo anterior",
+    "nextItem": "Mostrar siguiente artículo"
   },
   "forgottenItems": {
     "title": "Sueles comprar",

@@ -1,11 +1,14 @@
 import { useRouter } from 'expo-router';
-import { memo, useMemo } from 'react';
+import { SymbolView } from 'expo-symbols';
+import { memo, useMemo, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
   useWindowDimensions,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -32,6 +35,7 @@ import {
 import { getFeatureLabelI18n } from '@/src/i18n/helpers';
 import { useListStore } from '@/src/store/useListStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartTypography } from '@/src/theme/smartCart';
 
 type Props = {
@@ -46,6 +50,67 @@ const COMPACT_ROW_MIN_WIDTH = 300;
 function getCarouselSlotWidth(screenWidth: number): number {
   const peek = 28;
   return Math.min(280, Math.max(220, screenWidth - SECTION_HORIZONTAL_PADDING - peek));
+}
+
+const NAV_BUTTON_SIZE = 44;
+
+type CarouselNavProps = {
+  showNav: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+};
+
+function ComparisonCarouselNav({
+  showNav,
+  onPrevious,
+  onNext,
+  children,
+  style,
+}: CarouselNavProps) {
+  const { t } = useTranslation();
+  const { theme } = useAppTheme();
+
+  if (!showNav) {
+    return <View style={style}>{children}</View>;
+  }
+
+  return (
+    <View style={[styles.carouselWrap, style]}>
+      <Pressable
+        onPress={onPrevious}
+        style={({ pressed }) => [
+          styles.navButton,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+          pressed ? styles.navButtonPressed : null,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={t('comparison.previousItem')}>
+        <SymbolView
+          name={{ ios: 'chevron.left', android: 'arrow_back', web: 'arrow_back' }}
+          tintColor={theme.primary}
+          size={22}
+        />
+      </Pressable>
+      <View style={styles.carouselContent}>{children}</View>
+      <Pressable
+        onPress={onNext}
+        style={({ pressed }) => [
+          styles.navButton,
+          { backgroundColor: theme.surface, borderColor: theme.border },
+          pressed ? styles.navButtonPressed : null,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel={t('comparison.nextItem')}>
+        <SymbolView
+          name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+          tintColor={theme.primary}
+          size={22}
+        />
+      </Pressable>
+    </View>
+  );
 }
 
 export const CheapestCartComparison = memo(function CheapestCartComparison({
@@ -82,7 +147,7 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
     );
   }, [effectiveListItems, fullBasketUnlocked]);
 
-  const { comparisons, current, currentIndex, loading, rotationKey } =
+  const { comparisons, current, currentIndex, loading, rotationKey, goToNext, goToPrevious } =
     useRotatingItemComparison(previewListItems);
 
   const showStarterHint =
@@ -144,6 +209,8 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
   const carouselSlotWidth = getCarouselSlotWidth(screenWidth);
   const snapInterval = carouselSlotWidth + HOME_COMPARISON_SLOT_GAP;
 
+  const showItemNav = comparisons.length > 1;
+
   const comparisonCardProps = {
     comparison: current,
     rotationKey,
@@ -198,19 +265,35 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
 
       {useSideBySide ? (
         <View style={[styles.compactRow, { gap: rowGap }]}>
-          {comparisonCard}
+          <ComparisonCarouselNav
+            showNav={showItemNav}
+            onPrevious={goToPrevious}
+            onNext={goToNext}
+            style={styles.comparisonNavSlot}>
+            {comparisonCard}
+          </ComparisonCarouselNav>
           {upgradeCard}
         </View>
       ) : fullBasketUnlocked ? (
-        comparisonCard
-      ) : (
-        <HorizontalScrollRow
-          contentContainerStyle={[styles.carouselRow, { gap: rowGap }]}
-          snapToInterval={snapInterval}
-          showsHorizontalScrollIndicator={false}>
+        <ComparisonCarouselNav
+          showNav={showItemNav}
+          onPrevious={goToPrevious}
+          onNext={goToNext}>
           {comparisonCard}
-          {upgradeCard}
-        </HorizontalScrollRow>
+        </ComparisonCarouselNav>
+      ) : (
+        <ComparisonCarouselNav
+          showNav={showItemNav}
+          onPrevious={goToPrevious}
+          onNext={goToNext}>
+          <HorizontalScrollRow
+            contentContainerStyle={[styles.carouselRow, { gap: rowGap }]}
+            snapToInterval={snapInterval}
+            showsHorizontalScrollIndicator={false}>
+            {comparisonCard}
+            {upgradeCard}
+          </HorizontalScrollRow>
+        </ComparisonCarouselNav>
       )}
     </View>
   );
@@ -252,4 +335,26 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingRight: 4,
   },
+  carouselWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  carouselContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  comparisonNavSlot: {
+    flex: HOME_COMPARISON_COMPARISON_FLEX,
+    minWidth: 0,
+  },
+  navButton: {
+    width: NAV_BUTTON_SIZE,
+    height: NAV_BUTTON_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: NAV_BUTTON_SIZE / 2,
+    borderWidth: 1,
+  },
+  navButtonPressed: { opacity: 0.72 },
 });

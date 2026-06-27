@@ -142,7 +142,9 @@
     "title": "Cheapest Cart Comparison",
     "loadingPrices": "Loading store prices…",
     "previewMeta": " · preview · item {{current}} of {{total}}",
-    "comparisonsMeta": " · {{count}} comparisons"
+    "comparisonsMeta": " · {{count}} comparisons",
+    "previousItem": "Show previous item",
+    "nextItem": "Show next item"
   },
   "forgottenItems": {
     "title": "Usually buy",

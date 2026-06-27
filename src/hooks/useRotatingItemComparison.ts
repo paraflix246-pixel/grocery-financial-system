@@ -68,6 +68,18 @@ export function useRotatingItemComparison(listItems: ListItem[]) {
     advance();
   }, [advance]);
 
+  const goToPrevious = useCallback(() => {
+    setState((prev) => {
+      if (prev.comparisons.length <= 1) return prev;
+      return {
+        ...prev,
+        currentIndex:
+          (prev.currentIndex - 1 + prev.comparisons.length) % prev.comparisons.length,
+        rotationKey: prev.rotationKey + 1,
+      };
+    });
+  }, []);
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -97,6 +109,7 @@ export function useRotatingItemComparison(listItems: ListItem[]) {
     loading: state.loading,
     rotationKey: state.rotationKey,
     goToNext,
+    goToPrevious,
     reload,
   };
 }
