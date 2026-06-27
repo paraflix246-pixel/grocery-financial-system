@@ -24,8 +24,7 @@ import {
   type AdminUserDetailResponse,
 } from '@/src/services/admin/adminApiService';
 import { getSession } from '@/src/services/authService';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
-import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { AdminColors, AdminRadius, AdminShadow } from '@/src/theme/adminTheme';
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return '—';
@@ -199,7 +198,7 @@ export default function AdminDashboardScreen() {
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
       <View style={styles.hero}>
-        <PennyPantryLogo variant="inline" size={40} showName />
+        <PennyPantryLogo variant="inline" size={40} showName nameColor={AdminColors.text} />
         <View style={styles.heroText}>
           <Text style={styles.heroTitle}>CEO Control Panel</Text>
           <Text style={styles.heroSubtitle}>
@@ -219,15 +218,15 @@ export default function AdminDashboardScreen() {
 
       {loading && !stats ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={SmartCartColors.primary} />
+          <ActivityIndicator size="large" color={AdminColors.primary} />
         </View>
       ) : (
         <>
           <View style={styles.statsRow}>
             <StatCard label="Total users" value={stats?.totalUsers ?? 0} />
-            <StatCard label="Signups today" value={stats?.signupsToday ?? 0} accent={SmartCartColors.primaryDark} />
-            <StatCard label="Pro subscribers" value={stats?.proCount ?? 0} accent={SmartCartColors.primaryDark} />
-            <StatCard label="Banned" value={stats?.bannedCount ?? 0} accent={SmartCartColors.danger} />
+            <StatCard label="Signups today" value={stats?.signupsToday ?? 0} accent={AdminColors.primaryDark} />
+            <StatCard label="Pro subscribers" value={stats?.proCount ?? 0} accent={AdminColors.success} />
+            <StatCard label="Banned" value={stats?.bannedCount ?? 0} accent={AdminColors.danger} />
           </View>
 
           <View style={styles.panel}>
@@ -238,7 +237,7 @@ export default function AdminDashboardScreen() {
                   value={searchInput}
                   onChangeText={setSearchInput}
                   placeholder="Search by email"
-                  placeholderTextColor={SmartCartColors.textMuted}
+                  placeholderTextColor={AdminColors.textMuted}
                   style={styles.searchInput}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -319,7 +318,7 @@ export default function AdminDashboardScreen() {
 
             {detailLoading || !detail ? (
               <View style={styles.center}>
-                <ActivityIndicator size="large" color={SmartCartColors.primary} />
+                <ActivityIndicator size="large" color={AdminColors.primary} />
               </View>
             ) : (
               <ScrollView style={styles.modalBody} contentContainerStyle={styles.modalBodyContent}>
@@ -381,7 +380,7 @@ export default function AdminDashboardScreen() {
                       value={banReason}
                       onChangeText={setBanReason}
                       placeholder="Reason for ban (optional)"
-                      placeholderTextColor={SmartCartColors.textMuted}
+                      placeholderTextColor={AdminColors.textMuted}
                       style={styles.banInput}
                     />
                     <Pressable
@@ -427,7 +426,7 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: OnboardingColors.background,
+    backgroundColor: AdminColors.background,
   },
   pageContent: {
     padding: 24,
@@ -452,12 +451,12 @@ const styles = StyleSheet.create({
   heroTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
     letterSpacing: -0.3,
   },
   heroSubtitle: {
     fontSize: 15,
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
   },
   statsRow: {
     flexDirection: 'row',
@@ -467,42 +466,42 @@ const styles = StyleSheet.create({
   statCard: {
     flexGrow: 1,
     minWidth: 150,
-    backgroundColor: OnboardingColors.card,
-    borderRadius: SmartCartRadius.lg,
+    backgroundColor: AdminColors.surface,
+    borderRadius: AdminRadius.lg,
     borderWidth: 1,
-    borderColor: OnboardingColors.border,
+    borderColor: AdminColors.border,
     padding: 18,
-    ...SmartCartShadow.cardSoft,
+    ...AdminShadow.cardSoft,
   },
   statValue: {
     fontSize: 28,
     fontWeight: '800',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   statLabel: {
     marginTop: 4,
     fontSize: 13,
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
     fontWeight: '600',
   },
   panel: {
-    backgroundColor: OnboardingColors.card,
-    borderRadius: SmartCartRadius.lg,
+    backgroundColor: AdminColors.surface,
+    borderRadius: AdminRadius.lg,
     borderWidth: 1,
-    borderColor: OnboardingColors.border,
+    borderColor: AdminColors.border,
     overflow: 'hidden',
-    ...SmartCartShadow.card,
+    ...AdminShadow.card,
   },
   panelHeader: {
     padding: 18,
     borderBottomWidth: 1,
-    borderBottomColor: OnboardingColors.border,
+    borderBottomColor: AdminColors.border,
     gap: 12,
   },
   panelTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   searchRow: {
     flexDirection: 'row',
@@ -511,22 +510,22 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: OnboardingColors.border,
-    borderRadius: SmartCartRadius.md,
+    borderColor: AdminColors.border,
+    borderRadius: AdminRadius.md,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'web' ? 10 : 8,
     fontSize: 15,
-    color: SmartCartColors.text,
-    backgroundColor: '#FFFFFF',
+    color: AdminColors.text,
+    backgroundColor: AdminColors.surface,
   },
   searchButton: {
-    backgroundColor: SmartCartColors.primary,
-    borderRadius: SmartCartRadius.md,
+    backgroundColor: AdminColors.primary,
+    borderRadius: AdminRadius.md,
     paddingHorizontal: 16,
     justifyContent: 'center',
   },
   searchButtonText: {
-    color: '#FFFFFF',
+    color: AdminColors.primaryText,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -537,25 +536,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: OnboardingColors.border,
+    borderBottomColor: AdminColors.border,
     paddingHorizontal: 18,
     paddingVertical: 12,
     gap: 8,
   },
   tableHead: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: AdminColors.surfaceMuted,
   },
   headText: {
     fontSize: 12,
     fontWeight: '700',
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
   cell: {
     flex: 1,
     fontSize: 14,
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   cellEmail: {
     flex: 2,
@@ -571,27 +570,27 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   badgePro: {
-    backgroundColor: SmartCartColors.badgeGreen,
-    color: SmartCartColors.primaryDark,
+    backgroundColor: AdminColors.successBg,
+    color: AdminColors.success,
   },
   badgeAdmin: {
     backgroundColor: '#EFF6FF',
-    color: '#2563EB',
+    color: AdminColors.primaryDark,
   },
   badgeDanger: {
-    backgroundColor: '#FEF2F2',
-    color: SmartCartColors.danger,
+    backgroundColor: AdminColors.dangerBg,
+    color: AdminColors.danger,
   },
   badgeMuted: {
-    backgroundColor: '#F3F4F6',
-    color: SmartCartColors.textSecondary,
+    backgroundColor: AdminColors.surfaceMuted,
+    color: AdminColors.textSecondary,
   },
   emptyRow: {
     padding: 24,
     alignItems: 'center',
   },
   emptyText: {
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
   },
   pagination: {
     flexDirection: 'row',
@@ -602,11 +601,11 @@ const styles = StyleSheet.create({
   },
   pageButton: {
     borderWidth: 1,
-    borderColor: OnboardingColors.border,
-    borderRadius: SmartCartRadius.md,
+    borderColor: AdminColors.border,
+    borderRadius: AdminRadius.md,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AdminColors.surface,
   },
   pageButtonDisabled: {
     opacity: 0.45,
@@ -614,19 +613,19 @@ const styles = StyleSheet.create({
   pageButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   pageInfo: {
     flex: 1,
     textAlign: 'center',
     fontSize: 13,
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
+    backgroundColor: AdminColors.dangerBg,
+    borderColor: AdminColors.dangerBorder,
     borderWidth: 1,
-    borderRadius: SmartCartRadius.md,
+    borderRadius: AdminRadius.md,
     padding: 12,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -635,21 +634,22 @@ const styles = StyleSheet.create({
   },
   errorBannerText: {
     flex: 1,
-    color: SmartCartColors.danger,
+    color: AdminColors.danger,
     fontSize: 14,
+    fontWeight: '600',
   },
   dismissLink: {
-    color: SmartCartColors.primaryDark,
+    color: AdminColors.primaryDark,
     fontWeight: '700',
     fontSize: 13,
   },
   errorText: {
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
     fontSize: 15,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    backgroundColor: AdminColors.modalBackdrop,
     justifyContent: 'center',
     padding: 20,
   },
@@ -658,10 +658,10 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 640,
     maxHeight: '90%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: SmartCartRadius.lg,
+    backgroundColor: AdminColors.surface,
+    borderRadius: AdminRadius.lg,
     overflow: 'hidden',
-    ...SmartCartShadow.card,
+    ...AdminShadow.card,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -670,15 +670,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: OnboardingColors.border,
+    borderBottomColor: AdminColors.border,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   closeButton: {
-    color: SmartCartColors.primaryDark,
+    color: AdminColors.primaryDark,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
   detailEmail: {
     fontSize: 20,
     fontWeight: '800',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   detailGrid: {
     gap: 10,
@@ -703,13 +703,13 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   detailValue: {
     fontSize: 14,
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   actionRow: {
     flexDirection: 'row',
@@ -718,65 +718,65 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   actionButton: {
-    borderRadius: SmartCartRadius.md,
+    borderRadius: AdminRadius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   actionPrimary: {
-    backgroundColor: SmartCartColors.primary,
+    backgroundColor: AdminColors.primary,
   },
   actionPrimaryText: {
-    color: '#FFFFFF',
+    color: AdminColors.primaryText,
     fontWeight: '700',
   },
   actionDangerOutline: {
     borderWidth: 1,
-    borderColor: SmartCartColors.danger,
-    backgroundColor: '#FFFFFF',
+    borderColor: AdminColors.danger,
+    backgroundColor: AdminColors.surface,
   },
   actionDangerText: {
-    color: SmartCartColors.danger,
+    color: AdminColors.danger,
     fontWeight: '700',
   },
   actionDanger: {
-    backgroundColor: SmartCartColors.danger,
+    backgroundColor: AdminColors.danger,
   },
   actionDangerFilledText: {
-    color: '#FFFFFF',
+    color: AdminColors.primaryText,
     fontWeight: '700',
   },
   banForm: {
     gap: 8,
     padding: 12,
-    borderRadius: SmartCartRadius.md,
-    backgroundColor: '#FAFAFA',
+    borderRadius: AdminRadius.md,
+    backgroundColor: AdminColors.surfaceMuted,
     borderWidth: 1,
-    borderColor: OnboardingColors.border,
+    borderColor: AdminColors.border,
   },
   banLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
   },
   banInput: {
     borderWidth: 1,
-    borderColor: OnboardingColors.border,
-    borderRadius: SmartCartRadius.md,
+    borderColor: AdminColors.border,
+    borderRadius: AdminRadius.md,
     paddingHorizontal: 12,
     paddingVertical: Platform.OS === 'web' ? 10 : 8,
     fontSize: 14,
-    color: SmartCartColors.text,
-    backgroundColor: '#FFFFFF',
+    color: AdminColors.text,
+    backgroundColor: AdminColors.surface,
   },
   auditTitle: {
     marginTop: 8,
     fontSize: 15,
     fontWeight: '700',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   auditEmpty: {
     fontSize: 13,
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
   },
   auditRow: {
     flexDirection: 'row',
@@ -784,15 +784,15 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: OnboardingColors.border,
+    borderBottomColor: AdminColors.border,
   },
   auditType: {
     fontSize: 13,
     fontWeight: '600',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   auditDate: {
     fontSize: 12,
-    color: SmartCartColors.textMuted,
+    color: AdminColors.textMuted,
   },
 });

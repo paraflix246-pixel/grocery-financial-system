@@ -4,8 +4,7 @@ import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-nativ
 
 import { verifyAdminAccess, syncUserProfile } from '@/src/services/admin/adminApiService';
 import { getSession } from '@/src/services/authService';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
-import { SmartCartColors } from '@/src/theme/smartCart';
+import { AdminColors } from '@/src/theme/adminTheme';
 
 export default function AdminLayout() {
   const router = useRouter();
@@ -54,10 +53,25 @@ export default function AdminLayout() {
     return () => clearTimeout(timer);
   }, [gate, router]);
 
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+
+    const previousBodyBackground = document.body.style.backgroundColor;
+    const previousColorScheme = document.documentElement.style.colorScheme;
+
+    document.body.style.backgroundColor = AdminColors.background;
+    document.documentElement.style.colorScheme = 'light';
+
+    return () => {
+      document.body.style.backgroundColor = previousBodyBackground;
+      document.documentElement.style.colorScheme = previousColorScheme;
+    };
+  }, []);
+
   if (gate === 'loading') {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={SmartCartColors.primary} />
+        <ActivityIndicator size="large" color={AdminColors.primary} />
         <Text style={styles.loadingText}>{message}</Text>
       </View>
     );
@@ -77,10 +91,11 @@ export default function AdminLayout() {
     <Stack
       screenOptions={{
         headerShown: true,
-        headerStyle: { backgroundColor: OnboardingColors.background },
+        headerStyle: { backgroundColor: AdminColors.headerBg },
         headerShadowVisible: false,
-        headerTitleStyle: { fontWeight: '700', color: SmartCartColors.text },
-        contentStyle: { backgroundColor: OnboardingColors.background },
+        headerTitleStyle: { fontWeight: '700', color: AdminColors.text },
+        headerTintColor: AdminColors.primary,
+        contentStyle: { backgroundColor: AdminColors.background },
       }}>
       <Stack.Screen name="index" options={{ title: 'Penny Pantry Admin' }} />
     </Stack>
@@ -92,28 +107,28 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: OnboardingColors.background,
+    backgroundColor: AdminColors.background,
     padding: 24,
     gap: 12,
   },
   loadingText: {
     fontSize: 15,
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
   },
   blockedTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: SmartCartColors.text,
+    color: AdminColors.text,
   },
   blockedText: {
     fontSize: 15,
-    color: SmartCartColors.textSecondary,
+    color: AdminColors.textSecondary,
     textAlign: 'center',
     maxWidth: 420,
   },
   redirectHint: {
     fontSize: 13,
-    color: SmartCartColors.textMuted,
+    color: AdminColors.textMuted,
     marginTop: 8,
   },
 });
