@@ -404,7 +404,7 @@ export async function syncAuthUserFromSession(): Promise<void> {
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
   await syncProfileDisplayNameFromAuth();
   void maybeSendWelcomeEmail();
-  void syncUserProfile();
+  await syncUserProfile();
 }
 
 /** True when the user has an active Supabase account session (not guest-only). */

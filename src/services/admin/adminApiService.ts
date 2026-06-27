@@ -130,13 +130,41 @@ export async function deleteAdminUser(userId: string): Promise<void> {
 type SyncedProfile = Pick<AdminProfile, 'id' | 'role'>;
 
 let cachedProfileRole: AdminProfile['role'] | null = null;
+let cachedAuthEmail: string | null = null;
+
+function getClientAdminEmails(): Set<string> {
+  const raw = process.env.EXPO_PUBLIC_ADMIN_EMAILS?.trim() ?? '';
+  if (!raw) return new Set();
+  return new Set(
+    raw
+      .split(',')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
+function isEmailInClientAdminAllowList(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const allowlist = getClientAdminEmails();
+  if (allowlist.size === 0) return false;
+  return allowlist.has(email.trim().toLowerCase());
+}
+
+function resolveCachedAdminRole(
+  syncedRole: AdminProfile['role'] | null | undefined
+): AdminProfile['role'] | null {
+  if (syncedRole === 'admin') return 'admin';
+  if (isEmailInClientAdminAllowList(cachedAuthEmail)) return 'admin';
+  return syncedRole ?? null;
+}
 
 export function isAdminUser(): boolean {
-  return cachedProfileRole === 'admin';
+  return resolveCachedAdminRole(cachedProfileRole) === 'admin';
 }
 
 export function clearCachedProfileRole(): void {
   cachedProfileRole = null;
+  cachedAuthEmail = null;
 }
 
 export async function syncUserProfile(): Promise<SyncedProfile | null> {
@@ -145,6 +173,7 @@ export async function syncUserProfile(): Promise<SyncedProfile | null> {
 
   const session = await getSession();
   const token = session?.access_token;
+  cachedAuthEmail = session?.user?.email?.trim().toLowerCase() ?? null;
   if (!token) {
     cachedProfileRole = null;
     return null;
@@ -164,14 +193,23 @@ export async function syncUserProfile(): Promise<SyncedProfile | null> {
       | null;
 
     if (!response.ok || !payload?.profile) {
-      cachedProfileRole = null;
+      const fallbackRole = resolveCachedAdminRole(null);
+      cachedProfileRole = fallbackRole;
+      if (fallbackRole === 'admin' && session.user?.id) {
+        return { id: session.user.id, role: 'admin' };
+      }
       return null;
     }
 
-    cachedProfileRole = payload.profile.role;
-    return payload.profile;
+    const role = resolveCachedAdminRole(payload.profile.role) ?? payload.profile.role;
+    cachedProfileRole = role;
+    return { id: payload.profile.id, role };
   } catch (error) {
-    cachedProfileRole = null;
+    const fallbackRole = resolveCachedAdminRole(null);
+    cachedProfileRole = fallbackRole;
+    if (fallbackRole === 'admin' && session.user?.id) {
+      return { id: session.user.id, role: 'admin' };
+    }
     console.warn('[profile] sync failed:', error);
     return null;
   }

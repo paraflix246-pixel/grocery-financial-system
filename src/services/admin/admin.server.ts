@@ -47,6 +47,18 @@ function parseAdminEmails(): Set<string> {
   );
 }
 
+export function resolveAuthUserEmail(user: User): string | null {
+  const direct = user.email?.trim().toLowerCase();
+  if (direct) return direct;
+
+  const metaEmail = user.user_metadata?.email;
+  if (typeof metaEmail === 'string' && metaEmail.trim()) {
+    return metaEmail.trim().toLowerCase();
+  }
+
+  return null;
+}
+
 export function resolveProfileRole(email: string | null | undefined): 'user' | 'admin' {
   if (!email) return 'user';
   return parseAdminEmails().has(email.trim().toLowerCase()) ? 'admin' : 'user';
@@ -70,20 +82,12 @@ export async function requireAdmin(request: Request): Promise<AdminContext | nul
   const actor = await getUserFromAuthHeader(request);
   if (!actor) return null;
 
-  const admin = getSupabaseAdmin();
-  const { data: profile, error } = await admin
-    .from('profiles')
-    .select('*')
-    .eq('id', actor.id)
-    .maybeSingle();
+  // Sync profile on every admin check so ADMIN_EMAILS promotions apply even when
+  // the client never called /api/profile/sync or the row was created as role=user.
+  const profile = await upsertProfileFromAuthUser(actor);
+  if (profile.role !== 'admin') return null;
 
-  if (error) {
-    throw new Error(`Failed to load admin profile: ${error.message}`);
-  }
-
-  if (!profile || profile.role !== 'admin') return null;
-
-  return { actor, profile: profile as ProfileRow };
+  return { actor, profile };
 }
 
 export async function logAuditEvent(input: {
@@ -117,7 +121,7 @@ function extractSignupProvider(user: User): string | null {
 
 export async function upsertProfileFromAuthUser(user: User): Promise<ProfileRow> {
   const admin = getSupabaseAdmin();
-  const email = user.email?.trim().toLowerCase() ?? null;
+  const email = resolveAuthUserEmail(user);
   const role = resolveProfileRole(email);
   const now = new Date().toISOString();
 

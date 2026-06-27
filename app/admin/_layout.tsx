@@ -2,7 +2,8 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
-import { verifyAdminAccess } from '@/src/services/admin/adminApiService';
+import { verifyAdminAccess, syncUserProfile } from '@/src/services/admin/adminApiService';
+import { getSession } from '@/src/services/authService';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
@@ -18,7 +19,16 @@ export default function AdminLayout() {
       return;
     }
 
-    void verifyAdminAccess().then((result) => {
+    void (async () => {
+      const session = await getSession();
+      if (!session) {
+        setMessage('Sign in with an admin account to continue.');
+        setGate('blocked');
+        return;
+      }
+
+      await syncUserProfile();
+      const result = await verifyAdminAccess();
       if (result === 'ok') {
         setGate('ok');
         return;
@@ -31,7 +41,7 @@ export default function AdminLayout() {
         setMessage('You do not have permission to access the admin dashboard.');
       }
       setGate('blocked');
-    });
+    })();
   }, []);
 
   useEffect(() => {
