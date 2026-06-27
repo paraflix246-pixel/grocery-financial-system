@@ -473,6 +473,7 @@
     "showMoreFonts": "Show more fonts",
     "showMoreAvatars": "Show more avatars",
     "showLess": "Show less",
+    "resetSection": "Reset",
     "languageHint": "Changes the language across the app",
     "unsavedChangesTitle": "Save changes?",
     "unsavedChangesMessage": "You have unsaved appearance changes.",

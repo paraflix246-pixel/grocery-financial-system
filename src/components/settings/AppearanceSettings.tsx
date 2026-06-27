@@ -20,6 +20,27 @@ import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 const VISIBLE_FONT_COUNT = 3;
 const VISIBLE_AVATAR_COUNT = 4;
 
+type AppearanceSectionResetProps = {
+  visible: boolean;
+  onPress: () => void;
+};
+
+export function AppearanceSectionReset({ visible, onPress }: AppearanceSectionResetProps) {
+  const { t } = useTranslation();
+
+  if (!visible) return null;
+
+  return (
+    <Pressable
+      style={({ pressed }) => [styles.sectionResetRow, pressed && styles.sectionResetRowPressed]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={t('settings.resetSection')}>
+      <Text style={styles.sectionResetText}>{t('settings.resetSection')}</Text>
+    </Pressable>
+  );
+}
+
 type LanguagePickerProps = {
   compact?: boolean;
   locale?: AppLocale;
@@ -673,5 +694,19 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sectionResetRow: {
+    alignSelf: 'flex-end',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    marginTop: 2,
+  },
+  sectionResetRowPressed: {
+    opacity: 0.7,
+  },
+  sectionResetText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: SmartCartColors.textMuted,
   },
 });

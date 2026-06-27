@@ -30,7 +30,13 @@ import {
   setOpenLastListPreference,
 } from '@/src/utils/listNavigationPrefs';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
-import { LanguagePicker, ThemePicker, FontPicker, AvatarPicker } from '@/src/components/settings/AppearanceSettings';
+import {
+  AppearanceSectionReset,
+  LanguagePicker,
+  ThemePicker,
+  FontPicker,
+  AvatarPicker,
+} from '@/src/components/settings/AppearanceSettings';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
@@ -258,6 +264,39 @@ export default function SettingsScreen() {
     previewAppLocale(locale);
   }, []);
 
+  const themeSectionDirty =
+    savedThemeId !== null && draftThemeId !== null && draftThemeId !== savedThemeId;
+  const fontSectionDirty =
+    savedFontId !== null && draftFontId !== null && draftFontId !== savedFontId;
+  const avatarSectionDirty =
+    savedAvatarId !== null && draftAvatarId !== null && draftAvatarId !== savedAvatarId;
+  const localeSectionDirty =
+    savedLocale !== null && draftLocale !== null && draftLocale !== savedLocale;
+
+  const resetThemeSection = useCallback(() => {
+    if (!savedThemeId) return;
+    previewTheme(savedThemeId);
+    setDraftThemeId(savedThemeId);
+  }, [savedThemeId, previewTheme]);
+
+  const resetFontSection = useCallback(() => {
+    if (!savedFontId) return;
+    previewFont(savedFontId);
+    setDraftFontId(savedFontId);
+  }, [savedFontId, previewFont]);
+
+  const resetAvatarSection = useCallback(() => {
+    if (!savedAvatarId) return;
+    previewAvatar(savedAvatarId);
+    setDraftAvatarId(savedAvatarId);
+  }, [savedAvatarId, previewAvatar]);
+
+  const resetLocaleSection = useCallback(() => {
+    if (!savedLocale) return;
+    previewAppLocale(savedLocale);
+    setDraftLocale(savedLocale);
+  }, [savedLocale]);
+
   const confirmLeaveSettings = useCallback(
     (onLeave: () => void) => {
       Alert.alert(t('settings.unsavedChangesTitle'), t('settings.unsavedChangesMessage'), [
@@ -475,6 +514,7 @@ export default function SettingsScreen() {
             themeId={draftThemeId ?? persistedThemeId}
             onThemeSelect={handleDraftThemeSelect}
           />
+          <AppearanceSectionReset visible={themeSectionDirty} onPress={resetThemeSection} />
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('settings.font')}</Text>
           <Text style={styles.fieldHint}>{t('settings.fontHint')}</Text>
@@ -482,6 +522,7 @@ export default function SettingsScreen() {
             fontId={draftFontId ?? persistedFontId}
             onFontSelect={handleDraftFontSelect}
           />
+          <AppearanceSectionReset visible={fontSectionDirty} onPress={resetFontSection} />
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('settings.avatar')}</Text>
           <Text style={styles.fieldHint}>{t('settings.avatarHint')}</Text>
@@ -489,6 +530,7 @@ export default function SettingsScreen() {
             avatarId={draftAvatarId ?? persistedAvatarId}
             onAvatarSelect={handleDraftAvatarSelect}
           />
+          <AppearanceSectionReset visible={avatarSectionDirty} onPress={resetAvatarSection} />
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('common.language')}</Text>
           <Text style={styles.fieldHint}>{t('settings.languageHint')}</Text>
@@ -496,6 +538,7 @@ export default function SettingsScreen() {
             locale={draftLocale ?? (i18n.language === 'es' ? 'es' : 'en')}
             onLocaleChange={handleDraftLocaleSelect}
           />
+          <AppearanceSectionReset visible={localeSectionDirty} onPress={resetLocaleSection} />
         </View>
 
         <Text style={styles.sectionTitle}>{t('settings.notifications')}</Text>
