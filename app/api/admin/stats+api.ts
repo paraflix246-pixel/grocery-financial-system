@@ -2,7 +2,7 @@ import {
   adminForbiddenResponse,
   adminNotConfiguredResponse,
   adminUnauthorizedResponse,
-  getAdminStats,
+  getAdminAnalytics,
   requireAdmin,
 } from '@/src/services/admin/admin.server';
 import { isSupabaseAdminConfigured } from '@/src/services/stripe/stripeSupabase.server';
@@ -21,7 +21,7 @@ export async function GET(request: Request): Promise<Response> {
       return user ? adminForbiddenResponse() : adminUnauthorizedResponse();
     }
 
-    const stats = await getAdminStats();
+    const stats = await getAdminAnalytics();
     return Response.json(stats);
   } catch (error) {
     console.warn('[admin/stats] failed:', error);

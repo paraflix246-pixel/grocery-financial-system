@@ -191,6 +191,375 @@ async function syncProfileSubscriptionFields(userId: string): Promise<void> {
     .eq('id', userId);
 }
 
+export type DailyCount = { date: string; count: number };
+
+export type AdminTopUser = {
+  id: string;
+  email: string | null;
+  planTier: string;
+  lastSeenAt: string | null;
+  activityScore: number;
+};
+
+export type AdminChurnUser = {
+  id: string;
+  email: string | null;
+  planTier: string;
+  lastSeenAt: string | null;
+  riskScore: number;
+  daysInactive: number;
+};
+
+export type AdminAnalytics = {
+  totalUsers: number;
+  signupsToday: number;
+  proCount: number;
+  bannedCount: number;
+  onlineNow: number;
+  receiptScansToday: number;
+  pendingSignups: number;
+  paymentsToday: number;
+  premiumUsers: number;
+  systemHealth: 'healthy' | 'degraded' | 'unknown';
+  revenue30Day: number;
+  revenue30DayNote: string;
+  flaggedAccounts: number;
+  supportTickets: number;
+  tierFree: number;
+  tierPro: number;
+  tierFamily: number;
+  totalReceiptScans: number;
+  completedParses: number;
+  completionRate: number;
+  shoppingListsCreated: number;
+  priceComparisonsRun: number;
+  totalProRevenuePotential: number;
+  dailySignups: DailyCount[];
+  dailyScans: DailyCount[];
+  cumulativeUsers: DailyCount[];
+  topUsers: AdminTopUser[];
+  churnRisk: AdminChurnUser[];
+  recentActivity: AuditEventRow[];
+  stripeConfigured: boolean;
+  resendConfigured: boolean;
+};
+
+const PRO_MONTHLY_MRR = 3.99;
+const PRO_YEARLY_MRR = 39.99 / 12;
+const FAMILY_MONTHLY_MRR = 4.99;
+const FAMILY_YEARLY_MRR = 49.99 / 12;
+
+function startOfUtcDay(date = new Date()): Date {
+  const d = new Date(date);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+function isoDateKey(value: Date | string): string {
+  const d = typeof value === 'string' ? new Date(value) : value;
+  return d.toISOString().slice(0, 10);
+}
+
+function buildDailySeries(
+  rows: Array<{ created_at: string }>,
+  days: number
+): DailyCount[] {
+  const start = startOfUtcDay();
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  const buckets = new Map<string, number>();
+
+  for (let i = 0; i < days; i += 1) {
+    const d = new Date(start);
+    d.setUTCDate(start.getUTCDate() + i);
+    buckets.set(isoDateKey(d), 0);
+  }
+
+  for (const row of rows) {
+    const key = isoDateKey(row.created_at);
+    if (buckets.has(key)) {
+      buckets.set(key, (buckets.get(key) ?? 0) + 1);
+    }
+  }
+
+  return Array.from(buckets.entries()).map(([date, count]) => ({ date, count }));
+}
+
+function buildCumulativeSeries(dailySignups: DailyCount[], baseBeforePeriod: number): DailyCount[] {
+  let running = baseBeforePeriod;
+  return dailySignups.map(({ date, count }) => {
+    running += count;
+    return { date, count: running };
+  });
+}
+
+function resolvePlanTier(profile: Pick<ProfileRow, 'subscription_status' | 'plan_type'>): string {
+  if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
+    return profile.plan_type === 'yearly' ? 'Pro Yearly' : 'Pro';
+  }
+  return 'Free';
+}
+
+function estimateMrrFromStripePlans(
+  subs: Array<{ plan: string | null; status: string }>
+): number {
+  let mrr = 0;
+  for (const sub of subs) {
+    if (sub.status !== 'active' && sub.status !== 'trialing') continue;
+    if (sub.plan === 'yearly') mrr += PRO_YEARLY_MRR;
+    else mrr += PRO_MONTHLY_MRR;
+  }
+  return Math.round(mrr * 100) / 100;
+}
+
+function estimateFamilyMrr(
+  workspaces: Array<{ subscription_plan: string | null; subscription_status: string }>
+): number {
+  let mrr = 0;
+  for (const ws of workspaces) {
+    if (ws.subscription_status !== 'active' && ws.subscription_status !== 'trialing') continue;
+    if (ws.subscription_plan === 'yearly') mrr += FAMILY_YEARLY_MRR;
+    else mrr += FAMILY_MONTHLY_MRR;
+  }
+  return Math.round(mrr * 100) / 100;
+}
+
+function computeRiskScore(daysInactive: number, planTier: string): number {
+  let score = Math.min(100, Math.round((daysInactive / 90) * 70));
+  if (planTier.startsWith('Pro')) score += 20;
+  return Math.min(100, score);
+}
+
+function computeActivityScore(
+  profile: Pick<ProfileRow, 'created_at' | 'last_seen_at' | 'subscription_status'>
+): number {
+  const lastSeen = profile.last_seen_at ? new Date(profile.last_seen_at).getTime() : 0;
+  const daysSinceActive = lastSeen
+    ? Math.max(0, Math.floor((Date.now() - lastSeen) / (1000 * 60 * 60 * 24)))
+    : 999;
+  let score = Math.max(0, 100 - daysSinceActive * 3);
+  if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
+    score += 15;
+  }
+  return Math.min(100, Math.round(score));
+}
+
+async function safeTableCount(table: string): Promise<number | null> {
+  const admin = getSupabaseAdmin();
+  const { count, error } = await admin.from(table).select('id', { count: 'exact', head: true });
+  if (error) {
+    console.warn(`[admin/analytics] ${table} count failed:`, error.message);
+    return null;
+  }
+  return count ?? 0;
+}
+
+export async function getAdminAnalytics(): Promise<AdminAnalytics> {
+  const admin = getSupabaseAdmin();
+  const todayStart = startOfUtcDay();
+  const todayIso = todayStart.toISOString();
+  const onlineCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const thirtyDaysAgo = new Date(todayStart);
+  thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+  const thirtyDaysIso = thirtyDaysAgo.toISOString();
+  const inactiveCutoff = thirtyDaysIso;
+
+  const baseStats = await getAdminStats();
+
+  const [
+    onlineRes,
+    pendingRes,
+    paymentsTodayRes,
+    receiptsTodayRes,
+    totalReceiptsRes,
+    sharedListsRes,
+    priceRecordsRes,
+    familyActiveRes,
+    profilesRecentRes,
+    receiptsRecentRes,
+    profilesBeforeRes,
+    topProfilesRes,
+    churnProfilesRes,
+    auditRes,
+    stripeSubsRes,
+    familySubsRes,
+  ] = await Promise.all([
+    admin.from('profiles').select('id', { count: 'exact', head: true }).gte('last_seen_at', onlineCutoff),
+    admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', todayIso)
+      .is('last_seen_at', null),
+    admin
+      .from('stripe_subscriptions')
+      .select('user_id', { count: 'exact', head: true })
+      .gte('updated_at', todayIso)
+      .in('status', ['active', 'trialing']),
+    admin
+      .from('workspace_receipts')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', todayIso),
+    safeTableCount('workspace_receipts'),
+    safeTableCount('shared_lists'),
+    safeTableCount('price_records'),
+    admin
+      .from('workspaces')
+      .select('id', { count: 'exact', head: true })
+      .in('subscription_status', ['active', 'trialing']),
+    admin.from('profiles').select('created_at').gte('created_at', thirtyDaysIso),
+    admin.from('workspace_receipts').select('created_at').gte('created_at', thirtyDaysIso),
+    admin.from('profiles').select('id', { count: 'exact', head: true }).lt('created_at', thirtyDaysIso),
+    admin
+      .from('profiles')
+      .select('id, email, plan_type, subscription_status, last_seen_at, created_at')
+      .order('last_seen_at', { ascending: false, nullsFirst: false })
+      .limit(10),
+    admin
+      .from('profiles')
+      .select('id, email, plan_type, subscription_status, last_seen_at')
+      .or(`last_seen_at.lt.${inactiveCutoff},last_seen_at.is.null`)
+      .eq('is_banned', false)
+      .order('last_seen_at', { ascending: true, nullsFirst: true })
+      .limit(15),
+    admin.from('audit_events').select('*').order('created_at', { ascending: false }).limit(25),
+    admin.from('stripe_subscriptions').select('plan, status'),
+    admin
+      .from('workspaces')
+      .select('subscription_plan, subscription_status')
+      .in('subscription_status', ['active', 'trialing']),
+  ]);
+
+  const familyActive = familyActiveRes.error ? 0 : (familyActiveRes.count ?? 0);
+  const tierPro = baseStats.proCount;
+  const tierFamily = familyActive;
+  const tierFree = Math.max(0, baseStats.totalUsers - tierPro);
+
+  const dailySignups = buildDailySeries(
+    (profilesRecentRes.data ?? []) as Array<{ created_at: string }>,
+    30
+  );
+  const dailyScans = buildDailySeries(
+    (receiptsRecentRes.data ?? []) as Array<{ created_at: string }>,
+    30
+  );
+  const cumulativeUsers = buildCumulativeSeries(
+    dailySignups,
+    profilesBeforeRes.error ? 0 : (profilesBeforeRes.count ?? 0)
+  );
+
+  const stripeSubs = (stripeSubsRes.data ?? []) as Array<{ plan: string | null; status: string }>;
+  const familySubs = (familySubsRes.data ?? []) as Array<{
+    subscription_plan: string | null;
+    subscription_status: string;
+  }>;
+  const proMrr = estimateMrrFromStripePlans(stripeSubs);
+  const familyMrr = estimateFamilyMrr(familySubs);
+  const totalMrr = proMrr + familyMrr;
+
+  const totalReceiptScans = totalReceiptsRes ?? 0;
+  const completedParses = totalReceiptScans;
+  const completionRate =
+    totalReceiptScans > 0 ? Math.min(100, Math.round((completedParses / totalReceiptScans) * 100)) : 0;
+
+  const topUsers: AdminTopUser[] = ((topProfilesRes.data ?? []) as ProfileRow[]).map((profile) => ({
+    id: profile.id,
+    email: profile.email,
+    planTier: resolvePlanTier(profile),
+    lastSeenAt: profile.last_seen_at,
+    activityScore: computeActivityScore(profile),
+  }));
+
+  const churnRisk: AdminChurnUser[] = ((churnProfilesRes.data ?? []) as ProfileRow[])
+    .slice(0, 10)
+    .map((profile) => {
+      const lastSeenMs = profile.last_seen_at ? new Date(profile.last_seen_at).getTime() : 0;
+      const daysInactive = lastSeenMs
+        ? Math.max(1, Math.floor((Date.now() - lastSeenMs) / (1000 * 60 * 60 * 24)))
+        : 90;
+      const planTier = resolvePlanTier(profile);
+      return {
+        id: profile.id,
+        email: profile.email,
+        planTier,
+        lastSeenAt: profile.last_seen_at,
+        daysInactive,
+        riskScore: computeRiskScore(daysInactive, planTier),
+      };
+    })
+    .sort((a, b) => b.riskScore - a.riskScore);
+
+  const hasStripeTable = !stripeSubsRes.error;
+  const revenue30Day = hasStripeTable ? Math.round(totalMrr * 100) / 100 : 0;
+
+  return {
+    ...baseStats,
+    onlineNow: onlineRes.error ? 0 : (onlineRes.count ?? 0),
+    receiptScansToday: receiptsTodayRes.error ? 0 : (receiptsTodayRes.count ?? 0),
+    pendingSignups: pendingRes.error ? 0 : (pendingRes.count ?? 0),
+    paymentsToday: paymentsTodayRes.error ? 0 : (paymentsTodayRes.count ?? 0),
+    premiumUsers: tierPro + tierFamily,
+    systemHealth: 'healthy',
+    revenue30Day,
+    revenue30DayNote: hasStripeTable
+      ? 'Estimated MRR from active Pro + Family subscriptions'
+      : 'Stripe subscription data not available — apply migrations and connect billing',
+    flaggedAccounts: baseStats.bannedCount,
+    supportTickets: 0,
+    tierFree,
+    tierPro,
+    tierFamily,
+    totalReceiptScans,
+    completedParses,
+    completionRate,
+    shoppingListsCreated: sharedListsRes ?? 0,
+    priceComparisonsRun: priceRecordsRes ?? 0,
+    totalProRevenuePotential: revenue30Day,
+    dailySignups,
+    dailyScans,
+    cumulativeUsers,
+    topUsers,
+    churnRisk,
+    recentActivity: (auditRes.data ?? []) as AuditEventRow[],
+    stripeConfigured: hasStripeTable,
+    resendConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
+  };
+}
+
+export async function sendReEngagementEmail(input: {
+  actorId: string;
+  targetUserId: string;
+}): Promise<void> {
+  const { sendViaResend } = await import('@/src/services/auth/resendEmail.server');
+  const admin = getSupabaseAdmin();
+
+  const { data: profile, error } = await admin
+    .from('profiles')
+    .select('email, is_banned')
+    .eq('id', input.targetUserId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  if (!profile?.email) throw new Error('User has no email on file.');
+  if (profile.is_banned) throw new Error('Cannot email a banned account.');
+
+  const appUrl =
+    process.env.EXPO_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || 'https://pennypantry.xyz';
+
+  await sendViaResend(
+    profile.email,
+    'We miss you at Penny Pantry',
+    `<p>Hi there,</p>
+<p>It's been a while since you opened Penny Pantry. Your grocery budget insights, price alerts, and lists are waiting.</p>
+<p><a href="${appUrl}">Open Penny Pantry</a></p>
+<p>— The Penny Pantry team</p>`
+  );
+
+  await logAuditEvent({
+    actorId: input.actorId,
+    targetUserId: input.targetUserId,
+    eventType: 'admin.re_engagement_email',
+  });
+}
+
 export async function getAdminStats(): Promise<{
   totalUsers: number;
   signupsToday: number;

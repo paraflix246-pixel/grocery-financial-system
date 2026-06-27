@@ -18,8 +18,18 @@ export const AdminColors = {
   dangerBorder: '#FECACA',
   success: '#059669',
   successBg: '#ECFDF5',
+  warning: '#D97706',
+  warningBg: '#FFFBEB',
   headerBg: '#FFFFFF',
   modalBackdrop: 'rgba(15, 23, 42, 0.55)',
+  sidebarBg: '#0F172A',
+  sidebarBorder: '#1E293B',
+  sidebarText: '#F8FAFC',
+  sidebarTextMuted: '#94A3B8',
+  sidebarActive: '#2563EB',
+  sidebarHover: '#1E293B',
+  sidebarBadge: '#334155',
+  topBarBg: '#FFFFFF',
 };
 
 export const AdminRadius = {

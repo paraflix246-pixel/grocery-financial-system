@@ -1,6 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { verifyAdminAccess, syncUserProfile } from '@/src/services/admin/adminApiService';
 import { getSession } from '@/src/services/authService';
@@ -8,8 +8,6 @@ import { AdminColors } from '@/src/theme/adminTheme';
 
 export default function AdminLayout() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const isMobile = width < 480;
   const [gate, setGate] = useState<'loading' | 'ok' | 'blocked'>('loading');
   const [message, setMessage] = useState('Checking admin access…');
 
@@ -92,17 +90,10 @@ export default function AdminLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
-        headerStyle: { backgroundColor: AdminColors.headerBg },
-        headerShadowVisible: false,
-        headerTitleStyle: { fontWeight: '700', color: AdminColors.text },
-        headerTintColor: AdminColors.primary,
+        headerShown: false,
         contentStyle: { backgroundColor: AdminColors.background },
       }}>
-      <Stack.Screen
-        name="index"
-        options={{ title: isMobile ? 'Admin' : 'Penny Pantry Admin', headerTitleAlign: 'center' }}
-      />
+      <Stack.Screen name="index" />
     </Stack>
   );
 }

@@ -46,11 +46,66 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
+export type DailyCount = { date: string; count: number };
+
+export type AdminTopUser = {
+  id: string;
+  email: string | null;
+  planTier: string;
+  lastSeenAt: string | null;
+  activityScore: number;
+};
+
+export type AdminChurnUser = {
+  id: string;
+  email: string | null;
+  planTier: string;
+  lastSeenAt: string | null;
+  riskScore: number;
+  daysInactive: number;
+};
+
+export type AdminAuditEvent = {
+  id: string;
+  actor_id: string | null;
+  target_user_id: string | null;
+  event_type: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 export type AdminStats = {
   totalUsers: number;
   signupsToday: number;
   proCount: number;
   bannedCount: number;
+  onlineNow: number;
+  receiptScansToday: number;
+  pendingSignups: number;
+  paymentsToday: number;
+  premiumUsers: number;
+  systemHealth: 'healthy' | 'degraded' | 'unknown';
+  revenue30Day: number;
+  revenue30DayNote: string;
+  flaggedAccounts: number;
+  supportTickets: number;
+  tierFree: number;
+  tierPro: number;
+  tierFamily: number;
+  totalReceiptScans: number;
+  completedParses: number;
+  completionRate: number;
+  shoppingListsCreated: number;
+  priceComparisonsRun: number;
+  totalProRevenuePotential: number;
+  dailySignups: DailyCount[];
+  dailyScans: DailyCount[];
+  cumulativeUsers: DailyCount[];
+  topUsers: AdminTopUser[];
+  churnRisk: AdminChurnUser[];
+  recentActivity: AdminAuditEvent[];
+  stripeConfigured: boolean;
+  resendConfigured: boolean;
 };
 
 export type AdminProfile = {
@@ -125,6 +180,13 @@ export async function unbanAdminUser(userId: string): Promise<void> {
 
 export async function deleteAdminUser(userId: string): Promise<void> {
   await adminFetch(`/api/admin/users/${userId}/delete`, { method: 'POST' });
+}
+
+export async function sendReEngagementEmail(userId: string): Promise<void> {
+  await adminFetch('/api/admin/re-engage', {
+    method: 'POST',
+    body: JSON.stringify({ userId }),
+  });
 }
 
 type SyncedProfile = Pick<AdminProfile, 'id' | 'role'>;
