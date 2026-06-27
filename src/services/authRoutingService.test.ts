@@ -47,15 +47,29 @@ describe('resolveInitialRoute', () => {
     assert.equal(result.reason, 'dashboard');
   });
 
-  it('routes returning guests to the dashboard home tab', () => {
+  it('routes returning guests to the dashboard home tab on native', () => {
     const result = resolveInitialRoute(
       ctx({
+        platform: 'native',
         storedUser: { id: 'guest-1', isGuest: true },
         hasSupabaseSession: false,
       })
     );
     assert.equal(result.href, '/(tabs)');
     assert.equal(result.reason, 'dashboard');
+  });
+
+  it('routes unauthenticated web visitors to onboarding even when onboarding flag is set', () => {
+    const result = resolveInitialRoute(
+      ctx({
+        platform: 'web',
+        onboardingComplete: true,
+        hasSupabaseSession: false,
+        storedUser: { id: 'guest-1', isGuest: true },
+      })
+    );
+    assert.equal(result.href, '/onboarding');
+    assert.equal(result.reason, 'onboarding_incomplete');
   });
 
   it('redirects expired auth users to sign-in with return path', () => {

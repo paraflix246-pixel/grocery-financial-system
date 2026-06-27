@@ -54,23 +54,40 @@ export function needsReauthentication(ctx: AuthRoutingContext): boolean {
 }
 
 export function resolveInitialRoute(ctx: AuthRoutingContext): InitialRouteResult {
-  if (!ctx.onboardingComplete && !ctx.hasSupabaseSession) {
-    return { href: '/onboarding', reason: 'onboarding_incomplete' };
+  if (ctx.hasSupabaseSession) {
+    if (needsReauthentication(ctx)) {
+      const reason: InitialRouteResult['reason'] = isIdleTimedOut(ctx)
+        ? 'idle_timeout'
+        : 'session_expired';
+      return {
+        href: '/onboarding/signin?returnTo=%2F(tabs)',
+        reason,
+        requiresSignOut: true,
+      };
+    }
+
+    if (ctx.isAdmin && ctx.platform === 'web') {
+      return { href: '/admin', reason: 'dashboard' };
+    }
+
+    return { href: '/(tabs)', reason: 'dashboard' };
   }
 
-  if (needsReauthentication(ctx)) {
-    const reason: InitialRouteResult['reason'] = isIdleTimedOut(ctx)
-      ? 'idle_timeout'
-      : 'session_expired';
+  // Signed-out account holders should re-authenticate, not replay onboarding slides.
+  if (ctx.storedUser && !ctx.storedUser.isGuest) {
     return {
       href: '/onboarding/signin?returnTo=%2F(tabs)',
-      reason,
-      requiresSignOut: ctx.hasSupabaseSession,
+      reason: 'session_expired',
     };
   }
 
-  if (ctx.isAdmin && ctx.platform === 'web') {
-    return { href: '/admin', reason: 'dashboard' };
+  // Web visitors without a session always land on onboarding (marketing entry point).
+  if (ctx.platform === 'web') {
+    return { href: '/onboarding', reason: 'onboarding_incomplete' };
+  }
+
+  if (!ctx.onboardingComplete) {
+    return { href: '/onboarding', reason: 'onboarding_incomplete' };
   }
 
   return { href: '/(tabs)', reason: 'dashboard' };

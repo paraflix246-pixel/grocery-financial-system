@@ -18,10 +18,18 @@ function baseContext(overrides: Partial<AuthRoutingContext> = {}): AuthRoutingCo
 }
 
 describe('resolveInitialRoute', () => {
-  it('routes web admins to /admin', () => {
+  it('routes web admins with session to /admin', () => {
     const result = resolveInitialRoute(baseContext({ isAdmin: true, platform: 'web' }));
     assert.equal(result.href, '/admin');
     assert.equal(result.reason, 'dashboard');
+  });
+
+  it('routes unsigned web admins to onboarding', () => {
+    const result = resolveInitialRoute(
+      baseContext({ isAdmin: true, platform: 'web', hasSupabaseSession: false, storedUser: null })
+    );
+    assert.equal(result.href, '/onboarding');
+    assert.equal(result.reason, 'onboarding_incomplete');
   });
 
   it('routes native admins to tabs', () => {
