@@ -47,6 +47,7 @@ function applyThemeTokens(theme: AppThemeTokens): void {
     text: theme.text,
     textSecondary: theme.textMuted,
     textMuted: theme.textMuted,
+    textOnPrimary: theme.primaryText,
     border: theme.border,
     badge: `${theme.primary}22`,
     badgeGreen: `${theme.primary}15`,

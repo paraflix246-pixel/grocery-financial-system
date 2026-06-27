@@ -11,7 +11,7 @@ function normalizeHex(hex: string): string {
   return raw.slice(0, 6);
 }
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
+export function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const n = parseInt(normalizeHex(hex), 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
@@ -68,4 +68,14 @@ export function getPromoIconBorder(theme: AppThemeTokens): string {
 
 export function getPromoGlowRing(theme: AppThemeTokens): string {
   return withAlpha(theme.primary, 0.18);
+}
+
+/** Body copy on primary-tinted promo / hero surfaces — always high-contrast neutral. */
+export function getPromoBodyText(theme: AppThemeTokens): string {
+  return theme.text;
+}
+
+/** Secondary copy on primary-tinted promo / hero surfaces. */
+export function getPromoMutedText(theme: AppThemeTokens): string {
+  return theme.textMuted;
 }

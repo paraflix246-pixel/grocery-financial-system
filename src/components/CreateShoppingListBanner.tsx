@@ -9,8 +9,10 @@ import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography 
 import {
   darken,
   getPromoBorder,
+  getPromoBodyText,
   getPromoGlowRing,
   getPromoIconBorder,
+  getPromoMutedText,
   getPromoSurfaceGradient,
 } from '@/src/theme/themeColorUtils';
 
@@ -48,6 +50,12 @@ export function CreateShoppingListBanner({ onPress, variant = 'home' }: Props) {
         borderColor: darken(theme.primary, 0.2),
         shadowColor: darken(theme.primary, 0.35),
       },
+      title: {
+        color: getPromoBodyText(theme),
+      },
+      subtitle: {
+        color: getPromoMutedText(theme),
+      },
     }),
     [theme]
   );
@@ -73,8 +81,8 @@ export function CreateShoppingListBanner({ onPress, variant = 'home' }: Props) {
             />
           </View>
           <View style={styles.copy}>
-            <Text style={styles.title}>Create your shopping list</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text style={[styles.title, themedStyles.title]}>Create your shopping list</Text>
+            <Text style={[styles.subtitle, themedStyles.subtitle]}>{subtitle}</Text>
             <View style={[styles.ctaPill, themedStyles.ctaPill]}>
               <SymbolView
                 name={{ ios: 'plus.circle.fill', android: 'add_circle', web: 'add_circle' }}
@@ -138,13 +146,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     lineHeight: 24,
-    color: SmartCartColors.text,
     ...SmartCartTypography.display,
   },
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
-    color: SmartCartColors.textSecondary,
     marginBottom: 4,
   },
   ctaPill: {

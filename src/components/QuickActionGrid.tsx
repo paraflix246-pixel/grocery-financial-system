@@ -12,7 +12,9 @@ import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
 import {
   getPromoBorder,
+  getPromoBodyText,
   getPromoIconBorder,
+  getPromoMutedText,
   getPromoSurfaceGradient,
 } from '@/src/theme/themeColorUtils';
 import { skipOpenLastListOnNextFocus } from '@/src/utils/listNavigationPrefs';
@@ -123,6 +125,12 @@ export function QuickActionGrid() {
       countBadge: {
         backgroundColor: theme.primary,
       },
+      label: {
+        color: getPromoBodyText(theme),
+      },
+      subtitle: {
+        color: getPromoMutedText(theme),
+      },
     }),
     [theme, promoBorder, promoIconBorder]
   );
@@ -158,8 +166,8 @@ export function QuickActionGrid() {
             />
           </View>
           <View style={styles.featuredCopy}>
-            <Text style={styles.featuredLabel}>{shoppingListsLabel}</Text>
-            <Text style={styles.featuredSubtitle} numberOfLines={2}>
+            <Text style={[styles.featuredLabel, featuredStyles.label]}>{shoppingListsLabel}</Text>
+            <Text style={[styles.featuredSubtitle, featuredStyles.subtitle]} numberOfLines={2}>
               {listsSubtitle}
             </Text>
           </View>
@@ -234,13 +242,11 @@ const styles = StyleSheet.create({
   featuredLabel: {
     fontSize: 17,
     lineHeight: 22,
-    color: SmartCartColors.text,
     ...SmartCartTypography.title,
   },
   featuredSubtitle: {
     fontSize: 12,
     lineHeight: 16,
-    color: SmartCartColors.textSecondary,
   },
   countBadge: {
     minWidth: 28,

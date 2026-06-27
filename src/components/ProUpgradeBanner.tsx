@@ -12,7 +12,7 @@ import { PRO_UPGRADE_HOOK } from '@/src/constants/proPricing';
 
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
-import { getPromoIconBorder, withAlpha } from '@/src/theme/themeColorUtils';
+import { getPromoBodyText, getPromoIconBorder, withAlpha } from '@/src/theme/themeColorUtils';
 
 type Props = {
   featureName?: string;
@@ -44,7 +44,7 @@ export function ProUpgradeBanner({
         backgroundColor: withAlpha(theme.primary, 0.12),
       },
       message: {
-        color: theme.primary,
+        color: getPromoBodyText(theme),
       },
     }),
     [theme]

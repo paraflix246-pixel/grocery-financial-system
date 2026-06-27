@@ -15,7 +15,8 @@ import type { AppThemeId, AppThemeTokens } from '@/src/theme/appThemes';
 import type { AppAvatarId, AppAvatarPreset } from '@/src/components/avatars/appAvatars';
 import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { setAppLocale, type AppLocale } from '@/src/i18n';
-import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
+import { SmartCartRadius } from '@/src/theme/smartCart';
+import { getFontReadabilityStyle, fontPairsWithTheme } from '@/src/theme/fontThemeUtils';
 
 const VISIBLE_FONT_COUNT = 3;
 const VISIBLE_AVATAR_COUNT = 4;
@@ -36,7 +37,9 @@ export function AppearanceSectionReset({ visible, onPress }: AppearanceSectionRe
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={t('settings.resetSection')}>
-      <Text style={styles.sectionResetText}>{t('settings.resetSection')}</Text>
+      <Text style={styles.sectionResetText} muted>
+        {t('settings.resetSection')}
+      </Text>
     </Pressable>
   );
 }
@@ -49,6 +52,7 @@ type LanguagePickerProps = {
 
 export function LanguagePicker({ compact = false, locale: controlledLocale, onLocaleChange }: LanguagePickerProps) {
   const { i18n, t } = useTranslation();
+  const { theme } = useAppTheme();
   const locale = controlledLocale ?? (i18n.language === 'es' ? 'es' : 'en');
 
   const setLocale = (next: AppLocale) => {
@@ -67,12 +71,18 @@ export function LanguagePicker({ compact = false, locale: controlledLocale, onLo
         return (
           <Pressable
             key={code}
-            style={[styles.chip, active && styles.chipActive]}
+            style={[
+              styles.chip,
+              { borderColor: theme.border, backgroundColor: theme.surface },
+              active && { borderColor: theme.primary, backgroundColor: `${theme.primary}18` },
+            ]}
             onPress={() => setLocale(code)}
             accessibilityRole="radio"
             accessibilityState={{ selected: active }}
             accessibilityLabel={code === 'en' ? t('common.english') : t('common.spanish')}>
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>
+            <Text
+              style={[styles.chipText, active && { color: theme.primary, fontWeight: '700' }]}
+              muted={!active}>
               {code === 'en' ? '🇺🇸 EN' : '🇪🇸 ES'}
             </Text>
           </Pressable>
@@ -92,7 +102,7 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
   const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < 420;
-  const { themeId: contextThemeId, setThemeId, themes } = useAppTheme();
+  const { theme, themeId: contextThemeId, setThemeId, themes } = useAppTheme();
   const themeId = controlledThemeId ?? contextThemeId;
   const { unlocked, requestAccess } = useFeatureGate('custom_themes');
 
@@ -111,14 +121,21 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
   return (
     <View style={styles.themeSection}>
       {!unlocked ? (
-        <Pressable style={styles.lockedBanner} onPress={() => router.push('/paywall' as never)}>
+        <Pressable
+          style={[
+            styles.lockedBanner,
+            { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}33` },
+          ]}
+          onPress={() => router.push('/paywall' as never)}>
           <SymbolView
             name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-            tintColor={SmartCartColors.primary}
+            tintColor={theme.primary}
             size={16}
           />
-          <Text style={styles.lockedText}>{t('settings.themeLocked')}</Text>
-          <Text style={styles.lockedLink}>{t('settings.themeLockedBtn')}</Text>
+          <Text style={styles.lockedText} muted>
+            {t('settings.themeLocked')}
+          </Text>
+          <Text style={[styles.lockedLink, { color: theme.primary }]}>{t('settings.themeLockedBtn')}</Text>
         </Pressable>
       ) : null}
 
@@ -131,6 +148,7 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
             locked={!unlocked}
             compact={compact}
             onPress={() => handleSelect(preset.id)}
+            activeTheme={theme}
           />
         ))}
       </View>
@@ -146,6 +164,7 @@ type FontPickerProps = {
 export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPickerProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { theme, themeId } = useAppTheme();
   const { fontId: contextFontId, setFontId, fonts } = useAppFont();
   const fontId = controlledFontId ?? contextFontId;
   const { unlocked, requestAccess } = useFeatureGate('custom_fonts');
@@ -175,14 +194,21 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
   return (
     <View style={styles.themeSection} accessibilityRole="radiogroup" accessibilityLabel={t('settings.font')}>
       {!unlocked ? (
-        <Pressable style={styles.lockedBanner} onPress={() => router.push('/paywall' as never)}>
+        <Pressable
+          style={[
+            styles.lockedBanner,
+            { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}33` },
+          ]}
+          onPress={() => router.push('/paywall' as never)}>
           <SymbolView
             name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-            tintColor={SmartCartColors.primary}
+            tintColor={theme.primary}
             size={16}
           />
-          <Text style={styles.lockedText}>{t('settings.fontLocked')}</Text>
-          <Text style={styles.lockedLink}>{t('settings.themeLockedBtn')}</Text>
+          <Text style={styles.lockedText} muted>
+            {t('settings.fontLocked')}
+          </Text>
+          <Text style={[styles.lockedLink, { color: theme.primary }]}>{t('settings.themeLockedBtn')}</Text>
         </Pressable>
       ) : null}
 
@@ -195,6 +221,8 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
             locked={preset.isPro && !unlocked}
             onPress={() => handleSelect(preset.id)}
             showProBadge={preset.isPro && !unlocked}
+            theme={theme}
+            themeId={themeId}
           />
         ))}
         {expanded
@@ -206,6 +234,8 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
                 locked={preset.isPro && !unlocked}
                 onPress={() => handleSelect(preset.id)}
                 showProBadge={preset.isPro && !unlocked}
+                theme={theme}
+                themeId={themeId}
               />
             ))
           : null}
@@ -216,6 +246,7 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
           expanded={expanded}
           label={expanded ? t('settings.showLess') : t('settings.showMoreFonts')}
           onPress={() => setExpanded((v) => !v)}
+          theme={theme}
         />
       ) : null}
     </View>
@@ -230,6 +261,7 @@ type AvatarPickerProps = {
 export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: AvatarPickerProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { theme } = useAppTheme();
   const { avatarId: contextAvatarId, setAvatarId, avatars } = useAvatar();
   const avatarId = controlledAvatarId ?? contextAvatarId;
   const { unlocked, requestAccess } = useFeatureGate('custom_avatars');
@@ -258,14 +290,21 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
   return (
     <View style={styles.themeSection}>
       {!unlocked ? (
-        <Pressable style={styles.lockedBanner} onPress={() => router.push('/paywall' as never)}>
+        <Pressable
+          style={[
+            styles.lockedBanner,
+            { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}33` },
+          ]}
+          onPress={() => router.push('/paywall' as never)}>
           <SymbolView
             name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-            tintColor={SmartCartColors.primary}
+            tintColor={theme.primary}
             size={16}
           />
-          <Text style={styles.lockedText}>{t('settings.avatarLocked')}</Text>
-          <Text style={styles.lockedLink}>{t('settings.themeLockedBtn')}</Text>
+          <Text style={styles.lockedText} muted>
+            {t('settings.avatarLocked')}
+          </Text>
+          <Text style={[styles.lockedLink, { color: theme.primary }]}>{t('settings.themeLockedBtn')}</Text>
         </Pressable>
       ) : null}
 
@@ -277,6 +316,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
             selected={avatarId === preset.id}
             locked={!unlocked}
             onPress={() => handleSelect(preset.id)}
+            theme={theme}
           />
         ))}
         {expanded
@@ -287,6 +327,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
                 selected={avatarId === preset.id}
                 locked={!unlocked}
                 onPress={() => handleSelect(preset.id)}
+                theme={theme}
               />
             ))
           : null}
@@ -297,6 +338,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
           expanded={expanded}
           label={expanded ? t('settings.showLess') : t('settings.showMoreAvatars')}
           onPress={() => setExpanded((v) => !v)}
+          theme={theme}
         />
       ) : null}
     </View>
@@ -307,26 +349,31 @@ function ShowMoreToggle({
   expanded,
   label,
   onPress,
+  theme,
 }: {
   expanded: boolean;
   label: string;
   onPress: () => void;
+  theme: AppThemeTokens;
 }) {
   return (
     <Pressable
-      style={styles.showMoreRow}
+      style={[
+        styles.showMoreRow,
+        { borderColor: theme.border, backgroundColor: theme.surface },
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityState={{ expanded }}
       accessibilityLabel={label}>
-      <Text style={styles.showMoreText}>{label}</Text>
+      <Text style={[styles.showMoreText, { color: theme.primary }]}>{label}</Text>
       <SymbolView
         name={{
           ios: expanded ? 'chevron.up' : 'chevron.down',
           android: expanded ? 'expand_less' : 'expand_more',
           web: expanded ? 'expand_less' : 'expand_more',
         }}
-        tintColor={SmartCartColors.primary}
+        tintColor={theme.primary}
         size={14}
       />
     </Pressable>
@@ -339,20 +386,30 @@ function FontOption({
   locked,
   onPress,
   showProBadge,
+  theme,
+  themeId,
 }: {
   preset: AppFontPreset;
   selected: boolean;
   locked: boolean;
   onPress: () => void;
   showProBadge: boolean;
+  theme: AppThemeTokens;
+  themeId: AppThemeId;
 }) {
   const { t } = useTranslation();
+  const pairsWell = fontPairsWithTheme(preset.id, themeId);
+  const readability = getFontReadabilityStyle(preset.id, theme);
 
   return (
     <Pressable
       style={[
         styles.fontCard,
-        selected && !locked && [styles.fontCardSelected, { borderColor: SmartCartColors.primary }],
+        { borderColor: theme.border, backgroundColor: theme.background },
+        selected && !locked && {
+          borderColor: theme.primary,
+          backgroundColor: `${theme.primary}0D`,
+        },
         locked && styles.swatchLocked,
       ]}
       onPress={onPress}
@@ -365,8 +422,9 @@ function FontOption({
         <Text
           style={[
             styles.fontSample,
+            readability,
             preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
-            selected && !locked && { color: SmartCartColors.primary },
+            selected && !locked ? { color: theme.primary } : undefined,
           ]}
           numberOfLines={1}>
           {t(preset.sampleKey)}
@@ -381,9 +439,10 @@ function FontOption({
           </View>
         ) : null}
       </View>
-      <Text style={styles.fontName} numberOfLines={1}>
+      <Text style={styles.fontName} muted numberOfLines={1}>
         {t(preset.nameKey)}
         {showProBadge ? ` · Pro` : ''}
+        {!pairsWell && !locked ? ' ✦' : ''}
       </Text>
     </Pressable>
   );
@@ -394,17 +453,26 @@ function AvatarOption({
   selected,
   locked,
   onPress,
+  theme,
 }: {
   preset: AppAvatarPreset;
   selected: boolean;
   locked: boolean;
   onPress: () => void;
+  theme: AppThemeTokens;
 }) {
   const { t } = useTranslation();
 
   return (
     <Pressable
-      style={[styles.avatarCell, selected && !locked && styles.avatarCellSelected, locked && styles.swatchLocked]}
+      style={[
+        styles.avatarCell,
+        selected && !locked && {
+          borderColor: theme.primary,
+          backgroundColor: `${theme.primary}0D`,
+        },
+        locked && styles.swatchLocked,
+      ]}
       onPress={onPress}
       accessibilityRole="radio"
       accessibilityState={{ selected, disabled: locked }}
@@ -423,7 +491,7 @@ function AvatarOption({
           </View>
         ) : null}
       </View>
-      <Text style={styles.avatarName} numberOfLines={1}>
+      <Text style={styles.avatarName} muted numberOfLines={1}>
         {t(preset.nameKey)}
       </Text>
     </Pressable>
@@ -436,12 +504,14 @@ function ThemeSwatch({
   locked,
   compact,
   onPress,
+  activeTheme,
 }: {
   preset: AppThemeTokens;
   selected: boolean;
   locked: boolean;
   compact: boolean;
   onPress: () => void;
+  activeTheme: AppThemeTokens;
 }) {
   const { t } = useTranslation();
 
@@ -450,7 +520,11 @@ function ThemeSwatch({
       style={[
         styles.swatchCard,
         compact && styles.swatchCardCompact,
-        selected && [styles.swatchCardSelected, { borderColor: preset.primary, backgroundColor: `${preset.primary}0D` }],
+        {
+          borderColor: activeTheme.border,
+          backgroundColor: activeTheme.background,
+        },
+        selected && { borderColor: preset.primary, backgroundColor: `${preset.primary}0D` },
         locked && styles.swatchLocked,
       ]}
       onPress={onPress}
@@ -481,7 +555,7 @@ function ThemeSwatch({
       <Text style={styles.swatchName} numberOfLines={1}>
         {t(preset.nameKey)}
       </Text>
-      <Text style={[styles.swatchDesc, compact && styles.swatchDescCompact]}>
+      <Text style={[styles.swatchDesc, compact && styles.swatchDescCompact]} muted>
         {t(preset.descriptionKey)}
       </Text>
     </Pressable>
@@ -501,21 +575,10 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: SmartCartRadius.pill,
     borderWidth: 1.5,
-    borderColor: SmartCartColors.border,
-    backgroundColor: SmartCartColors.card,
-  },
-  chipActive: {
-    borderColor: SmartCartColors.primary,
-    backgroundColor: `${SmartCartColors.primary}18`,
   },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: SmartCartColors.textSecondary,
-  },
-  chipTextActive: {
-    color: SmartCartColors.primary,
-    fontWeight: '700',
   },
   themeSection: { gap: 12 },
   lockedBanner: {
@@ -525,20 +588,16 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 12,
     borderRadius: SmartCartRadius.sm,
-    backgroundColor: `${SmartCartColors.primary}12`,
     borderWidth: 1,
-    borderColor: `${SmartCartColors.primary}33`,
   },
   lockedText: {
     flex: 1,
     fontSize: 13,
-    color: SmartCartColors.textSecondary,
     minWidth: 120,
   },
   lockedLink: {
     fontSize: 13,
     fontWeight: '700',
-    color: SmartCartColors.primary,
   },
   swatches: {
     flexDirection: 'row',
@@ -552,8 +611,6 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: SmartCartRadius.md,
     borderWidth: 1.5,
-    borderColor: SmartCartColors.border,
-    backgroundColor: SmartCartColors.background,
   },
   swatchCardCompact: {
     width: '48%',
@@ -594,13 +651,11 @@ const styles = StyleSheet.create({
   swatchName: {
     fontSize: 13,
     fontWeight: '700',
-    color: SmartCartColors.text,
     marginBottom: 2,
   },
   swatchDesc: {
     fontSize: 11,
     lineHeight: 15,
-    color: SmartCartColors.textMuted,
   },
   swatchDescCompact: {
     fontSize: 10,
@@ -614,11 +669,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: SmartCartRadius.sm,
     borderWidth: 1.5,
-    borderColor: SmartCartColors.border,
-    backgroundColor: SmartCartColors.background,
-  },
-  fontCardSelected: {
-    backgroundColor: `${SmartCartColors.primary}0D`,
   },
   fontSampleWrap: {
     flex: 1,
@@ -637,11 +687,9 @@ const styles = StyleSheet.create({
   fontSample: {
     fontSize: 16,
     fontWeight: '600',
-    color: SmartCartColors.text,
   },
   fontName: {
     fontSize: 11,
-    color: SmartCartColors.textMuted,
     maxWidth: 72,
   },
   avatarGrid: {
@@ -659,14 +707,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
-  avatarCellSelected: {
-    borderColor: SmartCartColors.primary,
-    backgroundColor: `${SmartCartColors.primary}0D`,
-  },
   avatarName: {
     fontSize: 10,
     fontWeight: '600',
-    color: SmartCartColors.textMuted,
     textAlign: 'center',
   },
   showMoreRow: {
@@ -677,13 +720,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: SmartCartRadius.sm,
     borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    backgroundColor: SmartCartColors.card,
   },
   showMoreText: {
     fontSize: 13,
     fontWeight: '600',
-    color: SmartCartColors.primary,
   },
   avatarBadgeWrap: {
     position: 'relative',
@@ -707,6 +747,5 @@ const styles = StyleSheet.create({
   sectionResetText: {
     fontSize: 12,
     fontWeight: '600',
-    color: SmartCartColors.textMuted,
   },
 });

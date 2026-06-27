@@ -179,7 +179,9 @@ export default function HomeScreen() {
 
       <View style={styles.greetingBlock}>
         <Text style={styles.greeting}>{greetingText}</Text>
-        <Text style={styles.greetingSub}>{t('home.greetingSub')}</Text>
+        <Text style={styles.greetingSub} muted>
+          {t('home.greetingSub')}
+        </Text>
       </View>
 
       {subscriptionTier === 'free' ? (
@@ -288,7 +290,9 @@ export default function HomeScreen() {
             <Text style={styles.sectionTitle}>{t('home.spendingOverview')}</Text>
             <SpendingPeriodSelector period={spendingPeriod} onPeriodChange={setSpendingPeriod} />
           </View>
-          <Text style={styles.sectionSubtitle}>{t('home.spendingOverviewSub')}</Text>
+          <Text style={styles.sectionSubtitle} muted>
+            {t('home.spendingOverviewSub')}
+          </Text>
           <DonutChart data={categoryData} />
         </View>
         {underBudget > 0 && weeklySpend > 0 && (
@@ -335,8 +339,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: 'transparent' },
   content: { paddingHorizontal: 16 },
   greetingBlock: { marginBottom: 16 },
-  greeting: { fontSize: 24, fontWeight: '800', color: SmartCartColors.text, letterSpacing: -0.5 },
-  greetingSub: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4 },
+  greeting: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5 },
+  greetingSub: { fontSize: 14, marginTop: 4 },
   insightRow: { gap: 10, marginBottom: 20, width: '100%' },
   insightRowWide: { flexDirection: 'row', alignItems: 'flex-start', flexWrap: 'wrap' },
   analyticsRow: { gap: 16, marginBottom: 16 },
@@ -349,7 +353,7 @@ const styles = StyleSheet.create({
     padding: 16,
     ...SmartCartShadow.card,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text },
+  sectionTitle: { fontSize: 17, fontWeight: '700' },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -357,7 +361,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 4,
   },
-  sectionSubtitle: { fontSize: 12, color: SmartCartColors.textSecondary, marginBottom: 12 },
+  sectionSubtitle: { fontSize: 12, marginBottom: 12 },
   dashboardRow: { gap: 12, marginBottom: 16, width: '100%' },
   dashboardRowWide: { flexDirection: 'row', alignItems: 'flex-start' },
   dashboardCol: { width: '100%', minWidth: 0, alignSelf: 'stretch', flexShrink: 0 },

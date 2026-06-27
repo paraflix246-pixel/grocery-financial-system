@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { Text } from '@/components/Themed';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
-import { getPromoIconBorder, withAlpha } from '@/src/theme/themeColorUtils';
+import { getPromoBodyText, getPromoIconBorder, withAlpha } from '@/src/theme/themeColorUtils';
 
 type Props = {
   message: string;
@@ -23,7 +23,7 @@ export function StatusBanner({ message, emoji = '🌱', variant = 'success' }: P
         borderColor: getPromoIconBorder(theme),
       },
       message: {
-        color: theme.primary,
+        color: getPromoBodyText(theme),
       },
     }),
     [theme]
