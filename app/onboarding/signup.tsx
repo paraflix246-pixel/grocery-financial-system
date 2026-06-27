@@ -18,7 +18,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { signUpWithEmail, continueAsGuest, signInWithGoogle } from '@/src/services/authService';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import {
+  OnboardingColors,
+  OnboardingPrimaryCta,
+  OnboardingPrimaryCtaText,
+} from '@/src/theme/onboardingTheme';
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -327,12 +331,10 @@ const styles = StyleSheet.create({
     borderColor: OnboardingColors.green,
   },
   ctaBtn: {
-    backgroundColor: OnboardingColors.green,
-    borderRadius: 999,
-    paddingVertical: 17,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
+    ...OnboardingPrimaryCta,
   },
   ctaBtnDisabled: {
     opacity: 0.5,
@@ -341,10 +343,7 @@ const styles = StyleSheet.create({
     opacity: 0.88,
   },
   ctaBtnText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-    letterSpacing: 0.1,
+    ...OnboardingPrimaryCtaText,
   },
   divider: {
     flexDirection: 'row',

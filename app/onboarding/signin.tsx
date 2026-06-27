@@ -25,7 +25,11 @@ import {
 } from '@/src/services/authRoutingService';
 import { resolvePostOAuthRoute } from '@/src/services/postAuthRoutingLogic';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import {
+  OnboardingColors,
+  OnboardingPrimaryCta,
+  OnboardingPrimaryCtaText,
+} from '@/src/theme/onboardingTheme';
 
 export default function SigninScreen() {
   const { t } = useTranslation();
@@ -331,16 +335,15 @@ export default function SigninScreen() {
           <Text style={styles.ghostBtnText}>{t('auth.signin.guest')}</Text>
         </Pressable>
 
-        {/* Create account link */}
+        {/* Create account CTA for new users */}
+        <Text style={styles.newHereLabel}>{t('auth.signin.newHere')}</Text>
         <Pressable
           onPress={handleCreateAccount}
-          style={styles.createLink}
+          style={({ pressed }) => [styles.createAccountBtn, pressed && styles.createAccountBtnPressed]}
           accessibilityRole="button"
+          accessibilityLabel={t('auth.signin.createAccount')}
         >
-          <Text style={styles.createLinkText}>
-            {t('auth.signin.newHere')}{' '}
-            <Text style={styles.createHighlight}>{t('auth.signin.createAccount')}</Text>
-          </Text>
+          <Text style={styles.createAccountBtnText}>{t('auth.signin.createAccount')}</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -498,18 +501,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  createLink: {
-    alignItems: 'center',
-    paddingVertical: 16,
-    marginTop: 8,
-  },
-  createLinkText: {
+  newHereLabel: {
     color: OnboardingColors.textMuted,
     fontSize: 14,
+    textAlign: 'center',
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  createAccountBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...OnboardingPrimaryCta,
+  },
+  createAccountBtnPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.985 }],
+  },
+  createAccountBtnText: {
+    ...OnboardingPrimaryCtaText,
   },
   createHighlight: {
-    color: OnboardingColors.green,
-    fontWeight: '600',
+    color: OnboardingColors.greenDark,
+    fontWeight: '700',
   },
   googleBtn: {
     flexDirection: 'row',

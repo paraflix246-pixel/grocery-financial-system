@@ -1,4 +1,4 @@
-import { SmartCartColors } from '@/src/theme/smartCart';
+import { SmartCartColors, SmartCartShadow } from '@/src/theme/smartCart';
 
 export const OnboardingColors = {
   background: '#FFFFFF',
@@ -6,9 +6,30 @@ export const OnboardingColors = {
   textMuted: SmartCartColors.textSecondary,
   textLight: SmartCartColors.textMuted,
   green: SmartCartColors.primary,
+  greenDark: SmartCartColors.primaryDark,
+  greenBorder: '#15803D',
   border: SmartCartColors.border,
   card: SmartCartColors.card,
 };
+
+/** Shared primary signup CTA — darker green, 52px+ tap target, subtle shadow. */
+export const OnboardingPrimaryCta = {
+  backgroundColor: SmartCartColors.primaryDark,
+  borderRadius: 999,
+  minHeight: 52,
+  paddingVertical: 18,
+  paddingHorizontal: 24,
+  borderWidth: 2,
+  borderColor: '#15803D',
+  ...SmartCartShadow.fab,
+} as const;
+
+export const OnboardingPrimaryCtaText = {
+  color: '#FFFFFF',
+  fontSize: 18,
+  fontWeight: '800' as const,
+  letterSpacing: 0.2,
+} as const;
 
 export type OnboardingSlideAccent = {
   iconBg: string;
