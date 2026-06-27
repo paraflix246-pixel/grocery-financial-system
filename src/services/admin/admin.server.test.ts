@@ -42,4 +42,28 @@ describe('resolveAuthUserEmail', () => {
     } as User;
     assert.equal(resolveAuthUserEmail(withMetadataEmail), 'meta@example.com');
   });
+
+  it('falls back to OAuth identity email when auth email is missing', () => {
+    const googleUser = {
+      email: null,
+      user_metadata: {},
+      identities: [
+        {
+          provider: 'google',
+          identity_data: { email: 'Pennypantry02@Gmail.com' },
+        },
+      ],
+    } as User;
+    assert.equal(resolveAuthUserEmail(googleUser), 'pennypantry02@gmail.com');
+  });
+
+  it('promotes pennypantry02 regardless of email casing', () => {
+    process.env.ADMIN_EMAILS = 'pennypantry02@gmail.com';
+    assert.equal(resolveProfileRole('Pennypantry02@Gmail.com'), 'admin');
+    const googleUser = {
+      email: null,
+      identities: [{ provider: 'google', identity_data: { email: 'PENNYPANTRY02@gmail.com' } }],
+    } as User;
+    assert.equal(resolveProfileRole(resolveAuthUserEmail(googleUser)), 'admin');
+  });
 });

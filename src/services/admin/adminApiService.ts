@@ -215,7 +215,9 @@ export async function syncUserProfile(): Promise<SyncedProfile | null> {
   }
 }
 
-export async function verifyAdminAccess(): Promise<'ok' | 'unauthorized' | 'forbidden' | 'unavailable'> {
+export async function verifyAdminAccess(): Promise<
+  'ok' | 'unauthorized' | 'forbidden' | 'unavailable' | 'server_error'
+> {
   try {
     await fetchAdminStats();
     return 'ok';
@@ -224,6 +226,7 @@ export async function verifyAdminAccess(): Promise<'ok' | 'unauthorized' | 'forb
     if (status === 401) return 'unauthorized';
     if (status === 403) return 'forbidden';
     if (status === 503) return 'unavailable';
+    if (status === 502) return 'server_error';
     return 'forbidden';
   }
 }

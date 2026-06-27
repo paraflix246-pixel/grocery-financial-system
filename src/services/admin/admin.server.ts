@@ -47,13 +47,22 @@ function parseAdminEmails(): Set<string> {
   );
 }
 
+function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim().toLowerCase();
+  return normalized.length > 0 ? normalized : null;
+}
+
 export function resolveAuthUserEmail(user: User): string | null {
-  const direct = user.email?.trim().toLowerCase();
+  const direct = normalizeEmail(user.email);
   if (direct) return direct;
 
-  const metaEmail = user.user_metadata?.email;
-  if (typeof metaEmail === 'string' && metaEmail.trim()) {
-    return metaEmail.trim().toLowerCase();
+  const metaEmail = normalizeEmail(user.user_metadata?.email);
+  if (metaEmail) return metaEmail;
+
+  for (const identity of user.identities ?? []) {
+    const identityEmail = normalizeEmail(identity.identity_data?.email);
+    if (identityEmail) return identityEmail;
   }
 
   return null;
@@ -65,6 +74,12 @@ export function resolveProfileRole(email: string | null | undefined): 'user' | '
 }
 
 export function adminNotConfiguredResponse(): Response {
+  const missing: string[] = [];
+  if (!process.env.EXPO_PUBLIC_SUPABASE_URL?.trim()) missing.push('EXPO_PUBLIC_SUPABASE_URL');
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  if (missing.length > 0) {
+    console.warn('[admin] not configured — missing env:', missing.join(', '));
+  }
   return Response.json({ error: 'Admin system is not configured on the server.' }, { status: 503 });
 }
 

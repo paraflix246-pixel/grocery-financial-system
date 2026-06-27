@@ -37,6 +37,8 @@ export default function AdminLayout() {
         setMessage('Sign in with an admin account to continue.');
       } else if (result === 'unavailable') {
         setMessage('Admin system is not configured on the server.');
+      } else if (result === 'server_error') {
+        setMessage('Admin dashboard is temporarily unavailable. Try again in a moment.');
       } else {
         setMessage('You do not have permission to access the admin dashboard.');
       }
