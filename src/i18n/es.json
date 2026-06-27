@@ -374,7 +374,7 @@
   "paywall": {
     "title": "Elige tu plan",
     "headline": "Ahorra en cada compra.",
-    "subhead": "Sigue precios, detecta bajadas y ve a dónde va tu dinero.",
+    "subhead": "Escaneos, alertas de precio y personalización Pro — elige tu plan.",
     "proBadge": "Más popular",
     "proShimmer": "Pro",
     "outcomeTitle": "Lo que Pro desbloquea",
@@ -395,6 +395,7 @@
     },
     "proLead": "Todo lo Gratis, más:",
     "freePlan": "Gratis",
+    "freeTagline": "Empieza gratis",
     "proPlan": "Pro",
     "forever": "para siempre",
     "perMonth": "/mes",
@@ -413,8 +414,7 @@
     "familySubscribe": "Suscribirse a Familiar",
     "subscribeFamilyPrice": "Suscribirse a Familiar — {{price}}",
     "familyJoin": "Crear o unirse a un hogar",
-    "customThemesLine": "6 temas personalizados",
-    "householdThemesLine": "Temas Pro personales + sync familiar",
+    "familyLead": "Todo lo de Pro, más:",
     "billingDisclaimer": {
       "stripe": "Pago seguro con Stripe. Administra o cancela en ajustes de suscripción.",
       "revenuecat": "Las suscripciones se facturan en App Store o Google Play. Adminístralas en ajustes del dispositivo.",
@@ -454,8 +454,19 @@
         "unlimitedPantry": "Despensa ilimitada",
         "adFree": "Sin anuncios (cuando Free los muestra)",
         "customThemes": "Temas y colores personalizados",
+        "customThemesDetail": "{{count}} temas personalizados, incl. {{samples}} y más",
         "customFonts": "Fuentes personalizadas",
-        "customAvatars": "Avatares personalizados"
+        "customFontsDetail": "{{count}} fuentes premium — {{samples}} y más",
+        "customAvatars": "Avatares personalizados",
+        "customAvatarsDetail": "{{count}} avatares animados para tu perfil"
+      },
+      "family": {
+        "allProFeatures": "Todas las funciones Pro para cada miembro",
+        "sharedLists": "Listas de compras compartidas para tu hogar",
+        "liveSync": "Sincronización en vivo entre teléfonos",
+        "inviteFree": "Invita miembros gratis — sin Pro",
+        "householdReceipts": "Guarda recibos en el espacio del hogar",
+        "onePayer": "Una suscripción cubre todo el hogar"
       },
       "groups": {
         "receiptsPrices": "Recibos y precios",

@@ -374,7 +374,7 @@
   "paywall": {
     "title": "Choose your plan",
     "headline": "Save money every time you shop.",
-    "subhead": "Track prices, catch drops, and see where your money actually goes.",
+    "subhead": "Receipt scans, price alerts, and Pro personalization — pick the plan that fits.",
     "proBadge": "Most popular",
     "proShimmer": "Pro",
     "outcomeTitle": "What Pro unlocks for you",
@@ -395,6 +395,7 @@
     },
     "proLead": "Everything Free, plus:",
     "freePlan": "Free",
+    "freeTagline": "Get started free",
     "proPlan": "Pro",
     "forever": "forever",
     "perMonth": "/month",
@@ -413,8 +414,7 @@
     "familySubscribe": "Subscribe to Family",
     "subscribeFamilyPrice": "Subscribe to Family — {{price}}",
     "familyJoin": "Create or join a household",
-    "customThemesLine": "6 custom themes",
-    "householdThemesLine": "Personal Pro themes + household sync",
+    "familyLead": "Everything in Pro, plus:",
     "billingDisclaimer": {
       "stripe": "Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.",
       "revenuecat": "Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.",
@@ -454,8 +454,19 @@
         "unlimitedPantry": "Unlimited pantry tracking",
         "adFree": "Ad-free experience (when ads are shown on Free)",
         "customThemes": "Custom app themes & colors",
+        "customThemesDetail": "{{count}} custom themes including {{samples}} & more",
         "customFonts": "Custom fonts",
-        "customAvatars": "Custom avatars"
+        "customFontsDetail": "{{count}} premium fonts — {{samples}} & more",
+        "customAvatars": "Custom avatars",
+        "customAvatarsDetail": "{{count}} animated avatars for your profile"
+      },
+      "family": {
+        "allProFeatures": "All Pro features for every household member",
+        "sharedLists": "Shared shopping lists for your household",
+        "liveSync": "Live multi-user sync across phones",
+        "inviteFree": "Invite members free — no Pro required",
+        "householdReceipts": "Save receipts to your household workspace",
+        "onePayer": "One subscription covers your whole household"
       },
       "groups": {
         "receiptsPrices": "Receipts & prices",
