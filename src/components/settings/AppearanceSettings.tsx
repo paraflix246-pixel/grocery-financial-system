@@ -136,7 +136,7 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
   };
 
   return (
-    <View style={styles.themeSection}>
+    <View style={styles.themeSection} accessibilityRole="radiogroup" accessibilityLabel={t('settings.font')}>
       {!unlocked ? (
         <Pressable style={styles.lockedBanner} onPress={() => router.push('/paywall' as never)}>
           <SymbolView
@@ -158,31 +158,41 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
               key={preset.id}
               style={[
                 styles.fontCard,
-                selected && [styles.fontCardSelected, { borderColor: SmartCartColors.primary }],
+                selected && !locked && [styles.fontCardSelected, { borderColor: SmartCartColors.primary }],
                 locked && styles.swatchLocked,
               ]}
               onPress={() => handleSelect(preset.id)}
               accessibilityRole="radio"
-              accessibilityState={{ selected }}>
-              <Text
-                style={[
-                  styles.fontSample,
-                  preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
-                  selected && { color: SmartCartColors.primary },
-                ]}
-                numberOfLines={1}>
-                {t(preset.sampleKey)}
-              </Text>
+              accessibilityState={{ selected, disabled: locked }}
+              accessibilityLabel={
+                locked
+                  ? `${t(preset.nameKey)} — ${t('settings.fontLocked')}`
+                  : t(preset.nameKey)
+              }>
+              <View style={styles.fontSampleWrap}>
+                <Text
+                  style={[
+                    styles.fontSample,
+                    preset.fontFamily ? { fontFamily: preset.fontFamily } : undefined,
+                    selected && !locked && { color: SmartCartColors.primary },
+                  ]}
+                  numberOfLines={1}>
+                  {t(preset.sampleKey)}
+                </Text>
+                {locked ? (
+                  <View style={styles.fontLockOverlay}>
+                    <SymbolView
+                      name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
+                      tintColor="rgba(255,255,255,0.92)"
+                      size={12}
+                    />
+                  </View>
+                ) : null}
+              </View>
               <Text style={styles.fontName} numberOfLines={1}>
                 {t(preset.nameKey)}
+                {preset.isPro && !unlocked ? ` · Pro` : ''}
               </Text>
-              {locked ? (
-                <SymbolView
-                  name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-                  tintColor={SmartCartColors.textMuted}
-                  size={12}
-                />
-              ) : null}
             </Pressable>
           );
         })}
@@ -424,8 +434,21 @@ const styles = StyleSheet.create({
   fontCardSelected: {
     backgroundColor: `${SmartCartColors.primary}0D`,
   },
-  fontSample: {
+  fontSampleWrap: {
     flex: 1,
+    position: 'relative',
+    minHeight: 22,
+    justifyContent: 'center',
+  },
+  fontLockOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderRadius: SmartCartRadius.sm - 4,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 8,
+  },
+  fontSample: {
     fontSize: 16,
     fontWeight: '600',
     color: SmartCartColors.text,

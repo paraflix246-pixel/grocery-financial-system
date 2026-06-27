@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
@@ -74,6 +74,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const {
+    theme,
     themeId: persistedThemeId,
     ready: themeReady,
     previewTheme,
@@ -110,7 +111,6 @@ export default function SettingsScreen() {
   const [draftAvatarId, setDraftAvatarId] = useState<AppAvatarId | null>(null);
   const [savedLocale, setSavedLocale] = useState<AppLocale | null>(null);
   const [draftLocale, setDraftLocale] = useState<AppLocale | null>(null);
-  const appearanceInitialized = useRef(false);
   const allowLeaveRef = useRef(false);
   const [devResetting, setDevResetting] = useState(false);
   const [devTierSwitching, setDevTierSwitching] = useState(false);
@@ -155,18 +155,29 @@ export default function SettingsScreen() {
   }, [load]);
 
   useEffect(() => {
-    if (!themeReady || !fontReady || !avatarReady || appearanceInitialized.current) return;
-    appearanceInitialized.current = true;
+    if (savedLocale !== null) return;
     const locale: AppLocale = i18n.language === 'es' ? 'es' : 'en';
-    setSavedThemeId(persistedThemeId);
-    setDraftThemeId(persistedThemeId);
-    setSavedFontId(persistedFontId);
-    setDraftFontId(persistedFontId);
-    setSavedAvatarId(persistedAvatarId);
-    setDraftAvatarId(persistedAvatarId);
     setSavedLocale(locale);
     setDraftLocale(locale);
-  }, [themeReady, fontReady, avatarReady, persistedThemeId, persistedFontId, persistedAvatarId]);
+  }, [savedLocale]);
+
+  useEffect(() => {
+    if (!themeReady || savedThemeId !== null) return;
+    setSavedThemeId(persistedThemeId);
+    setDraftThemeId(persistedThemeId);
+  }, [themeReady, persistedThemeId, savedThemeId]);
+
+  useEffect(() => {
+    if (!fontReady || savedFontId !== null) return;
+    setSavedFontId(persistedFontId);
+    setDraftFontId(persistedFontId);
+  }, [fontReady, persistedFontId, savedFontId]);
+
+  useEffect(() => {
+    if (!avatarReady || savedAvatarId !== null) return;
+    setSavedAvatarId(persistedAvatarId);
+    setDraftAvatarId(persistedAvatarId);
+  }, [avatarReady, persistedAvatarId, savedAvatarId]);
 
   const appearanceDirty =
     savedThemeId !== null &&
@@ -215,16 +226,16 @@ export default function SettingsScreen() {
 
   const handleDraftThemeSelect = useCallback(
     (id: AppThemeId) => {
-      setDraftThemeId(id);
       previewTheme(id);
+      setDraftThemeId(id);
     },
     [previewTheme],
   );
 
   const handleDraftFontSelect = useCallback(
     (id: AppFontId) => {
-      setDraftFontId(id);
       previewFont(id);
+      setDraftFontId(id);
     },
     [previewFont],
   );
@@ -352,6 +363,18 @@ export default function SettingsScreen() {
     }
   };
 
+  const appearanceCardStyle = useMemo(
+    () => [
+      styles.card,
+      {
+        backgroundColor: theme.surface,
+        borderColor: theme.border,
+        borderWidth: StyleSheet.hairlineWidth,
+      },
+    ],
+    [theme],
+  );
+
   const handleSave = async () => {
     setSaving(true);
     setSaveMessage(null);
@@ -395,7 +418,8 @@ export default function SettingsScreen() {
           <Text
             style={[
               styles.saveLink,
-              appearanceDirty && styles.saveLinkActive,
+              { color: theme.primary },
+              appearanceDirty && [styles.saveLinkActive, { color: theme.primary }],
               saving && styles.saveLinkDisabled,
             ]}>
             {saving ? '...' : saveMessage ?? t('common.save')}
@@ -435,30 +459,34 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>{t('settings.appearance')}</Text>
-        <View style={styles.card}>
+        <View style={appearanceCardStyle}>
           <Text style={styles.fieldLabel}>{t('settings.theme')}</Text>
           <Text style={styles.fieldHint}>{t('settings.themeHint')}</Text>
-          {draftThemeId ? (
-            <ThemePicker themeId={draftThemeId} onThemeSelect={handleDraftThemeSelect} />
-          ) : null}
+          <ThemePicker
+            themeId={draftThemeId ?? persistedThemeId}
+            onThemeSelect={handleDraftThemeSelect}
+          />
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('settings.font')}</Text>
           <Text style={styles.fieldHint}>{t('settings.fontHint')}</Text>
-          {draftFontId ? (
-            <FontPicker fontId={draftFontId} onFontSelect={handleDraftFontSelect} />
-          ) : null}
+          <FontPicker
+            fontId={draftFontId ?? persistedFontId}
+            onFontSelect={handleDraftFontSelect}
+          />
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('settings.avatar')}</Text>
           <Text style={styles.fieldHint}>{t('settings.avatarHint')}</Text>
-          {draftAvatarId ? (
-            <AvatarPicker avatarId={draftAvatarId} onAvatarSelect={handleDraftAvatarSelect} />
-          ) : null}
+          <AvatarPicker
+            avatarId={draftAvatarId ?? persistedAvatarId}
+            onAvatarSelect={handleDraftAvatarSelect}
+          />
           <View style={styles.divider} />
           <Text style={styles.fieldLabel}>{t('common.language')}</Text>
           <Text style={styles.fieldHint}>{t('settings.languageHint')}</Text>
-          {draftLocale ? (
-            <LanguagePicker locale={draftLocale} onLocaleChange={handleDraftLocaleSelect} />
-          ) : null}
+          <LanguagePicker
+            locale={draftLocale ?? (i18n.language === 'es' ? 'es' : 'en')}
+            onLocaleChange={handleDraftLocaleSelect}
+          />
         </View>
 
         <Text style={styles.sectionTitle}>{t('settings.notifications')}</Text>
@@ -778,7 +806,7 @@ const styles = StyleSheet.create({
   saveLinkActive: { color: SmartCartColors.primaryDark },
   saveLinkDisabled: { opacity: 0.5 },
   unsavedHint: { fontSize: 11, fontWeight: '600', color: SmartCartColors.primary, marginTop: 2 },
-  content: { padding: 16, paddingBottom: 40 },
+  content: { padding: 16, paddingBottom: 64 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12, marginTop: 8 },
   card: {
     backgroundColor: SmartCartColors.card,

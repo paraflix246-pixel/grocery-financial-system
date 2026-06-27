@@ -99,14 +99,17 @@ export function AppThemeProvider({
   }, [initialThemeId]);
 
   const previewTheme = useCallback((id: AppThemeId) => {
+    applyThemeTokens(getAppTheme(id));
     setThemeIdState(id);
   }, []);
 
   const revertTheme = useCallback(() => {
+    applyThemeTokens(getAppTheme(savedThemeId));
     setThemeIdState(savedThemeId);
   }, [savedThemeId]);
 
   const setThemeId = useCallback(async (id: AppThemeId) => {
+    applyThemeTokens(getAppTheme(id));
     setThemeIdState(id);
     setSavedThemeId(id);
     await persistThemeId(id);
