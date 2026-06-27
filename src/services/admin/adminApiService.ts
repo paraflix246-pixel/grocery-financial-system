@@ -189,6 +189,231 @@ export async function sendReEngagementEmail(userId: string): Promise<void> {
   });
 }
 
+export type AdminHealthReport = {
+  overall: 'healthy' | 'degraded' | 'down' | 'unknown';
+  checks: Array<{
+    key: string;
+    label: string;
+    status: 'healthy' | 'degraded' | 'down' | 'unknown';
+    detail: string;
+    latencyMs?: number;
+  }>;
+  errorRate24h: number;
+  errors24h: number;
+  events24h: number;
+  lastDeployAt: string | null;
+  deployCommit: string | null;
+  deployEnv: string | null;
+};
+
+export type AdminMessage = {
+  id: string;
+  title: string;
+  body: string;
+  audience: string;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  expires_at: string | null;
+};
+
+export type EmailLogEntry = {
+  id: string;
+  user_id: string | null;
+  email: string | null;
+  email_type: string;
+  status: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AdminPaymentRow = {
+  id: string;
+  product: 'pro' | 'family';
+  userId: string | null;
+  email: string | null;
+  plan: string | null;
+  status: string;
+  amountMonthly: number;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  currentPeriodEnd: string | null;
+  createdAt: string;
+  cancelAtPeriodEnd: boolean;
+};
+
+export type AdminPaymentsSummary = {
+  mrr: number;
+  activeCount: number;
+  trialingCount: number;
+  pastDueCount: number;
+  canceledCount: number;
+  failedPayments: number;
+  trialConversions30d: number;
+};
+
+export type SupportItem = {
+  id: string;
+  type: 'feedback' | 'ban' | 'privacy';
+  status: string;
+  userId: string | null;
+  email: string | null;
+  summary: string;
+  createdAt: string;
+};
+
+export type UserFeedbackEntry = {
+  id: string;
+  user_id: string | null;
+  email: string | null;
+  message: string;
+  category: string;
+  status: 'open' | 'reviewed' | 'resolved';
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
+export type PlatformSettings = {
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  featureFlags: Record<string, unknown>;
+  adminEmails: string[];
+  adminEmailsMasked: string[];
+  stripeConfigured: boolean;
+  resendConfigured: boolean;
+  updatedAt: string | null;
+};
+
+export type AdminNavBadgeCounts = {
+  messages: number;
+  support: number;
+};
+
+export type PlatformStatus = {
+  maintenanceMode: boolean;
+  maintenanceMessage: string;
+  activeMessages: Array<{ id: string; title: string; body: string; created_at: string }>;
+};
+
+export async function fetchAdminHealth(): Promise<AdminHealthReport> {
+  return adminFetch<AdminHealthReport>('/api/admin/health');
+}
+
+export async function fetchAdminActivity(input: {
+  page?: number;
+  limit?: number;
+  eventType?: string;
+}): Promise<{
+  events: AdminAuditEvent[];
+  total: number;
+  page: number;
+  limit: number;
+}> {
+  const params = new URLSearchParams();
+  if (input.page) params.set('page', String(input.page));
+  if (input.limit) params.set('limit', String(input.limit));
+  if (input.eventType) params.set('eventType', input.eventType);
+  const qs = params.toString();
+  return adminFetch(`/api/admin/activity${qs ? `?${qs}` : ''}`);
+}
+
+export async function fetchAdminMessages(): Promise<{ messages: AdminMessage[] }> {
+  return adminFetch('/api/admin/messages');
+}
+
+export async function createAdminMessage(input: {
+  title: string;
+  body: string;
+  audience?: string;
+}): Promise<void> {
+  await adminFetch('/api/admin/messages', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchAdminEmails(): Promise<{ emails: EmailLogEntry[] }> {
+  return adminFetch('/api/admin/emails');
+}
+
+export async function fetchAdminPayments(): Promise<{
+  subscriptions: AdminPaymentRow[];
+  summary: AdminPaymentsSummary;
+}> {
+  return adminFetch('/api/admin/payments');
+}
+
+export async function fetchAdminSupport(): Promise<{ items: SupportItem[] }> {
+  return adminFetch('/api/admin/support');
+}
+
+export async function fetchAdminFeedback(): Promise<{ feedback: UserFeedbackEntry[] }> {
+  return adminFetch('/api/admin/feedback');
+}
+
+export async function updateAdminFeedbackStatus(
+  id: string,
+  status: UserFeedbackEntry['status']
+): Promise<void> {
+  await adminFetch('/api/admin/feedback', {
+    method: 'PATCH',
+    body: JSON.stringify({ id, status }),
+  });
+}
+
+export async function fetchAdminSettings(): Promise<PlatformSettings> {
+  return adminFetch<PlatformSettings>('/api/admin/settings');
+}
+
+export async function updateAdminSettings(input: {
+  maintenanceMode?: boolean;
+  maintenanceMessage?: string;
+  featureFlags?: Record<string, unknown>;
+}): Promise<PlatformSettings> {
+  return adminFetch<PlatformSettings>('/api/admin/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function fetchAdminBadges(): Promise<AdminNavBadgeCounts> {
+  return adminFetch<AdminNavBadgeCounts>('/api/admin/badges');
+}
+
+export async function fetchPlatformStatus(): Promise<PlatformStatus> {
+  const apiUrl = resolveApiUrl('/api/platform/status');
+  if (!apiUrl) {
+    return { maintenanceMode: false, maintenanceMessage: '', activeMessages: [] };
+  }
+  const response = await fetch(apiUrl);
+  if (!response.ok) {
+    return { maintenanceMode: false, maintenanceMessage: '', activeMessages: [] };
+  }
+  return (await response.json()) as PlatformStatus;
+}
+
+export async function submitUserFeedback(message: string, category?: string): Promise<void> {
+  const apiUrl = resolveApiUrl('/api/feedback');
+  if (!apiUrl) throw new Error('Feedback API is not available.');
+
+  const session = await getSession();
+  const token = session?.access_token;
+
+  const response = await fetch(apiUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ message, category }),
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? `Request failed (${response.status})`);
+  }
+}
+
 type SyncedProfile = Pick<AdminProfile, 'id' | 'role'>;
 
 let cachedProfileRole: AdminProfile['role'] | null = null;

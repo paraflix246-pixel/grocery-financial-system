@@ -178,5 +178,14 @@ export async function handleWelcomeEmailRequest(request: Request): Promise<Respo
   }
 
   logWelcomeEvent('sent', { userId: user.id, email: user.email, from });
+
+  const { logEmailEvent } = await import('@/src/services/admin/emailLog.server');
+  await logEmailEvent({
+    userId: user.id,
+    email: user.email,
+    emailType: 'welcome',
+    status: 'sent',
+  });
+
   return Response.json({ success: true, sent: true });
 }

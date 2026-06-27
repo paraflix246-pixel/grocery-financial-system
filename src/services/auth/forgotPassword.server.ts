@@ -147,6 +147,14 @@ export async function handleForgotPasswordRequest(request: Request): Promise<Res
     return Response.json({ error: 'Could not send reset email. Please try again.' }, { status: 502 });
   }
 
+  const { logEmailEvent } = await import('@/src/services/admin/emailLog.server');
+  await logEmailEvent({
+    userId: user.id,
+    email,
+    emailType: 'password_reset',
+    status: 'sent',
+  });
+
   return Response.json({ status: 'sent' } satisfies ForgotPasswordResponse);
 }
 

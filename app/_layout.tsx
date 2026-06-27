@@ -17,6 +17,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { BackButton } from '@/src/components/BackButton';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { DevConnectionBanner } from '@/src/components/DevConnectionBanner';
+import { MaintenanceBanner } from '@/src/components/MaintenanceBanner';
 import { StorageSlowBanner } from '@/src/components/StorageSlowBanner';
 import { GlobalErrorBoundary, ErrorBoundary } from '@/src/components/GlobalErrorBoundary';
 import { UpgradePromptProvider } from '@/src/components/UpgradePromptProvider';
@@ -297,6 +298,7 @@ export default function RootLayout() {
                       <FamilyRealtimeBootstrap />
                       <AuthSessionGuard />
                       <DevConnectionBanner />
+                      <MaintenanceBanner />
                       <StorageSlowBanner />
                       <RootLayoutNav />
                     </TrialReminderProvider>

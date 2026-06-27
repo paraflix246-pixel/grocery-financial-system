@@ -3,7 +3,7 @@ import { afterEach, describe, it } from 'node:test';
 
 import type { User } from '@supabase/supabase-js';
 
-import { resolveAuthUserEmail, resolveProfileRole } from '@/src/services/admin/admin.server';
+import { resolveAuthUserEmail, resolveProfileRole, maskEmail } from '@/src/services/admin/admin.server';
 
 describe('resolveProfileRole', () => {
   const originalAdminEmails = process.env.ADMIN_EMAILS;
@@ -65,5 +65,12 @@ describe('resolveAuthUserEmail', () => {
       identities: [{ provider: 'google', identity_data: { email: 'PENNYPANTRY02@gmail.com' } }],
     } as User;
     assert.equal(resolveProfileRole(resolveAuthUserEmail(googleUser)), 'admin');
+  });
+});
+
+describe('maskEmail', () => {
+  it('masks local part while keeping domain visible', () => {
+    assert.equal(maskEmail('pennypantry02@gmail.com'), 'pe***@gmail.com');
+    assert.equal(maskEmail('a@b.co'), 'a***@b.co');
   });
 });

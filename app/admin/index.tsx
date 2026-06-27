@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { AdminShell } from '@/src/components/admin/AdminShell';
@@ -6,8 +6,15 @@ import { UserDetailModal } from '@/src/components/admin/UserDetailModal';
 import { type AdminSection, type LocaleFilter } from '@/src/components/admin/utils';
 import { ActivityView } from '@/src/components/admin/views/ActivityView';
 import { AnalyticsView } from '@/src/components/admin/views/AnalyticsView';
-import { PlaceholderSection } from '@/src/components/admin/views/PlaceholderSection';
+import { EmailsView } from '@/src/components/admin/views/EmailsView';
+import { FeedbackView } from '@/src/components/admin/views/FeedbackView';
+import { HealthView } from '@/src/components/admin/views/HealthView';
+import { MessagesView } from '@/src/components/admin/views/MessagesView';
+import { PaymentsView } from '@/src/components/admin/views/PaymentsView';
+import { SettingsView } from '@/src/components/admin/views/SettingsView';
+import { SupportView } from '@/src/components/admin/views/SupportView';
 import { UsersView } from '@/src/components/admin/views/UsersView';
+import { fetchAdminBadges, type AdminNavBadgeCounts } from '@/src/services/admin/adminApiService';
 import { AdminColors } from '@/src/theme/adminTheme';
 
 export default function AdminDashboardScreen() {
@@ -15,6 +22,19 @@ export default function AdminDashboardScreen() {
   const [localeFilter, setLocaleFilter] = useState<LocaleFilter>('all');
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [badges, setBadges] = useState<AdminNavBadgeCounts>({ messages: 0, support: 0 });
+
+  const loadBadges = useCallback(async () => {
+    try {
+      setBadges(await fetchAdminBadges());
+    } catch {
+      setBadges({ messages: 0, support: 0 });
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadBadges();
+  }, [loadBadges, refreshKey]);
 
   const handleUserUpdated = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -37,66 +57,19 @@ export default function AdminDashboardScreen() {
       case 'activity':
         return <ActivityView key={refreshKey} />;
       case 'health':
-        return (
-          <PlaceholderSection
-            title="System Health"
-            description="Monitor API uptime, Supabase connectivity, OCR pipeline, and Stripe webhooks."
-            items={[
-              'Supabase profiles & auth — connected via admin API',
-              'Stripe subscriptions — check Payments tab for MRR',
-              'PaddleOCR receipt pipeline — monitor separately on OCR server',
-            ]}
-          />
-        );
+        return <HealthView key={refreshKey} />;
       case 'messages':
-        return (
-          <PlaceholderSection
-            title="In-App Messages"
-            description="Broadcast announcements and targeted messages to Penny Pantry users. Coming soon."
-          />
-        );
+        return <MessagesView key={refreshKey} />;
       case 'emails':
-        return (
-          <PlaceholderSection
-            title="Email Campaigns"
-            description="Welcome, password reset, and re-engagement emails are sent via Resend. Use Churn Prediction on Analytics to send one-off re-engagement messages."
-            items={['Welcome email on signup', 'Password reset & security alerts', 'Re-engagement from Analytics tab']}
-          />
-        );
+        return <EmailsView key={refreshKey} />;
       case 'payments':
-        return (
-          <PlaceholderSection
-            title="Payments & Subscriptions"
-            description="Pro and Family subscription revenue is estimated from stripe_subscriptions and workspaces tables. Full Stripe dashboard integration coming soon."
-            items={['Pro monthly/yearly via Stripe', 'Family household plans via workspace billing', 'MRR estimate on Analytics dashboard']}
-          />
-        );
+        return <PaymentsView key={refreshKey} />;
       case 'support':
-        return (
-          <PlaceholderSection
-            title="Support & Disputes"
-            description="Track user support requests and billing disputes. Wire to your help desk when ready."
-            items={['Support tickets — placeholder (0)', 'Flagged/banned accounts — see Analytics']}
-          />
-        );
+        return <SupportView key={refreshKey} />;
       case 'feedback':
-        return (
-          <PlaceholderSection
-            title="User Feedback"
-            description="Collect in-app feedback and App Store reviews in one place. Integration pending."
-          />
-        );
+        return <FeedbackView key={refreshKey} />;
       case 'settings':
-        return (
-          <PlaceholderSection
-            title="Admin Settings"
-            description="Configure admin allowlist, notification preferences, and platform defaults."
-            items={[
-              'Admin access via ADMIN_EMAILS env var',
-              'Locale filter (EN/ES) — UI ready; profile locale tracking pending',
-            ]}
-          />
-        );
+        return <SettingsView key={refreshKey} />;
       default:
         return null;
     }
@@ -109,7 +82,7 @@ export default function AdminDashboardScreen() {
         onSectionChange={setActiveSection}
         localeFilter={localeFilter}
         onLocaleFilterChange={setLocaleFilter}
-        badges={{ messages: 0, support: 0 }}>
+        badges={badges}>
         {localeFilter !== 'all' ? (
           <View style={styles.localeNote}>
             <Text style={styles.localeNoteText}>

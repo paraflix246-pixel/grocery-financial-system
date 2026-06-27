@@ -48,6 +48,7 @@ import type { AppAvatarId } from '@/src/components/avatars/appAvatars';
 import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { i18n, previewAppLocale, setAppLocale, type AppLocale } from '@/src/i18n';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
+import { submitUserFeedback } from '@/src/services/admin/adminApiService';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -127,6 +128,9 @@ export default function SettingsScreen() {
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
   const [accountEmail, setAccountEmail] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [changingEmail, setChangingEmail] = useState(false);
@@ -386,6 +390,25 @@ export default function SettingsScreen() {
     await shareText(t('settings.shareMessage'), t('settings.shareApp'));
   };
 
+  const handleSubmitFeedback = async () => {
+    const trimmed = feedbackMessage.trim();
+    if (!trimmed) {
+      setFeedbackNotice('Please enter your feedback.');
+      return;
+    }
+    setFeedbackSending(true);
+    setFeedbackNotice(null);
+    try {
+      await submitUserFeedback(trimmed, 'general');
+      setFeedbackMessage('');
+      setFeedbackNotice('Thanks — your feedback was sent.');
+    } catch (error) {
+      setFeedbackNotice(error instanceof Error ? error.message : 'Could not send feedback.');
+    } finally {
+      setFeedbackSending(false);
+    }
+  };
+
   const handleChangeEmail = async () => {
     setEmailChangeMessage(null);
     const trimmed = newEmail.trim();
@@ -612,9 +635,34 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>{t('settings.scanning')}</Text>
+        <Text style={styles.sectionTitle}>Scanning</Text>
         <View style={styles.card}>
           <Text style={styles.infoText}>{t('settings.scanningInfo')}</Text>        </View>
+
+        <Text style={styles.sectionTitle}>Feedback</Text>
+        <View style={styles.card}>
+          <Text style={styles.fieldHint}>Tell us what’s working or what we should improve.</Text>
+          <TextInput
+            value={feedbackMessage}
+            onChangeText={setFeedbackMessage}
+            placeholder="Your feedback"
+            placeholderTextColor={SmartCartColors.textMuted}
+            style={styles.feedbackInput}
+            multiline
+            editable={!feedbackSending}
+          />
+          <Pressable
+            style={[styles.feedbackBtn, feedbackSending && styles.feedbackBtnDisabled]}
+            onPress={() => void handleSubmitFeedback()}
+            disabled={feedbackSending}
+            accessibilityRole="button"
+            accessibilityLabel="Send feedback">
+            <Text style={styles.feedbackBtnText}>
+              {feedbackSending ? 'Sending…' : 'Send feedback'}
+            </Text>
+          </Pressable>
+          {feedbackNotice ? <Text style={styles.feedbackNotice}>{feedbackNotice}</Text> : null}
+        </View>
 
         {__DEV__ && (
           <>
@@ -988,6 +1036,32 @@ const styles = StyleSheet.create({
   secondaryBtnDisabled: { opacity: 0.5 },
   secondaryBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.primary },
   emailChangeMessage: {
+    marginTop: 10,
+    fontSize: 13,
+    color: SmartCartColors.textSecondary,
+    lineHeight: 18,
+  },
+  feedbackInput: {
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    borderRadius: SmartCartRadius.sm,
+    padding: 12,
+    fontSize: 15,
+    backgroundColor: SmartCartColors.background,
+    color: SmartCartColors.text,
+    minHeight: 96,
+    textAlignVertical: 'top',
+  },
+  feedbackBtn: {
+    marginTop: 12,
+    paddingVertical: 12,
+    borderRadius: SmartCartRadius.sm,
+    backgroundColor: SmartCartColors.primary,
+    alignItems: 'center',
+  },
+  feedbackBtnDisabled: { opacity: 0.6 },
+  feedbackBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
+  feedbackNotice: {
     marginTop: 10,
     fontSize: 13,
     color: SmartCartColors.textSecondary,
