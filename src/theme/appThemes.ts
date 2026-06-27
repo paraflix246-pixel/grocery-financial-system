@@ -165,7 +165,15 @@ export const APP_THEMES: Record<AppThemeId, AppThemeTokens> = {
   },
 };
 
-export const APP_THEME_LIST: AppThemeTokens[] = Object.values(APP_THEMES);
+/** Explicit order so Ruby Red is always included in the picker (6 themes). */
+export const APP_THEME_LIST: AppThemeTokens[] = [
+  APP_THEMES.penny_green,
+  APP_THEMES.midnight_slate,
+  APP_THEMES.sunrise_coral,
+  APP_THEMES.ocean_blue,
+  APP_THEMES.lavender_pro,
+  APP_THEMES.ruby_red,
+];
 
 export function getAppTheme(id: AppThemeId): AppThemeTokens {
   return APP_THEMES[id] ?? APP_THEMES[DEFAULT_THEME_ID];

@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useTranslation } from 'react-i18next';
 
@@ -65,6 +65,8 @@ type ThemePickerProps = {
 export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: ThemePickerProps = {}) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const compact = width < 420;
   const { themeId: contextThemeId, setThemeId, themes } = useAppTheme();
   const themeId = controlledThemeId ?? contextThemeId;
   const { unlocked, requestAccess } = useFeatureGate('custom_themes');
@@ -102,6 +104,7 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
             preset={preset}
             selected={themeId === preset.id}
             locked={!unlocked}
+            compact={compact}
             onPress={() => handleSelect(preset.id)}
           />
         ))}
@@ -266,11 +269,13 @@ function ThemeSwatch({
   preset,
   selected,
   locked,
+  compact,
   onPress,
 }: {
   preset: AppThemeTokens;
   selected: boolean;
   locked: boolean;
+  compact: boolean;
   onPress: () => void;
 }) {
   const { t } = useTranslation();
@@ -279,6 +284,7 @@ function ThemeSwatch({
     <Pressable
       style={[
         styles.swatchCard,
+        compact && styles.swatchCardCompact,
         selected && [styles.swatchCardSelected, { borderColor: preset.primary, backgroundColor: `${preset.primary}0D` }],
         locked && styles.swatchLocked,
       ]}
@@ -286,7 +292,7 @@ function ThemeSwatch({
       accessibilityRole="button"
       accessibilityState={{ selected }}
       accessibilityLabel={t(preset.nameKey)}>
-      <View style={styles.swatchPreviewWrap}>
+      <View style={[styles.swatchPreviewWrap, compact && styles.swatchPreviewWrapCompact]}>
         <ThemePreviewMini preset={preset} selected={selected} />
         {selected && !locked ? (
           <View style={[styles.checkBadge, { backgroundColor: preset.primary }]}>
@@ -310,7 +316,7 @@ function ThemeSwatch({
       <Text style={styles.swatchName} numberOfLines={1}>
         {t(preset.nameKey)}
       </Text>
-      <Text style={styles.swatchDesc} numberOfLines={2}>
+      <Text style={[styles.swatchDesc, compact && styles.swatchDescCompact]}>
         {t(preset.descriptionKey)}
       </Text>
     </Pressable>
@@ -384,6 +390,13 @@ const styles = StyleSheet.create({
     borderColor: SmartCartColors.border,
     backgroundColor: SmartCartColors.background,
   },
+  swatchCardCompact: {
+    width: '48%',
+    minWidth: 0,
+    flexBasis: '48%',
+    flexGrow: 0,
+    padding: 8,
+  },
   swatchCardSelected: {},
   swatchLocked: {
     opacity: 0.72,
@@ -392,6 +405,10 @@ const styles = StyleSheet.create({
     height: 52,
     marginBottom: 8,
     position: 'relative',
+  },
+  swatchPreviewWrapCompact: {
+    height: 44,
+    marginBottom: 6,
   },
   checkBadge: {
     position: 'absolute',
@@ -419,6 +436,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
     color: SmartCartColors.textMuted,
+  },
+  swatchDescCompact: {
+    fontSize: 10,
+    lineHeight: 14,
   },
   fontList: { gap: 8 },
   fontCard: {

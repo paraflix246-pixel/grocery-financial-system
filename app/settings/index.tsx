@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/Themed';import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
@@ -38,6 +40,7 @@ import type { AppFontId } from '@/src/theme/appFonts';
 import type { AppAvatarId } from '@/src/components/avatars/appAvatars';
 import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { i18n, previewAppLocale, setAppLocale, type AppLocale } from '@/src/i18n';
+import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -129,6 +132,8 @@ export default function SettingsScreen() {
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const hasWorkspace = useWorkspaceStore((s) => s.isCurrentMember && Boolean(s.currentWorkspaceId));
   const setActiveScope = useWorkspaceStore((s) => s.setActiveScope);
+  const insets = useSafeAreaInsets();
+  const scrollBottomPadding = getScreenBottomPadding(insets.bottom, Platform.OS === 'web' ? 56 : 40);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -427,7 +432,11 @@ export default function SettingsScreen() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={Platform.OS === 'web'}>
         <Text style={styles.sectionTitle}>{t('settings.profile')}</Text>
         <View style={styles.card}>
           <Text style={styles.fieldLabel}>{t('settings.displayName')}</Text>
@@ -806,7 +815,8 @@ const styles = StyleSheet.create({
   saveLinkActive: { color: SmartCartColors.primaryDark },
   saveLinkDisabled: { opacity: 0.5 },
   unsavedHint: { fontSize: 11, fontWeight: '600', color: SmartCartColors.primary, marginTop: 2 },
-  content: { padding: 16, paddingBottom: 64 },
+  scroll: { flex: 1 },
+  content: { padding: 16, flexGrow: 1 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12, marginTop: 8 },
   card: {
     backgroundColor: SmartCartColors.card,

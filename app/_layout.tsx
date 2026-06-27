@@ -333,6 +333,24 @@ function RootLayoutNav() {
         <Stack.Screen name="lists" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="admin" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="settings/index"
+          options={{
+            contentStyle: {
+              backgroundColor: SmartCartColors.background,
+              overflow: 'visible',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="settings/budget"
+          options={{
+            contentStyle: {
+              backgroundColor: SmartCartColors.background,
+              overflow: 'visible',
+            },
+          }}
+        />
       </Stack>
     </ThemeProvider>
   );
