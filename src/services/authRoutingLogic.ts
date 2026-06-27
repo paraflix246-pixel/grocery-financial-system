@@ -79,6 +79,7 @@ export function shouldPromptLogin(ctx: AuthRoutingContext): LoginPromptReason | 
 export function isProtectedAppRoute(pathname: string): boolean {
   if (!pathname || pathname === '/') return false;
   if (pathname.startsWith('/onboarding')) return false;
+  if (pathname.startsWith('/auth/')) return false;
   if (pathname === '/privacy' || pathname === '/terms' || pathname === '/reset-password') {
     return false;
   }

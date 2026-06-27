@@ -127,24 +127,53 @@ export async function deleteAdminUser(userId: string): Promise<void> {
   await adminFetch(`/api/admin/users/${userId}/delete`, { method: 'POST' });
 }
 
-export async function syncUserProfile(): Promise<void> {
+type SyncedProfile = Pick<AdminProfile, 'id' | 'role'>;
+
+let cachedProfileRole: AdminProfile['role'] | null = null;
+
+export function isAdminUser(): boolean {
+  return cachedProfileRole === 'admin';
+}
+
+export function clearCachedProfileRole(): void {
+  cachedProfileRole = null;
+}
+
+export async function syncUserProfile(): Promise<SyncedProfile | null> {
   const apiUrl = resolveApiUrl('/api/profile/sync');
-  if (!apiUrl) return;
+  if (!apiUrl) return null;
 
   const session = await getSession();
   const token = session?.access_token;
-  if (!token) return;
+  if (!token) {
+    cachedProfileRole = null;
+    return null;
+  }
 
   try {
-    await fetch(apiUrl, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
+
+    const payload = (await response.json().catch(() => null)) as
+      | { success?: boolean; profile?: SyncedProfile }
+      | null;
+
+    if (!response.ok || !payload?.profile) {
+      cachedProfileRole = null;
+      return null;
+    }
+
+    cachedProfileRole = payload.profile.role;
+    return payload.profile;
   } catch (error) {
+    cachedProfileRole = null;
     console.warn('[profile] sync failed:', error);
+    return null;
   }
 }
 

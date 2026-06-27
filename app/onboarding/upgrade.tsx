@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { useAdminPaywallBypass } from '@/src/hooks/useAdminPaywallBypass';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
@@ -35,6 +36,7 @@ const CARD_BG = 'rgba(255,255,255,0.05)';
 export default function UpgradeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  useAdminPaywallBypass();
   const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
   const startProTrial = useSubscriptionStore((s) => s.startProTrial);
   const [upgrading, setUpgrading] = useState(false);

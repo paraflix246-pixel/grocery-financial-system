@@ -1,3 +1,4 @@
+import { isAdminUser } from '@/src/services/admin/adminApiService';
 import { FAMILY_PLAN_FEATURES, PRO_FEATURE_LABELS } from '@/src/constants/proPricing';
 
 import { getTierLimits, tierAllowsFeature } from '@/src/constants/tierLimitsConfig';
@@ -42,6 +43,7 @@ export function canAccessWorkspaceFeature(workspaceId?: string | null): boolean 
 
 /** Check whether the current subscription unlocks a feature. */
 export function canAccessFeature(feature: GatedFeature): boolean {
+  if (isAdminUser()) return true;
   if (isWorkspaceGatedFeature(feature)) {
     return canAccessWorkspaceFeature();
   }

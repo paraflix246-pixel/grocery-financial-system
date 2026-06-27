@@ -201,7 +201,8 @@ export default function RootLayout() {
     segments[0] === 'privacy' ||
     segments[0] === 'terms' ||
     segments[0] === 'reset-password' ||
-    segments[0] === 'admin';
+    segments[0] === 'admin' ||
+    segments[0] === 'auth';
   const isOnboardingRoute = segments[0] === 'onboarding';
 
   useEffect(() => {

@@ -48,6 +48,7 @@ import {
 } from '@/src/constants/proPricing';
 
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { useAdminPaywallBypass } from '@/src/hooks/useAdminPaywallBypass';
 
 import { getSubscriptionBillingMode } from '@/src/services/subscriptionService';
 import { redirectToStripeCheckout } from '@/src/services/stripeSubscriptionService';
@@ -204,6 +205,7 @@ function PaywallAvatarPreview({ label }: { label: string }) {
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  useAdminPaywallBypass();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_LAYOUT_MAX_WIDTH;

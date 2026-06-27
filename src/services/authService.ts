@@ -4,7 +4,8 @@ import { Platform } from 'react-native';
 
 import { generateId } from '@/src/utils/id';
 import { getAppUrl, getAuthRedirectUrl } from '@/src/utils/appOrigin';
-import { syncUserProfile } from '@/src/services/admin/adminApiService';
+import { clearCachedProfileRole, syncUserProfile } from '@/src/services/admin/adminApiService';
+import { OAUTH_CALLBACK_PATH } from '@/src/services/postAuthRoutingLogic';
 import { getAppSettings, updateAppSettings } from '@/src/services/storageService';
 import { supabase } from '@/src/services/supabaseClient';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
@@ -416,7 +417,7 @@ export async function signInWithGoogle(): Promise<void> {
   if (!supabase) {
     throw new Error('Auth service not available. Please try again later.');
   }
-  const redirectTo = getAuthRedirectUrl('/onboarding/upgrade');
+  const redirectTo = getAuthRedirectUrl(OAUTH_CALLBACK_PATH);
   const oauthOptions = {
     redirectTo,
     scopes: 'openid email profile',
@@ -456,7 +457,7 @@ export async function signInWithApple(): Promise<void> {
   if (!supabase) {
     throw new Error('Auth service not available. Please try again later.');
   }
-  const redirectTo = getAuthRedirectUrl('/onboarding/upgrade');
+  const redirectTo = getAuthRedirectUrl(OAUTH_CALLBACK_PATH);
   const oauthOptions = {
     redirectTo,
     scopes: 'name email',
@@ -495,6 +496,7 @@ export async function signOut(): Promise<void> {
   if (supabase) {
     await supabase.auth.signOut();
   }
+  clearCachedProfileRole();
   await AsyncStorage.removeItem(AUTH_USER_KEY);
 }
 

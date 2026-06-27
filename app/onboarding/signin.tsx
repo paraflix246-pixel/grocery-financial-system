@@ -17,11 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { signInWithEmail, continueAsGuest, signInWithGoogle, checkSignInHint } from '@/src/services/authService';
+import { isAdminUser, syncUserProfile } from '@/src/services/admin/adminApiService';
 import {
   getRememberMePreference,
   recordActivityTimestamp,
   setRememberMePreference,
 } from '@/src/services/authRoutingService';
+import { resolvePostOAuthRoute } from '@/src/services/postAuthRoutingLogic';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
 
@@ -76,9 +78,14 @@ export default function SigninScreen() {
       await setRememberMePreference(rememberMe);
       await signInWithEmail(email, password);
       await recordActivityTimestamp();
+      await syncUserProfile();
       if (returnTo) {
         await completeOnboarding();
         router.replace(resolveReturnPath());
+      } else if (isAdminUser()) {
+        await completeOnboarding();
+        const platform = Platform.OS === 'web' ? 'web' : 'native';
+        router.replace(resolvePostOAuthRoute(true, platform).href as Href);
       } else {
         router.push('/onboarding/upgrade');
       }
