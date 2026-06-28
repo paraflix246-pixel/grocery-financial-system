@@ -548,6 +548,15 @@ export async function getRotatingItemComparisons(
   } else {
     storePricesCache.clear();
     cartTotalsCache.clear();
+    const effectiveRegion = await getEffectiveComparisonRegion();
+    const uniqueNames = [
+      ...new Set(listItems.map((item) => item.name.trim()).filter(Boolean)),
+    ];
+    await Promise.all(
+      uniqueNames.map((name) =>
+        fetchExternalPriceQuotes(name, effectiveRegion, { forceRefresh: true })
+      )
+    );
   }
 
   const allStores = await getAllStores({ includeHidden: true });

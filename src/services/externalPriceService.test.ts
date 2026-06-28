@@ -44,6 +44,36 @@ describe('fetchExternalPriceQuotes cache behavior', () => {
     assert.equal(providerCalls, 1);
   });
 
+  it('refetches when cached quotes are empty', async () => {
+    await clearExternalPriceCache();
+    clearExternalPriceProviders();
+
+    const key = buildExternalPriceCacheKey('Ground Beef', 'DEFAULT');
+    await setCachedExternalPriceQuotes(key, [], Date.now());
+
+    let providerCalls = 0;
+    registerExternalPriceProvider({
+      id: 'test-provider-empty',
+      async getPricesForItem() {
+        providerCalls += 1;
+        return [
+          {
+            itemName: 'Ground Beef',
+            storeName: 'Walmart',
+            price: 6.26,
+            date: '',
+            source: 'api',
+          },
+        ] satisfies PriceQuote[];
+      },
+    });
+
+    const quotes = await fetchExternalPriceQuotes('Ground Beef');
+    assert.equal(quotes.length, 1);
+    assert.equal(quotes[0]?.storeName, 'Walmart');
+    assert.equal(providerCalls, 1);
+  });
+
   it('forceRefresh bypasses cache', async () => {
     await clearExternalPriceCache();
     clearExternalPriceProviders();

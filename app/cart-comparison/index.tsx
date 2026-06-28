@@ -105,7 +105,9 @@ export default function CartComparisonScreen() {
   useFocusEffect(
     useCallback(() => {
       void loadComparisonItems();
-    }, [loadComparisonItems])
+      // Bust in-memory comparison cache and refetch live ScraperAPI quotes on each visit.
+      reload();
+    }, [loadComparisonItems, reload])
   );
 
   useEffect(() => {

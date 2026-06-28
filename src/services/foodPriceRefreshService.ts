@@ -74,7 +74,7 @@ export async function collectItemsNeedingRefresh(
 
     const cacheKey = buildExternalPriceCacheKey(trimmed, region);
     const cached = getCachedExternalPriceQuotes(cacheKey);
-    if (!cached || cached.isStale) {
+    if (!cached || cached.isStale || cached.quotes.length === 0) {
       stale.push(trimmed);
     }
   };

@@ -94,7 +94,9 @@ export async function fetchExternalPriceQuotes(
 
   if (!options?.forceRefresh) {
     const cached = getCachedExternalPriceQuotes(cacheKey);
-    if (cached) {
+    // Empty cached arrays often mean ScraperAPI was unavailable at fetch time — refetch instead of
+    // serving a 3h "fresh" miss that keeps Walmart on static estimates.
+    if (cached && cached.quotes.length > 0) {
       if (cached.isStale) {
         void revalidateExternalPriceQuotes(trimmed, regionCode, cacheKey);
       }

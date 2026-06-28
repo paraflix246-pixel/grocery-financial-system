@@ -6,7 +6,10 @@ import { createStaleWhileRevalidateCache } from '@/src/utils/staleWhileRevalidat
 /** External API prices are considered fresh for 3 hours; stale entries are served while revalidating. */
 export const EXTERNAL_PRICE_STALE_MS = 3 * 60 * 60 * 1000;
 
-const STORAGE_KEY = '@smartcart_external_price_cache_v1';
+/** Bump when cache shape or provider set changes (e.g. ScraperAPI added) to drop stale AsyncStorage entries. */
+export const EXTERNAL_PRICE_CACHE_VERSION = 2;
+
+const STORAGE_KEY = '@smartcart_external_price_cache_v2';
 
 type PersistedEntry = {
   quotes: PriceQuote[];
@@ -14,7 +17,7 @@ type PersistedEntry = {
 };
 
 type PersistedPayload = {
-  version: 1;
+  version: typeof EXTERNAL_PRICE_CACHE_VERSION;
   entries: Record<string, PersistedEntry>;
   lastCatalogRefreshStartedAt: number | null;
   lastCatalogRefreshCompletedAt: number | null;
@@ -94,7 +97,7 @@ export async function initExternalPriceCache(): Promise<void> {
         return;
       }
       const payload = JSON.parse(raw) as PersistedPayload;
-      if (payload.version !== 1) {
+      if (payload.version !== EXTERNAL_PRICE_CACHE_VERSION) {
         loaded = true;
         return;
       }
@@ -130,7 +133,7 @@ async function persistCache(): Promise<void> {
   }
 
   const payload: PersistedPayload = {
-    version: 1,
+    version: EXTERNAL_PRICE_CACHE_VERSION,
     entries,
     lastCatalogRefreshStartedAt,
     lastCatalogRefreshCompletedAt,
