@@ -1,7 +1,10 @@
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
 
-import { resolveProductionSafeUrl } from '@/src/utils/productionEnvGuard';
+import {
+  isLocalhostServiceUrl,
+  resolveProductionSafeUrl,
+} from '@/src/utils/productionEnvGuard';
 
 /** Production web origin — apex domain; www.pennypantry.xyz should redirect here. */
 export const DEFAULT_APP_URL = 'https://pennypantry.xyz';
@@ -20,7 +23,7 @@ function isBrowserLocalhost(): boolean {
 
 /** True when a URL points at localhost (or 127.0.0.1). */
 export function isLocalhostUrl(url: string): boolean {
-  return LOCALHOST_URL_PATTERN.test(url);
+  return isLocalhostServiceUrl(url) || LOCALHOST_URL_PATTERN.test(url);
 }
 
 /**
@@ -37,8 +40,9 @@ export function getAppOrigin(): string {
     return normalizeOrigin(appUrl);
   }
 
-  // Server / SSR — use production URL, not native deep links.
-  if (typeof window === 'undefined') {
+  const isProduction =
+    process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+  if (isProduction || typeof window === 'undefined') {
     return normalizeOrigin(DEFAULT_APP_URL);
   }
 
@@ -47,6 +51,28 @@ export function getAppOrigin(): string {
   }
 
   return normalizeOrigin(DEFAULT_APP_URL);
+}
+
+/** Same-origin API path on web; absolute app URL on native. */
+export function resolveAppApiUrl(path: string): string | null {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  if (Platform.OS === 'web') {
+    return getAppUrl(normalizedPath);
+  }
+
+  const appUrl = resolveProductionSafeUrl(process.env.EXPO_PUBLIC_APP_URL, 'EXPO_PUBLIC_APP_URL');
+  if (appUrl) {
+    return `${normalizeOrigin(appUrl)}${normalizedPath}`;
+  }
+
+  const isProduction =
+    process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+  if (isProduction) {
+    return `${normalizeOrigin(DEFAULT_APP_URL)}${normalizedPath}`;
+  }
+
+  return null;
 }
 
 /** Build an absolute app URL for a path (path must start with `/`). */
@@ -75,8 +101,15 @@ export function getAuthRedirectUrl(path: string): string {
 
   let redirectUrl = getAppUrl(path);
 
-  if (typeof window !== 'undefined' && !isBrowserLocalhost() && isLocalhostUrl(redirectUrl)) {
-    redirectUrl = `${normalizeOrigin(DEFAULT_APP_URL)}${path}`;
+  if (isLocalhostUrl(redirectUrl)) {
+    if (typeof window !== 'undefined' && !isBrowserLocalhost()) {
+      redirectUrl = `${normalizeOrigin(DEFAULT_APP_URL)}${path}`;
+    } else if (
+      process.env.NODE_ENV === 'production' ||
+      process.env.VERCEL_ENV === 'production'
+    ) {
+      redirectUrl = `${normalizeOrigin(DEFAULT_APP_URL)}${path}`;
+    }
   }
 
   return redirectUrl;

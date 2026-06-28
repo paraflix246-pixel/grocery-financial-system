@@ -1,4 +1,5 @@
 import type { PriceQuote } from '@/src/services/priceRecommendationLogic';
+import { resolvePublicServiceUrl } from '@/src/utils/productionEnvGuard';
 
 export type OpenFoodFactsSearchResponse = {
   quotes: PriceQuote[];
@@ -12,12 +13,11 @@ export type OpenFoodFactsStatusResponse = {
 };
 
 function getOpenFoodFactsApiUrl(): string | null {
-  const configured = process.env.EXPO_PUBLIC_OPENFOODFACTS_API_URL?.trim();
-  if (configured) return configured.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/api/openfoodfacts`;
-  }
-  return null;
+  return resolvePublicServiceUrl(
+    process.env.EXPO_PUBLIC_OPENFOODFACTS_API_URL,
+    'EXPO_PUBLIC_OPENFOODFACTS_API_URL',
+    '/api/openfoodfacts'
+  );
 }
 
 export async function getOpenFoodFactsStatus(): Promise<OpenFoodFactsStatusResponse> {

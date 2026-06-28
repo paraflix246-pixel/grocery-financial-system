@@ -1,4 +1,5 @@
 import type { PriceQuote } from '@/src/services/priceRecommendationLogic';
+import { resolvePublicServiceUrl } from '@/src/utils/productionEnvGuard';
 
 export type KrogerSearchResponse = {
   quotes: PriceQuote[];
@@ -14,12 +15,11 @@ export type KrogerStatusResponse = {
 };
 
 function getKrogerApiUrl(): string | null {
-  const configured = process.env.EXPO_PUBLIC_KROGER_API_URL?.trim();
-  if (configured) return configured.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/api/kroger`;
-  }
-  return null;
+  return resolvePublicServiceUrl(
+    process.env.EXPO_PUBLIC_KROGER_API_URL,
+    'EXPO_PUBLIC_KROGER_API_URL',
+    '/api/kroger'
+  );
 }
 
 export async function getKrogerStatus(): Promise<KrogerStatusResponse> {

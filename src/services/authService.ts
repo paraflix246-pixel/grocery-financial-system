@@ -3,7 +3,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
 import { generateId } from '@/src/utils/id';
-import { getAppUrl, getAuthRedirectUrl } from '@/src/utils/appOrigin';
+import { getAuthRedirectUrl, resolveAppApiUrl } from '@/src/utils/appOrigin';
 import { clearCachedProfileRole, syncUserProfile } from '@/src/services/admin/adminApiService';
 import { OAUTH_CALLBACK_PATH } from '@/src/services/postAuthRoutingLogic';
 import { getAppSettings, updateAppSettings } from '@/src/services/storageService';
@@ -206,11 +206,7 @@ export async function checkSignInHint(email: string): Promise<SignInHintResult> 
 }
 
 function resolveAuthApiUrl(path: string): string | null {
-  if (Platform.OS === 'web') {
-    return getAppUrl(path);
-  }
-  const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
-  return appUrl ? `${appUrl.replace(/\/$/, '')}${path}` : null;
+  return resolveAppApiUrl(path);
 }
 
 type WelcomeEmailApiResponse = {

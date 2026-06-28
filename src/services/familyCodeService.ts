@@ -8,6 +8,7 @@ import {
   parseFamilyInviteInput,
   type FamilyInviteParseResult,
 } from '@/src/services/familyCodeLogic';
+import { getAppUrl } from '@/src/utils/appOrigin';
 import { generateId } from '@/src/utils/id';
 
 export const FAMILY_CODE_KEY = '@smartcart_family_code';
@@ -60,13 +61,9 @@ export function buildFamilyInviteUrl(code: string): string {
 /** Public invite link — prefers EXPO_PUBLIC_APP_URL so phones never get localhost. */
 export function getInviteUrl(code: string): string {
   const path = buildFamilyInvitePath(code);
-  const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
-  if (appUrl) {
-    const base = appUrl.replace(/\/$/, '');
-    return `${base}${path}`;
-  }
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${path}`;
+  const appUrl = getAppUrl(path);
+  if (appUrl && !appUrl.startsWith('exp://')) {
+    return appUrl;
   }
   return Linking.createURL('/list/join', {
     queryParams: { code: normalizeFamilyCode(code) ?? code },

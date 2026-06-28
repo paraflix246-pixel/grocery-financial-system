@@ -1,13 +1,8 @@
-import { Platform } from 'react-native';
-
 import { getSession } from '@/src/services/authService';
+import { resolveAppApiUrl } from '@/src/utils/appOrigin';
 
 function resolveApiUrl(path: string): string | null {
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${path}`;
-  }
-  const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
-  return appUrl ? `${appUrl.replace(/\/$/, '')}${path}` : null;
+  return resolveAppApiUrl(path);
 }
 
 async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {

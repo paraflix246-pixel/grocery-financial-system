@@ -1,4 +1,5 @@
 import type { PriceQuote } from '@/src/services/priceRecommendationLogic';
+import { resolvePublicServiceUrl } from '@/src/utils/productionEnvGuard';
 
 export type SerpApiSearchResponse = {
   quotes: PriceQuote[];
@@ -12,12 +13,11 @@ export type SerpApiStatusResponse = {
 };
 
 function getSerpApiProxyUrl(): string | null {
-  const configured = process.env.EXPO_PUBLIC_SERPAPI_API_URL?.trim();
-  if (configured) return configured.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/api/serpapi`;
-  }
-  return null;
+  return resolvePublicServiceUrl(
+    process.env.EXPO_PUBLIC_SERPAPI_API_URL,
+    'EXPO_PUBLIC_SERPAPI_API_URL',
+    '/api/serpapi'
+  );
 }
 
 export async function getSerpApiStatus(): Promise<SerpApiStatusResponse> {

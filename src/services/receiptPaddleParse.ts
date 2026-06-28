@@ -10,6 +10,7 @@ import { parseReceiptText } from '@/src/services/receiptParser';
 import { imageUriToBase64 } from '@/src/services/receiptImageEncode';
 import { finalizeReceiptDraft } from '@/src/utils/receiptDraftNormalizer';
 import { buildLineItemsFromOverlay, pickOcrDraftLineItems } from '@/src/utils/ocrSpatialLayout';
+import { resolveProductionSafeUrl } from '@/src/utils/productionEnvGuard';
 
 export type PaddleScanResult = {
   draft: ParsedReceiptDraft;
@@ -43,7 +44,10 @@ export function buildReceiptDraftFromOcrOverlay(overlay: OcrOverlay): ParsedRece
 }
 
 function resolveReceiptOcrApiUrl(): string | null {
-  const configured = process.env.EXPO_PUBLIC_RECEIPT_OCR_API_URL?.trim();
+  const configured = resolveProductionSafeUrl(
+    process.env.EXPO_PUBLIC_RECEIPT_OCR_API_URL,
+    'EXPO_PUBLIC_RECEIPT_OCR_API_URL'
+  );
   if (configured) return configured.replace(/\/$/, '');
 
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -54,7 +58,10 @@ function resolveReceiptOcrApiUrl(): string | null {
 }
 
 function resolveDirectPaddleUrl(): string | null {
-  return process.env.EXPO_PUBLIC_PADDLEOCR_API_URL?.trim() || null;
+  return resolveProductionSafeUrl(
+    process.env.EXPO_PUBLIC_PADDLEOCR_API_URL,
+    'EXPO_PUBLIC_PADDLEOCR_API_URL'
+  );
 }
 
 async function parseViaApi(imageBase64: string): Promise<PaddleScanResult | null> {

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import { getSession } from '@/src/services/authService';
+import { resolveAppApiUrl } from '@/src/utils/appOrigin';
 import {
   mapStripeStatusToSubscriptionState,
   type StripeSubscriptionStatus,
@@ -12,13 +13,7 @@ export { mapStripeStatusToSubscriptionState } from '@/src/services/stripe/stripe
 
 function resolveStripeApiUrl(path: string): string | null {
   if (Platform.OS !== 'web') return null;
-
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}${path}`;
-  }
-
-  const appUrl = process.env.EXPO_PUBLIC_APP_URL?.trim();
-  return appUrl ? `${appUrl.replace(/\/$/, '')}${path}` : null;
+  return resolveAppApiUrl(path);
 }
 
 async function authHeaders(): Promise<Record<string, string>> {

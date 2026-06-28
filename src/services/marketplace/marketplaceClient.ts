@@ -1,4 +1,5 @@
 import type { MarketplaceFetchResult } from '@/src/services/marketplace/marketplaceTypes';
+import { resolvePublicServiceUrl } from '@/src/utils/productionEnvGuard';
 
 export type MarketplaceStatusResponse = {
   krogerConfigured: boolean;
@@ -7,12 +8,11 @@ export type MarketplaceStatusResponse = {
 };
 
 function getMarketplaceApiUrl(): string | null {
-  const configured = process.env.EXPO_PUBLIC_MARKETPLACE_API_URL?.trim();
-  if (configured) return configured.replace(/\/$/, '');
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/api/marketplace`;
-  }
-  return null;
+  return resolvePublicServiceUrl(
+    process.env.EXPO_PUBLIC_MARKETPLACE_API_URL,
+    'EXPO_PUBLIC_MARKETPLACE_API_URL',
+    '/api/marketplace'
+  );
 }
 
 export async function getMarketplaceStatus(): Promise<MarketplaceStatusResponse> {
