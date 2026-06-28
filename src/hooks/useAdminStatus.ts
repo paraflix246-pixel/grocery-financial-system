@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { isAdminUser, syncUserProfile } from '@/src/services/admin/adminApiService';
+import { isAdminUser, syncUserProfile, clearCachedProfileRole } from '@/src/services/admin/adminApiService';
 import { isSignedInAccount } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 
@@ -15,9 +15,15 @@ export type AdminStatus = {
  */
 export function useAdminStatus(): AdminStatus {
   const [isAdmin, setIsAdmin] = useState(isAdminUser());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !isAdminUser());
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = false) => {
+    if (!force && isAdminUser()) {
+      setIsAdmin(true);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const signedIn = await isSignedInAccount();
@@ -25,7 +31,7 @@ export function useAdminStatus(): AdminStatus {
         setIsAdmin(false);
         return;
       }
-      await syncUserProfile();
+      await syncUserProfile({ force });
       setIsAdmin(isAdminUser());
     } finally {
       setLoading(false);
@@ -37,8 +43,16 @@ export function useAdminStatus(): AdminStatus {
     if (!supabase) return;
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      void refresh();
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        clearCachedProfileRole();
+        setIsAdmin(false);
+        setLoading(false);
+        return;
+      }
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        void refresh(true);
+      }
     });
     return () => subscription.unsubscribe();
   }, [refresh]);

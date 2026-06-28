@@ -478,6 +478,13 @@
       }
     }
   },
+  "workspace": {
+    "defaultName": "Hogar",
+    "personal": "Personal",
+    "manageHousehold": "Mi hogar",
+    "saveToHint": "Los datos personales y del hogar están separados — elige dónde guardar este recibo.",
+    "saveToLabel": "Guardar en"
+  },
   "settings": {
     "title": "Ajustes",
     "profile": "Perfil",
@@ -637,7 +644,17 @@
       "hintUnlocked": "Disponible con espacio familiar — comparte listas con tu hogar.",
       "hintLocked": "Suscríbete al espacio familiar — invita miembros gratis.",
       "tapToUnlock": "Toca para desbloquear con espacio familiar",
-      "copyInvite": "Copiar código de invitación del hogar"
+      "copyInvite": "Copiar código de invitación del hogar",
+      "copyLink": "Copiar enlace de invitación",
+      "emailInvite": "Invitar por correo"
+    },
+    "emailInvite": {
+      "title": "Invitar por correo",
+      "hint": "Envía un enlace de invitación al hogar. Se unen gratis — tu suscripción familiar cubre el espacio.",
+      "placeholder": "familia@ejemplo.com",
+      "button": "Enviar invitación",
+      "invalidEmail": "Introduce un correo válido.",
+      "subject": "Únete a nuestro hogar en Penny Pantry"
     },
     "unlockWithFamily": "Desbloquear con espacio familiar",
     "shareList": {

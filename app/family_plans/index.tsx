@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +37,11 @@ import {
 import { getActiveList, getAllLists } from '@/src/services/storageService';
 import type { FamilyListSnapshot } from '@/src/services/familyListSnapshot';
 import { useListStore } from '@/src/store/useListStore';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import {
+  buildHouseholdInviteMailto,
+  isValidInviteEmail,
+} from '@/src/services/workspaceInviteService';
 import { SmartCartRadius } from '@/src/theme/smartCart';
 import { copyText, shareText } from '@/src/utils/copyOrShare';
 import { showInfoAlert } from '@/src/utils/platformAlert';
@@ -125,6 +131,7 @@ export default function FamilyPlansScreen() {
   const hasLiveSync = syncUnlocked;
 
   const [familyCode, setFamilyCode] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
   const [importText, setImportText] = useState('');
   const [lastExportAt, setLastExportAt] = useState<string | null>(null);
   const [syncQueueSize, setSyncQueueSize] = useState(0);
@@ -263,6 +270,7 @@ export default function FamilyPlansScreen() {
       try {
         const result = await joinFamilyGroupByCode(parsed.code);
         setFamilyCode(result.code);
+        await useWorkspaceStore.getState().loadWorkspaces();
         if (syncUnlocked) await startFamilyRealtimeSync();
         setImportText('');
         Alert.alert(
@@ -323,6 +331,40 @@ export default function FamilyPlansScreen() {
       title: t('familyPlans.alerts.inviteCopied.title'),
       message: t('familyPlans.alerts.inviteCopied.message'),
     });
+  };
+
+  const handleCopyInviteLink = async () => {
+    if (!requestAccess()) return;
+    if (!familyCode) return;
+    const inviteUrl = buildFamilyInviteUrl(familyCode);
+    await copyText(inviteUrl, {
+      title: t('familyPlans.alerts.inviteCopied.title'),
+      message: t('familyPlans.alerts.inviteCopied.message'),
+    });
+  };
+
+  const handleEmailInvite = async () => {
+    if (!requestAccess()) return;
+    if (!familyCode) return;
+    if (!isValidInviteEmail(inviteEmail)) {
+      Alert.alert(t('familyPlans.emailInvite.title'), t('familyPlans.emailInvite.invalidEmail'));
+      return;
+    }
+    const inviteUrl = buildFamilyInviteUrl(familyCode);
+    const mailto = buildHouseholdInviteMailto({
+      email: inviteEmail,
+      subject: t('familyPlans.emailInvite.subject'),
+      code: familyCode,
+      inviteUrl,
+      bodyTemplate: t('familyPlans.alerts.inviteMessage', { code: familyCode, url: inviteUrl }),
+    });
+    const opened = await Linking.openURL(mailto);
+    if (!opened) {
+      await copyText(inviteUrl, {
+        title: t('familyPlans.alerts.inviteCopied.title'),
+        message: t('familyPlans.alerts.inviteCopied.message'),
+      });
+    }
   };
 
   const heroAccent = hasLiveSync ? GREEN_DARK : unlocked ? GREEN : TEXT_MUTED;
@@ -433,6 +475,36 @@ export default function FamilyPlansScreen() {
               {unlocked ? t('familyPlans.familyCode.copyInvite') : t('familyPlans.unlockWithFamily')}
             </Text>
           </Pressable>
+          {unlocked ? (
+            <>
+              <Pressable style={styles.secondaryBtn} onPress={() => void handleCopyInviteLink()}>
+                <Text style={styles.secondaryBtnText}>{t('familyPlans.familyCode.copyLink')}</Text>
+              </Pressable>
+              <View style={styles.emailInviteBlock}>
+                <Text style={styles.sectionHint}>{t('familyPlans.emailInvite.hint')}</Text>
+                <TextInput
+                  style={styles.emailInput}
+                  value={inviteEmail}
+                  onChangeText={setInviteEmail}
+                  placeholder={t('familyPlans.emailInvite.placeholder')}
+                  placeholderTextColor={TEXT_DIM}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <Pressable
+                  style={[styles.primaryBtn, hasLiveSync && styles.primaryBtnHousehold]}
+                  onPress={() => void handleEmailInvite()}>
+                  <SymbolView
+                    name={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
+                    tintColor="#000"
+                    size={18}
+                  />
+                  <Text style={styles.primaryBtnText}>{t('familyPlans.emailInvite.button')}</Text>
+                </Pressable>
+              </View>
+            </>
+          ) : null}
         </View>
 
         <View style={[styles.sectionCard, !unlocked && styles.sectionCardLocked]}>
@@ -717,6 +789,17 @@ const styles = StyleSheet.create({
     borderColor: CARD_BORDER,
   },
   secondaryBtnText: { fontSize: 14, fontWeight: '600', color: TEXT_MUTED },
+  emailInviteBlock: { marginTop: 14, gap: 10 },
+  emailInput: {
+    borderWidth: 1,
+    borderColor: CARD_BORDER,
+    borderRadius: SmartCartRadius.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: TEXT_PRIMARY,
+    fontSize: 15,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
   metaText: { fontSize: 12, color: TEXT_DIM, textAlign: 'center' },
   syncCardPro: { borderColor: 'rgba(34,197,94,0.2)' },
   syncCardHousehold: {

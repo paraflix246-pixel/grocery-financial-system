@@ -32,6 +32,10 @@ import { invalidatePrimaryStoreCache } from '@/src/services/tierLimits';
 import { useScanStore } from '@/src/store/useScanStore';
 import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import type { DataScope } from '@/src/models/workspace';
+import {
+  shouldSaveReceiptToWorkspace,
+  shouldSyncPersonalSideEffects,
+} from '@/src/services/dataScopeLogic';
 import { saveReceiptToWorkspace } from '@/src/services/workspaceReceiptService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
@@ -78,10 +82,17 @@ export default function EditReceiptScreen() {
   const [saving, setSaving] = useState(false);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
   const [saveScope, setSaveScope] = useState<DataScope>('personal');
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
   const hasWorkspaceMembership = useWorkspaceStore((s) => s.isCurrentMember && Boolean(s.currentWorkspaceId));
   const hasActiveWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
   const workspaceScopeAvailable = hasWorkspaceMembership && hasActiveWorkspaceSub;
+
+  useEffect(() => {
+    if (workspaceScopeAvailable && activeScope === 'workspace') {
+      setSaveScope('workspace');
+    }
+  }, [workspaceScopeAvailable, activeScope]);
 
   const receiptId = editingReceiptId ?? routeId ?? null;
   const isEditingSaved = Boolean(receiptId);
@@ -198,14 +209,16 @@ export default function EditReceiptScreen() {
           ...locationFields,
           items,
         });
-        await checkPriceAlertsAfterReceiptSave(merchandiseForAlerts, draft.storeName);
+        if (shouldSyncPersonalSideEffects('personal')) {
+          await checkPriceAlertsAfterReceiptSave(merchandiseForAlerts, draft.storeName);
+        }
         invalidatePrimaryStoreCache();
         reset();
         router.replace(`/receipt/${receiptId}`);
         return;
       }
 
-      const receipt = await saveReceipt({
+      const receiptPayload = {
         id: generateId(),
         storeName: draft.storeName,
         date: draft.date,
@@ -216,34 +229,35 @@ export default function EditReceiptScreen() {
         userCorrected: true,
         ...locationFields,
         items,
-      });
-      if (saveScope === 'workspace') {
-        await saveReceiptToWorkspace(
+      };
+
+      if (shouldSaveReceiptToWorkspace(saveScope)) {
+        const workspaceReceiptId = await saveReceiptToWorkspace(receiptPayload, 'workspace');
+        if (!workspaceReceiptId) {
+          throw new Error('Could not save receipt to your household workspace.');
+        }
+        reset();
+        router.replace({
+          pathname: '/receipt/[id]',
+          params: { id: workspaceReceiptId, scope: 'workspace' },
+        });
+        return;
+      }
+
+      const receipt = await saveReceipt(receiptPayload);
+      if (shouldSyncPersonalSideEffects(saveScope)) {
+        await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
+        void savePriceRecords(
+          items.filter((item) => (item.lineKind ?? 'merchandise') === 'merchandise'),
           {
-            id: receipt.id,
             storeName: draft.storeName,
-            date: draft.date,
-            subtotal: totals.subtotal,
-            tax: totals.tax,
-            total: totals.total,
-            imageUri: imageUri ?? '',
-            ...locationFields,
-            items,
+            city: draft.storeCity ?? undefined,
+            state: draft.storeRegion ?? undefined,
+            zip: draft.storePostalCode ?? undefined,
           },
-          'workspace'
+          draft.date
         );
       }
-      await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
-      void savePriceRecords(
-        items.filter((item) => (item.lineKind ?? 'merchandise') === 'merchandise'),
-        {
-          storeName: draft.storeName,
-          city: draft.storeCity ?? undefined,
-          state: draft.storeRegion ?? undefined,
-          zip: draft.storePostalCode ?? undefined,
-        },
-        draft.date
-      );
       invalidatePrimaryStoreCache();
       reset();
       router.replace({ pathname: '/receipt/link', params: { receiptId: receipt.id } });

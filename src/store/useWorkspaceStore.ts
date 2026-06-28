@@ -27,10 +27,12 @@ type WorkspaceStore = {
   mockSubWorkspaceIds: Set<string>;
   isCurrentMember: boolean;
   hasActiveWorkspaceSub: boolean;
+  familyWorkspaceReady: boolean;
   loadWorkspaces: () => Promise<void>;
   setCurrentWorkspace: (workspaceId: string | null) => Promise<void>;
   setActiveScope: (scope: DataScope) => Promise<void>;
   refreshCurrentWorkspace: () => Promise<void>;
+  refreshAfterFamilyPurchase: () => Promise<boolean>;
 };
 
 function deriveMembership(
@@ -53,6 +55,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   mockSubWorkspaceIds: new Set(),
   isCurrentMember: false,
   hasActiveWorkspaceSub: false,
+  familyWorkspaceReady: false,
 
   loadWorkspaces: async () => {
     const userId = await resolveAppUserId();
@@ -159,6 +162,16 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       isCurrentMember,
       hasActiveWorkspaceSub: hasActiveWorkspaceSub || (mockActive && isCurrentMember),
     });
+  },
+
+  refreshAfterFamilyPurchase: async () => {
+    await get().loadWorkspaces();
+    await get().refreshCurrentWorkspace();
+    await get().setActiveScope('workspace');
+    const { hasActiveWorkspaceSub, isCurrentMember } = get();
+    const ready = hasActiveWorkspaceSub && isCurrentMember;
+    set({ familyWorkspaceReady: ready });
+    return ready;
   },
 }));
 

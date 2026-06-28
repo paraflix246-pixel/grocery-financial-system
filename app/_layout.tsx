@@ -123,16 +123,20 @@ function ensureAppInitialized(): Promise<void> {
     await waitForWebFirstPaint();
     await runInitStep('i18n', initI18n);
     await runInitStep('storage', initStorage, INIT_STORAGE_TIMEOUT_MS);
-    await runInitStep('price providers', bootstrapExternalPriceProviders);
-    await runInitStep('budget settings', () => useBudgetStore.getState().loadSettings());
-    await runInitStep('app settings', () => useSettingsStore.getState().loadSettings());
+    await runInitStep('core stores', async () => {
+      await Promise.all([
+        bootstrapExternalPriceProviders(),
+        useBudgetStore.getState().loadSettings(),
+        useSettingsStore.getState().loadSettings(),
+        initializeSubscriptionProvider(),
+      ]);
+    });
     await runInitStep('profile name', async () => {
       const session = await getSession();
       if (session) {
         await syncProfileDisplayNameFromAuth();
       }
     });
-    await runInitStep('subscription provider', () => initializeSubscriptionProvider());
     await runInitStep('subscription', async () => {
       await useSubscriptionStore.getState().loadSubscription();
       const { tier, subscriptionSource } = useSubscriptionStore.getState();
@@ -143,8 +147,12 @@ function ensureAppInitialized(): Promise<void> {
         await useSubscriptionStore.getState().downgradeToFree();
       }
     });
-    await runInitStep('workspaces', () => useWorkspaceStore.getState().loadWorkspaces());
-    await runInitStep('lists', () => useListStore.getState().loadLists());
+    await runInitStep('workspaces and lists', async () => {
+      await Promise.all([
+        useWorkspaceStore.getState().loadWorkspaces(),
+        useListStore.getState().loadLists(),
+      ]);
+    });
     await runInitStep('onboarding', async () => {
       // If a valid Supabase session exists, treat onboarding as complete regardless
       // of the AsyncStorage flag (handles reinstalls and cross-device sign-ins).

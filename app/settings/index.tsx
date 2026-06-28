@@ -39,7 +39,9 @@ import {
   AvatarPicker,
 } from '@/src/components/settings/AppearanceSettings';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
-import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';
+import { canUseWorkspaceScope } from '@/src/services/dataScopeLogic';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { useAppFont } from '@/src/theme/AppFontProvider';
 import type { AppThemeId } from '@/src/theme/appThemes';
@@ -142,7 +144,9 @@ export default function SettingsScreen() {
   const downgradeToFree = useSubscriptionStore((s) => s.downgradeToFree);
   const activeScope = useWorkspaceStore((s) => s.activeScope);
   const currentWorkspace = useWorkspaceStore((s) => s.currentWorkspace);
-  const hasWorkspace = useWorkspaceStore((s) => s.isCurrentMember && Boolean(s.currentWorkspaceId));
+  const hasActiveWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
+  const isCurrentMember = useWorkspaceStore((s) => s.isCurrentMember);
+  const hasWorkspace = canUseWorkspaceScope(isCurrentMember, hasActiveWorkspaceSub, isAdmin);
   const setActiveScope = useWorkspaceStore((s) => s.setActiveScope);
   const insets = useSafeAreaInsets();
   const scrollBottomPadding = getScreenBottomPadding(insets.bottom, Platform.OS === 'web' ? 56 : 40);

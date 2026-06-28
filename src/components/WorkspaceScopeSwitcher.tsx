@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import type { DataScope } from '@/src/models/workspace';
@@ -20,9 +21,11 @@ export function WorkspaceScopeSwitcher({
   onScopeChange,
   onManageHousehold,
 }: Props) {
+  const { t } = useTranslation();
+
   if (!hasWorkspace) return null;
 
-  const label = workspaceName?.trim() || 'Household';
+  const label = workspaceName?.trim() || t('workspace.defaultName');
 
   return (
     <View style={styles.wrap}>
@@ -30,7 +33,9 @@ export function WorkspaceScopeSwitcher({
         <Pressable
           style={[styles.chip, scope === 'personal' && styles.chipActive]}
           onPress={() => onScopeChange('personal')}>
-          <Text style={[styles.chipText, scope === 'personal' && styles.chipTextActive]}>Personal</Text>
+          <Text style={[styles.chipText, scope === 'personal' && styles.chipTextActive]}>
+            {t('workspace.personal')}
+          </Text>
         </Pressable>
         <Pressable
           style={[styles.chip, scope === 'workspace' && styles.chipWorkspace]}
@@ -45,7 +50,7 @@ export function WorkspaceScopeSwitcher({
             tintColor={SmartCartColors.textMuted}
             size={14}
           />
-          <Text style={styles.manageText}>My household</Text>
+          <Text style={styles.manageText}>{t('workspace.manageHousehold')}</Text>
         </Pressable>
       ) : null}
     </View>

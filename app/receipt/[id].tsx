@@ -15,6 +15,8 @@ import { shareSingleReceiptExport } from '@/src/services/receiptExportService';
 import { formatUnitPriceLabel } from '@/src/utils/unitPriceParser';
 import { getComparisonForReceipt } from '@/src/services/analyticsService';
 import { deleteReceipt, getReceiptById, saveReceipt } from '@/src/services/storageService';
+import { getWorkspaceReceiptById } from '@/src/services/workspaceReceiptService';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { useScanStore } from '@/src/store/useScanStore';
 import { generateId } from '@/src/utils/id';
 import { mapToSpendingCategory, CATEGORY_COLORS, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -52,9 +54,11 @@ function ReceiptLineItem({ item }: { item: ReceiptItem }) {
 }
 
 export default function ReceiptDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, scope: scopeParam } = useLocalSearchParams<{ id: string; scope?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const isWorkspaceReceipt = scopeParam === 'workspace';
   const { unlocked: exportUnlocked, requestAccess: requestExportAccess } = useFeatureGate('export_advanced');
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
@@ -65,7 +69,13 @@ export default function ReceiptDetailScreen() {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [r, comp] = await Promise.all([getReceiptById(id), getComparisonForReceipt(id)]);
+    let r: Receipt | null = null;
+    if (isWorkspaceReceipt && currentWorkspaceId) {
+      r = await getWorkspaceReceiptById(currentWorkspaceId, id);
+    } else {
+      r = await getReceiptById(id);
+    }
+    const comp = isWorkspaceReceipt ? null : await getComparisonForReceipt(id);
     setReceipt(r);
     if (comp) {
       setComparison({
@@ -84,7 +94,7 @@ export default function ReceiptDetailScreen() {
       setComparison(null);
     }
     setLoading(false);
-  }, [id]);
+  }, [id, isWorkspaceReceipt, currentWorkspaceId]);
 
   useEffect(() => {
     load();

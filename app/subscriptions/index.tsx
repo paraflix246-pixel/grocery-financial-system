@@ -17,6 +17,7 @@ import { proMonthlyLabel } from '@/src/constants/proPricing';
 import { computeTrialStatus } from '@/src/services/trialService';
 
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { refreshFamilyWorkspaceAfterPurchase } from '@/src/services/familyWorkspacePurchaseService';
 
 import { getSubscriptionBillingMode, restoreSubscriptionPurchases } from '@/src/services/subscriptionService';
 import { redirectToStripePortal } from '@/src/services/stripeSubscriptionService';
@@ -30,7 +31,11 @@ import { formatDisplayDate } from '@/src/utils/dateParser';
 export default function SubscriptionsScreen() {
 
   const router = useRouter();
-  const { stripe } = useLocalSearchParams<{ stripe?: string }>();
+  const { stripe, type: checkoutType, session_id: sessionId } = useLocalSearchParams<{
+    stripe?: string;
+    type?: string;
+    session_id?: string;
+  }>();
   const [openingPortal, setOpeningPortal] = useState(false);
 
   const { tier, plan, expiresAt, loaded, loadSubscription, downgradeToFree, subscriptionSource, trialStartedAt, isPro } =
@@ -46,11 +51,21 @@ export default function SubscriptionsScreen() {
 
   useEffect(() => {
     if (stripe === 'success') {
-      void loadSubscription().then(() => {
-        Alert.alert('Welcome to Pro', 'Your Stripe subscription is active.');
+      void loadSubscription().then(async () => {
+        if (checkoutType === 'family' || checkoutType === 'workspace') {
+          const ready = await refreshFamilyWorkspaceAfterPurchase({ sessionId });
+          Alert.alert(
+            'Welcome to Family',
+            ready
+              ? 'Your household workspace is ready. Invite members from Family Plans.'
+              : 'Payment received — open Family Plans if your household workspace is not visible yet.'
+          );
+        } else {
+          Alert.alert('Welcome to Pro', 'Your Stripe subscription is active.');
+        }
       });
     }
-  }, [stripe, loadSubscription]);
+  }, [stripe, checkoutType, sessionId, loadSubscription]);
 
 
 

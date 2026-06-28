@@ -50,7 +50,7 @@ export async function createCheckoutSessionForUser(
   const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
     mode: 'subscription',
     line_items: [{ price: priceId, quantity: 1 }],
-    success_url: `${baseUrl}/subscriptions?stripe=success&type=${product}`,
+    success_url: `${baseUrl}/subscriptions?stripe=success&type=${product}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${baseUrl}/paywall?stripe=cancel`,
     client_reference_id: userId,
     metadata,
@@ -226,4 +226,78 @@ export async function requireAuthenticatedUser(request: Request) {
   const user = await getUserFromAuthHeader(request);
   if (!user) return null;
   return user;
+}
+
+export type FamilyWorkspaceSyncResult = {
+  workspaceId: string;
+  active: boolean;
+  status: string;
+};
+
+/** Immediately sync Household billing from Stripe (checkout session or customer subscriptions). */
+export async function syncFamilyWorkspaceForUser(
+  userId: string,
+  checkoutSessionId?: string
+): Promise<FamilyWorkspaceSyncResult | null> {
+  let workspace = await getWorkspaceForOwner(userId);
+  if (!workspace) {
+    await createWorkspaceForOwner(userId);
+    workspace = await getWorkspaceForOwner(userId);
+  }
+
+  const stripe = getStripeClient();
+
+  if (checkoutSessionId) {
+    try {
+      const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+      const sessionUserId =
+        session.metadata?.user_id?.trim() || session.client_reference_id?.trim();
+      if (sessionUserId === userId) {
+        await handleCheckoutSessionCompleted(session);
+        workspace = await getWorkspaceForOwner(userId);
+      }
+    } catch (error) {
+      console.warn('[stripe] sync from checkout session failed:', error);
+    }
+  }
+
+  if (workspace && !isStripeSubscriptionActive(workspace.subscription_status)) {
+    const userSub = await getStripeSubscriptionForUser(userId);
+    let customerId = userSub?.stripe_customer_id ?? undefined;
+
+    if (!customerId && workspace.stripe_subscription_id) {
+      try {
+        const linked = await stripe.subscriptions.retrieve(workspace.stripe_subscription_id);
+        customerId =
+          typeof linked.customer === 'string' ? linked.customer : linked.customer?.id ?? undefined;
+      } catch {
+        // ignore — fall through to list by metadata
+      }
+    }
+
+    if (customerId) {
+      const subs = await stripe.subscriptions.list({
+        customer: customerId,
+        status: 'all',
+        limit: 20,
+      });
+      for (const sub of subs.data) {
+        const subType = sub.metadata?.type?.trim();
+        if (subType === 'family' || subType === 'workspace') {
+          await syncSubscriptionFromStripeObject(sub, userId);
+          workspace = await getWorkspaceForOwner(userId);
+          break;
+        }
+      }
+    }
+  }
+
+  if (!workspace) return null;
+
+  const active = isStripeSubscriptionActive(workspace.subscription_status);
+  return {
+    workspaceId: workspace.id,
+    active,
+    status: workspace.subscription_status,
+  };
 }

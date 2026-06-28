@@ -478,6 +478,13 @@
       }
     }
   },
+  "workspace": {
+    "defaultName": "Household",
+    "personal": "Personal",
+    "manageHousehold": "My household",
+    "saveToHint": "Personal and household data stay separate — choose where this receipt belongs.",
+    "saveToLabel": "Save to"
+  },
   "settings": {
     "title": "Settings",
     "profile": "Profile",
@@ -637,7 +644,17 @@
       "hintUnlocked": "Available with Family workspace — share lists with your household.",
       "hintLocked": "Subscribe to Family workspace — invite members free.",
       "tapToUnlock": "Tap to unlock with Family workspace",
-      "copyInvite": "Copy household invite code"
+      "copyInvite": "Copy household invite code",
+      "copyLink": "Copy invite link",
+      "emailInvite": "Invite by email"
+    },
+    "emailInvite": {
+      "title": "Invite by email",
+      "hint": "Send a household invite link to a family member. They join free — your Family subscription covers the workspace.",
+      "placeholder": "family@example.com",
+      "button": "Send invite email",
+      "invalidEmail": "Enter a valid email address.",
+      "subject": "Join our Penny Pantry household"
     },
     "unlockWithFamily": "Unlock with Family workspace",
     "shareList": {

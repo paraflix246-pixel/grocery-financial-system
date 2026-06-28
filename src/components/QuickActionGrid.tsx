@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import type { ComponentProps } from 'react';
@@ -89,19 +89,17 @@ function SecondaryActionCard({
   );
 }
 
-export function QuickActionGrid() {
+export const QuickActionGrid = memo(function QuickActionGrid() {
   const { t } = useTranslation();
   const router = useRouter();
   const { theme } = useAppTheme();
   const listCount = useListStore((s) => s.lists.length);
 
-  const loadLists = useCallback(() => {
-    void useListStore.getState().loadLists();
-  }, []);
-
   useEffect(() => {
-    loadLists();
-  }, [loadLists]);
+    if (listCount === 0) {
+      void useListStore.getState().loadLists();
+    }
+  }, [listCount]);
 
   const listsSubtitle = useMemo(() => {
     if (listCount === 0) return t('quickActions.listsSubtitleEmpty');
@@ -196,7 +194,7 @@ export function QuickActionGrid() {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   grid: {

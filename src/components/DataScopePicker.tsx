@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import type { DataScope } from '@/src/models/workspace';
@@ -18,13 +19,15 @@ export function DataScopePicker({
   workspaceAvailable,
   onChange,
 }: Props) {
+  const { t } = useTranslation();
+
   if (!workspaceAvailable) return null;
 
-  const householdLabel = workspaceName?.trim() ? workspaceName : 'Household';
+  const householdLabel = workspaceName?.trim() ? workspaceName : t('workspace.defaultName');
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Save to</Text>
+      <Text style={styles.label}>{t('workspace.saveToLabel')}</Text>
       <View style={styles.row}>
         <Pressable
           style={[styles.option, scope === 'personal' && styles.optionActive]}
@@ -36,7 +39,9 @@ export function DataScopePicker({
             tintColor={scope === 'personal' ? SmartCartColors.primaryDark : SmartCartColors.textMuted}
             size={18}
           />
-          <Text style={[styles.optionText, scope === 'personal' && styles.optionTextActive]}>Personal</Text>
+          <Text style={[styles.optionText, scope === 'personal' && styles.optionTextActive]}>
+            {t('workspace.personal')}
+          </Text>
         </Pressable>
         <Pressable
           style={[styles.option, scope === 'workspace' && styles.optionActiveWorkspace]}
@@ -53,9 +58,7 @@ export function DataScopePicker({
           </Text>
         </Pressable>
       </View>
-      <Text style={styles.hint}>
-        Personal and household data stay separate — choose where this receipt belongs.
-      </Text>
+      <Text style={styles.hint}>{t('workspace.saveToHint')}</Text>
     </View>
   );
 }

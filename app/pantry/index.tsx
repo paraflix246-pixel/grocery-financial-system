@@ -26,6 +26,14 @@ import {
   MockupTabs,
 } from '@/src/components/mockup/MockupUI';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { WorkspaceScopeBar } from '@/src/components/WorkspaceScopeBar';
+import { loadPantryItemsForScope } from '@/src/services/scopedPantryService';
+import {
+  addWorkspacePantryItem,
+  removeWorkspacePantryItem,
+  updateWorkspacePantryAmount,
+} from '@/src/services/workspacePantryService';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { UndoSnackbar } from '@/src/components/UndoSnackbar';
 import { GROCERY_CATEGORIES } from '@/src/data/groceryCatalog';
 import { getItemEmoji } from '@/src/data/commonGroceryItems';
@@ -120,12 +128,15 @@ export default function PantryScreen() {
   const [saving, setSaving] = useState(false);
   const [addingToList, setAddingToList] = useState(false);
   const { pending: undoPending, scheduleUndo, undo } = useUndoDelete();
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const isWorkspaceView = activeScope === 'workspace';
 
   const quickAddItems = useMemo(() => getPantryQuickAddItems(), []);
 
   const load = useCallback(async () => {
-    setItems(await loadPantryItems());
-  }, []);
+    setItems(await loadPantryItemsForScope(activeScope, currentWorkspaceId));
+  }, [activeScope, currentWorkspaceId]);
 
   const { blocking } = useFocusReload(load);
 
@@ -362,7 +373,13 @@ export default function PantryScreen() {
         addedDate,
       };
       if (editingItem) {
-        await savePantryItemAmount(editingItem.id, payload);
+        if (isWorkspaceView) {
+          await updateWorkspacePantryAmount(editingItem.id, payload.quantity);
+        } else {
+          await savePantryItemAmount(editingItem.id, payload);
+        }
+      } else if (isWorkspaceView) {
+        await addWorkspacePantryItem({ ...payload, unit: payload.unit ?? 'ea' });
       } else {
         await addManualPantryItem(payload);
       }
@@ -403,7 +420,11 @@ export default function PantryScreen() {
           async () => {},
           async () => restorePantryItem(snapshot)
         );
-        await removePantryItem(item.id);
+        if (isWorkspaceView) {
+          await removeWorkspacePantryItem(item.id);
+        } else {
+          await removePantryItem(item.id);
+        }
         closeModal();
         await load();
       },
@@ -542,6 +563,9 @@ export default function PantryScreen() {
           </Pressable>
         }
       />
+      <View style={styles.scopeBarWrap}>
+        <WorkspaceScopeBar />
+      </View>
       {blocking ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={SmartCartColors.primary} />
@@ -879,6 +903,7 @@ export default function PantryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: SmartCartColors.background },
+  scopeBarWrap: { paddingHorizontal: 16, paddingTop: 4 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16, paddingBottom: 100 },
   listHiddenUnderModal: Platform.select({

@@ -30,7 +30,10 @@ import { getScanLimitStatus } from '@/src/services/scanLimitService';
 import { useFocusReload } from '@/src/hooks/useFocusReload';
 import { useUndoDelete } from '@/src/hooks/useUndoDelete';
 import { UndoSnackbar } from '@/src/components/UndoSnackbar';
-import { deleteReceipts, getReceipts, saveReceipt } from '@/src/services/storageService';
+import { WorkspaceScopeBar } from '@/src/components/WorkspaceScopeBar';
+import { invalidateScopedReceiptsCache, loadReceiptsForScope } from '@/src/services/scopedReceiptService';
+import { deleteReceipts, saveReceipt } from '@/src/services/storageService';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
 import type { Receipt } from '@/src/models/types';
 
@@ -88,10 +91,13 @@ export default function ReceiptsScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const { pending: undoPending, scheduleUndo, undo } = useUndoDelete();
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const isWorkspaceView = activeScope === 'workspace';
 
   const load = useCallback(async () => {
     try {
-      const data = await getReceipts();
+      const data = await loadReceiptsForScope(activeScope, currentWorkspaceId);
       setAllReceipts(data);
       if (storeFilterParam) {
         setSelectedStore(storeFilterParam);
@@ -99,7 +105,7 @@ export default function ReceiptsScreen() {
     } catch (error) {
       console.error('Receipts screen load failed:', error);
     }
-  }, [storeFilterParam]);
+  }, [storeFilterParam, activeScope, currentWorkspaceId]);
 
   const { blocking, reload } = useFocusReload(load);
 
@@ -148,7 +154,11 @@ export default function ReceiptsScreen() {
       toggleSelection(receipt.id);
       return;
     }
-    router.push(`/receipt/${receipt.id}`);
+    router.push(
+      isWorkspaceView
+        ? { pathname: '/receipt/[id]', params: { id: receipt.id, scope: 'workspace' } }
+        : `/receipt/${receipt.id}`
+    );
   }
 
   function handleRowLongPress(receipt: Receipt) {
@@ -185,6 +195,7 @@ export default function ReceiptsScreen() {
         unit: item.unit,
       })),
     });
+    invalidateScopedReceiptsCache(activeScope, currentWorkspaceId);
     await reload();
   }
 
@@ -208,6 +219,7 @@ export default function ReceiptsScreen() {
             }
           );
           await deleteReceipts([...selectedIds]);
+          invalidateScopedReceiptsCache(activeScope, currentWorkspaceId);
           exitSelectMode();
           await reload();
         } finally {
@@ -232,9 +244,11 @@ export default function ReceiptsScreen() {
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
         <AppHeader />
 
+        <WorkspaceScopeBar />
+
         <View style={styles.titleRow}>
           <MockupScreenTitle title={t('receipts.title')} subtitle={t('receipts.subtitle')} />
-          {filteredReceipts.length > 0 ? (
+          {filteredReceipts.length > 0 && !isWorkspaceView ? (
             <Pressable
               style={styles.selectBtn}
               onPress={() => (selectMode ? exitSelectMode() : enterSelectMode())}>

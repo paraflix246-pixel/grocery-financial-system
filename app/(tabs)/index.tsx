@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Themed';
 import { AppHeader } from '@/src/components/AppHeader';
 import { CheapestCartComparison } from '@/src/components/CheapestCartComparison';
+import { DeferredMount } from '@/src/components/DeferredMount';
 import { DonutChart } from '@/src/components/DonutChart';
 import { ForgottenItemsCard } from '@/src/components/ForgottenItemsCard';
 import { HeroScanCard } from '@/src/components/HeroScanCard';
@@ -44,7 +45,10 @@ import {
 } from '@/src/services/priceAlertService';
 import { resolveComparisonList } from '@/src/services/listComparisonService';
 import type { ResolvedComparisonList } from '@/src/services/listComparisonService';
-import { getActiveList, getReceipts, createListItem } from '@/src/services/storageService';
+import { WorkspaceScopeBar } from '@/src/components/WorkspaceScopeBar';
+import { loadReceiptsForScope } from '@/src/services/scopedReceiptService';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import { getActiveList, createListItem } from '@/src/services/storageService';
 import { useFocusReload } from '@/src/hooks/useFocusReload';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useListStore } from '@/src/store/useListStore';
@@ -77,6 +81,9 @@ export default function HomeScreen() {
   const notifyBudgetAlerts = useSettingsStore((s) => s.settings?.notifyBudgetAlerts ?? true);
   const subscriptionTier = useSubscriptionStore((s) => s.tier);
   const { isAdmin } = useAdminStatus();
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const isWorkspaceView = activeScope === 'workspace';
   const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
   const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
   const [homeInsight, setHomeInsight] = useState<HomeInsight | null>(null);
@@ -95,42 +102,53 @@ export default function HomeScreen() {
       const budget = weeklyBudgetSetting;
       const threshold = alertThresholdSetting;
 
-      const receipts = await getReceipts();
+      const receipts = await loadReceiptsForScope(activeScope, currentWorkspaceId);
       const weekReceipts = getWeekReceipts(receipts);
-
-      const [insight, comparison] = await Promise.all([
-        buildHomeInsight(budget, threshold, weekReceipts),
-        resolveComparisonList({ forceRefresh: !comparisonLoadedRef.current }),
-      ]);
+      const insight = await buildHomeInsight(budget, threshold, weekReceipts);
 
       setRecentReceipts(receipts.slice(0, 12));
       setAllReceipts(receipts);
       setHomeInsight(insight);
 
-      const comparisonItems = comparison?.items ?? [];
-      setListItems(comparisonItems);
-      setComparisonSource(comparison?.source ?? null);
-      comparisonLoadedRef.current = true;
-      if (comparison?.source === 'list') {
-        void useListStore.getState().loadLists();
-        void useListStore.getState().loadListItems(comparison.list.id);
+      if (isWorkspaceView) {
+        setListItems([]);
+        setComparisonSource(null);
+        setPriceAlerts([]);
+        setPriceAlertRules([]);
+        setForgottenItems([]);
+        setComparisonResolved(true);
+        return;
       }
 
-      const [alerts, alertRules, forgotten] = await Promise.all([
+      void Promise.all([
+        resolveComparisonList({ forceRefresh: !comparisonLoadedRef.current }),
         getAllPriceAlerts(),
         getAllRulesWithCurrentPrice(),
         getForgottenItemNudges(3),
-      ]);
-      setPriceAlerts(alerts);
-      setPriceAlertRules(alertRules);
-      setForgottenItems(forgotten);
-      void useSettingsStore.getState().loadSettings();
+      ])
+        .then(([comparison, alerts, alertRules, forgotten]) => {
+          const comparisonItems = comparison?.items ?? [];
+          setListItems(comparisonItems);
+          setComparisonSource(comparison?.source ?? null);
+          comparisonLoadedRef.current = true;
+          if (comparison?.source === 'list') {
+            void useListStore.getState().loadListItems(comparison.list.id);
+          }
+          setPriceAlerts(alerts);
+          setPriceAlertRules(alertRules);
+          setForgottenItems(forgotten);
+        })
+        .catch((error) => {
+          console.error('Home screen secondary load failed:', error);
+        })
+        .finally(() => {
+          setComparisonResolved(true);
+        });
     } catch (error) {
       console.error('Home screen load failed:', error);
-    } finally {
       setComparisonResolved(true);
     }
-  }, [weeklyBudgetSetting, alertThresholdSetting]);
+  }, [weeklyBudgetSetting, alertThresholdSetting, activeScope, currentWorkspaceId, isWorkspaceView]);
 
   const categoryData = useMemo(() => {
     const { receipts } = getSpendingOverviewReceipts(allReceipts, spendingPeriod);
@@ -181,6 +199,8 @@ export default function HomeScreen() {
         onNotificationPress={() => router.push('/price-tracker?tab=alerts' as never)}
       />
 
+      <WorkspaceScopeBar />
+
       <View style={styles.greetingBlock}>
         <Text style={styles.greeting}>{greetingText}</Text>
         <Text style={styles.greetingSub} muted>
@@ -188,7 +208,7 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {subscriptionTier === 'free' && !isAdmin ? (
+      {subscriptionTier === 'free' && !isAdmin && !isWorkspaceView ? (
         <ProUpgradeBanner
           variant="compact"
           message={t('home.proBannerCompact', { price: PRO_MONTHLY_PRICE.replace('$', '') })}
@@ -325,7 +345,9 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <SpendingAnalyticsCard receipts={allReceipts} fullBleed style={styles.dashboardChart} />
+      <DeferredMount delayMs={16}>
+        <SpendingAnalyticsCard receipts={allReceipts} fullBleed style={styles.dashboardChart} />
+      </DeferredMount>
 
       {homeInsight?.planComparison ? (
         <PlanComparisonModal
