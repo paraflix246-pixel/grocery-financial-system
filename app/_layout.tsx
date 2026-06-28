@@ -24,6 +24,8 @@ import { UpgradePromptProvider } from '@/src/components/UpgradePromptProvider';
 import { TrialReminderProvider } from '@/src/components/TrialReminderProvider';
 import { SmartCartColors } from '@/src/theme/smartCart';
 import { AppThemeProvider, loadStoredThemeId } from '@/src/theme/AppThemeProvider';
+import type { AppThemeId } from '@/src/theme/appThemes';
+import { applyThemeById, readStoredThemeIdSync } from '@/src/theme/themeStorage';
 import { AppFontProvider } from '@/src/theme/AppFontProvider';
 import { AvatarProvider } from '@/src/components/avatars/AvatarProvider';
 import { initI18n, i18n } from '@/src/i18n';
@@ -46,6 +48,7 @@ import { ensureTrialExpiredDowngrade } from '@/src/services/trialService';
 import { canAccessWorkspaceFeature } from '@/src/services/featureGateService';
 import { startFamilyRealtimeSync } from '@/src/services/familySyncService';
 import { AuthSessionGuard } from '@/src/components/AuthSessionGuard';
+import { FamilyCheckoutSuccessSync } from '@/src/components/FamilyCheckoutSuccessSync';
 
 export { ErrorBoundary };
 
@@ -119,9 +122,6 @@ function ensureAppInitialized(): Promise<void> {
   const initWork = (async () => {
     await waitForWebFirstPaint();
     await runInitStep('i18n', initI18n);
-    await runInitStep('theme', async () => {
-      await loadStoredThemeId();
-    });
     await runInitStep('storage', initStorage, INIT_STORAGE_TIMEOUT_MS);
     await runInitStep('price providers', bootstrapExternalPriceProviders);
     await runInitStep('budget settings', () => useBudgetStore.getState().loadSettings());
@@ -191,11 +191,19 @@ export default function RootLayout() {
   });
   const [fontsTimedOut, setFontsTimedOut] = useState(Platform.OS === 'web');
   const [localeReady, setLocaleReady] = useState(false);
+  const [bootThemeId, setBootThemeId] = useState<AppThemeId | null>(() => {
+    const sync = readStoredThemeIdSync();
+    if (sync) {
+      applyThemeById(sync);
+      return sync;
+    }
+    return null;
+  });
   const onboardingComplete = useBudgetStore((s) => s.onboardingComplete);
   const onboardingReady = useBudgetStore((s) => s.onboardingReady);
   const fontsReady =
     Platform.OS === 'web' || loaded || fontsTimedOut || Boolean(fontError);
-  const bootReady = fontsReady && localeReady;
+  const bootReady = fontsReady && localeReady && bootThemeId !== null;
   const router = useRouter();
   const segments = useSegments();
   const isPublicRoute =
@@ -220,6 +228,17 @@ export default function RootLayout() {
     }, FONT_LOAD_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [fontsReady]);
+
+  useEffect(() => {
+    if (bootThemeId !== null) {
+      applyThemeById(bootThemeId);
+      return;
+    }
+    void loadStoredThemeId().then((id) => {
+      applyThemeById(id);
+      setBootThemeId(id);
+    });
+  }, [bootThemeId]);
 
   useEffect(() => {
     if (!moduleInitStarted) {
@@ -274,11 +293,14 @@ export default function RootLayout() {
   if (!bootReady) {
     return (
       <GlobalErrorBoundary>
-        <GestureHandlerRootView style={[styles.root, styles.boot]}>
+        <GestureHandlerRootView
+          style={[styles.root, { backgroundColor: SmartCartColors.background }]}>
           <View style={styles.bootContent} accessibilityRole="progressbar" accessibilityLabel="Loading">
             <PennyPantryLogo variant="hero" size={72} style={styles.bootLogo} />
             <ActivityIndicator size="large" color={SmartCartColors.primary} />
-            <Text style={styles.bootText}>Loading Penny Pantry…</Text>
+            <Text style={[styles.bootText, { color: SmartCartColors.textSecondary }]}>
+              Loading Penny Pantry…
+            </Text>
           </View>
         </GestureHandlerRootView>
       </GlobalErrorBoundary>
@@ -288,13 +310,14 @@ export default function RootLayout() {
   return (
     <GlobalErrorBoundary>
       <I18nextProvider i18n={i18n}>
-        <AppThemeProvider>
+        <AppThemeProvider initialThemeId={bootThemeId ?? undefined}>
           <AppFontProvider>
             <AvatarProvider>
               <GestureHandlerRootView style={styles.root}>
                 <SafeAreaProvider initialMetrics={initialWindowMetrics}>
                   <UpgradePromptProvider>
                     <TrialReminderProvider>
+                      <FamilyCheckoutSuccessSync />
                       <FamilyRealtimeBootstrap />
                       <AuthSessionGuard />
                       <DevConnectionBanner />
@@ -361,7 +384,6 @@ function RootLayoutNav() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  boot: { backgroundColor: SmartCartColors.background },
   bootContent: {
     flex: 1,
     alignItems: 'center',
@@ -374,6 +396,5 @@ const styles = StyleSheet.create({
   bootText: {
     fontSize: 15,
     fontWeight: '600',
-    color: SmartCartColors.textSecondary,
   },
 });

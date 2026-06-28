@@ -11,15 +11,20 @@ import {
 
 import {
   APP_THEME_LIST,
-  DEFAULT_THEME_ID,
   getAppTheme,
   isValidThemeId,
   type AppThemeId,
   type AppThemeTokens,
 } from '@/src/theme/appThemes';
-import { SmartCartColors } from '@/src/theme/smartCart';
+import {
+  applyThemeTokens,
+  readStoredThemeIdSync,
+  resolveInitialThemeId,
+  syncWebDocumentTheme,
+  THEME_STORAGE_KEY,
+} from '@/src/theme/themeStorage';
 
-const THEME_STORAGE_KEY = 'app_theme_id';
+export { THEME_STORAGE_KEY } from '@/src/theme/themeStorage';
 
 type AppThemeContextValue = {
   theme: AppThemeTokens;
@@ -34,40 +39,28 @@ type AppThemeContextValue = {
 
 const AppThemeContext = createContext<AppThemeContextValue | null>(null);
 
-function applyThemeTokens(theme: AppThemeTokens): void {
-  Object.assign(SmartCartColors, {
-    primary: theme.primary,
-    primaryMid: theme.primary,
-    primaryDark: theme.primary,
-    primaryLight: theme.primary,
-    background: theme.background,
-    card: theme.surface,
-    cardElevated: theme.surfaceElevated,
-    accentGlow: theme.accentGlow,
-    text: theme.text,
-    textSecondary: theme.textMuted,
-    textMuted: theme.textMuted,
-    textOnPrimary: theme.primaryText,
-    border: theme.border,
-    badge: `${theme.primary}22`,
-    badgeGreen: `${theme.primary}15`,
-    bannerGreen: `${theme.primary}12`,
-    success: theme.primary,
-  });
-}
-
 export async function loadStoredThemeId(): Promise<AppThemeId> {
+  const sync = readStoredThemeIdSync();
+  if (sync) return sync;
   try {
     const stored = await AsyncStorage.getItem(THEME_STORAGE_KEY);
     if (stored && isValidThemeId(stored)) return stored;
   } catch {
     // fall through to default
   }
-  return DEFAULT_THEME_ID;
+  return resolveInitialThemeId();
 }
 
 export async function persistThemeId(id: AppThemeId): Promise<void> {
   await AsyncStorage.setItem(THEME_STORAGE_KEY, id);
+}
+
+function initializeThemeId(initialThemeId?: AppThemeId): AppThemeId {
+  const id = resolveInitialThemeId(initialThemeId);
+  const theme = getAppTheme(id);
+  applyThemeTokens(theme);
+  syncWebDocumentTheme(theme, id);
+  return id;
 }
 
 export function AppThemeProvider({
@@ -77,40 +70,56 @@ export function AppThemeProvider({
   children: ReactNode;
   initialThemeId?: AppThemeId;
 }) {
-  const [themeId, setThemeIdState] = useState<AppThemeId>(initialThemeId ?? DEFAULT_THEME_ID);
-  const [savedThemeId, setSavedThemeId] = useState<AppThemeId>(initialThemeId ?? DEFAULT_THEME_ID);
-  const [ready, setReady] = useState(Boolean(initialThemeId));
+  const [themeId, setThemeIdState] = useState<AppThemeId>(() => initializeThemeId(initialThemeId));
+  const [savedThemeId, setSavedThemeId] = useState<AppThemeId>(() =>
+    resolveInitialThemeId(initialThemeId)
+  );
+  const [ready, setReady] = useState(
+    () => Boolean(initialThemeId) || readStoredThemeIdSync() !== null
+  );
 
   const theme = useMemo(() => getAppTheme(themeId), [themeId]);
 
   useEffect(() => {
     applyThemeTokens(theme);
-  }, [theme]);
+    syncWebDocumentTheme(theme, themeId);
+  }, [theme, themeId]);
 
   useEffect(() => {
-    if (initialThemeId) {
+    if (initialThemeId || readStoredThemeIdSync()) {
       setReady(true);
       return;
     }
     void loadStoredThemeId().then((stored) => {
-      setThemeIdState(stored);
+      if (stored !== themeId) {
+        const next = getAppTheme(stored);
+        applyThemeTokens(next);
+        syncWebDocumentTheme(next, stored);
+        setThemeIdState(stored);
+      }
       setSavedThemeId(stored);
       setReady(true);
     });
-  }, [initialThemeId]);
+  }, [initialThemeId, themeId]);
 
   const previewTheme = useCallback((id: AppThemeId) => {
-    applyThemeTokens(getAppTheme(id));
+    const next = getAppTheme(id);
+    applyThemeTokens(next);
+    syncWebDocumentTheme(next, id);
     setThemeIdState(id);
   }, []);
 
   const revertTheme = useCallback(() => {
-    applyThemeTokens(getAppTheme(savedThemeId));
+    const saved = getAppTheme(savedThemeId);
+    applyThemeTokens(saved);
+    syncWebDocumentTheme(saved, savedThemeId);
     setThemeIdState(savedThemeId);
   }, [savedThemeId]);
 
   const setThemeId = useCallback(async (id: AppThemeId) => {
-    applyThemeTokens(getAppTheme(id));
+    const next = getAppTheme(id);
+    applyThemeTokens(next);
+    syncWebDocumentTheme(next, id);
     setThemeIdState(id);
     setSavedThemeId(id);
     await persistThemeId(id);
@@ -129,6 +138,10 @@ export function AppThemeProvider({
     }),
     [theme, themeId, savedThemeId, ready, setThemeId, previewTheme, revertTheme]
   );
+
+  if (!ready) {
+    return null;
+  }
 
   return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
 }
