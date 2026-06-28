@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import { isAdminUser, syncUserProfile } from '@/src/services/admin/adminApiService';
-import { getSession, getStoredUser } from '@/src/services/authService';
+import { getSession, getStoredUser, waitForAuthReady } from '@/src/services/authService';
 
 export {
   ONBOARDING_STORAGE_KEY,
@@ -46,6 +46,8 @@ export async function loadAuthRoutingContext(
   onboardingComplete: boolean,
   now: number = Date.now()
 ): Promise<AuthRoutingContext> {
+  await waitForAuthReady();
+
   const [session, storedUser, rememberMe, lastActivityAt] = await Promise.all([
     getSession(),
     getStoredUser(),
@@ -60,8 +62,9 @@ export async function loadAuthRoutingContext(
   }
 
   return {
-    onboardingComplete,
+    onboardingComplete: session ? true : onboardingComplete,
     hasSupabaseSession: Boolean(session),
+    authStateResolved: true,
     storedUser,
     rememberMe,
     lastActivityAt,

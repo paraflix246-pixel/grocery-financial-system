@@ -506,6 +506,40 @@ export async function getSession() {
   return data.session ?? null;
 }
 
+const AUTH_READY_TIMEOUT_MS = 5_000;
+
+/** Wait until Supabase has restored (or confirmed absent) the persisted session. */
+export function waitForAuthReady(): Promise<void> {
+  if (!supabase) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let settled = false;
+
+    const finish = (subscription: { unsubscribe: () => void }) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+      resolve();
+    };
+
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      subscription.unsubscribe();
+      resolve();
+    }, AUTH_READY_TIMEOUT_MS);
+
+    const {
+      data: { subscription },
+    } = supabase!.auth.onAuthStateChange((event) => {
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_OUT') {
+        finish(subscription);
+      }
+    });
+  });
+}
+
 export async function getStoredUser(): Promise<AuthUser | null> {
   const raw = await AsyncStorage.getItem(AUTH_USER_KEY);
   if (!raw) return null;

@@ -10,6 +10,7 @@ export const WEB_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 export type AuthRoutingContext = {
   onboardingComplete: boolean;
   hasSupabaseSession: boolean;
+  authStateResolved: boolean;
   storedUser: AuthUser | null;
   rememberMe: boolean;
   lastActivityAt: number | null;
@@ -54,6 +55,7 @@ export function needsReauthentication(ctx: AuthRoutingContext): boolean {
 }
 
 export function resolveInitialRoute(ctx: AuthRoutingContext): InitialRouteResult {
+  // Authenticated users never replay onboarding — route to app (or re-auth when idle/expired).
   if (ctx.hasSupabaseSession) {
     if (needsReauthentication(ctx)) {
       const reason: InitialRouteResult['reason'] = isIdleTimedOut(ctx)
@@ -81,11 +83,7 @@ export function resolveInitialRoute(ctx: AuthRoutingContext): InitialRouteResult
     };
   }
 
-  // Web visitors without a session always land on onboarding (marketing entry point).
-  if (ctx.platform === 'web') {
-    return { href: '/onboarding', reason: 'onboarding_incomplete' };
-  }
-
+  // First-time visitors (no account, no completed onboarding) see the marketing carousel.
   if (!ctx.onboardingComplete) {
     return { href: '/onboarding', reason: 'onboarding_incomplete' };
   }

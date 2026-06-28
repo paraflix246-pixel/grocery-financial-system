@@ -20,6 +20,7 @@ export type ProfileRow = {
   banned_at: string | null;
   banned_reason: string | null;
   signup_source: string | null;
+  onboarding_completed_at: string | null;
 };
 
 export type AuditEventRow = {
@@ -140,7 +141,11 @@ export async function upsertProfileFromAuthUser(user: User): Promise<ProfileRow>
   const role = resolveProfileRole(email);
   const now = new Date().toISOString();
 
-  const { data: existing } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle();
+  const { data: existing } = await admin
+    .from('profiles')
+    .select('role, onboarding_completed_at')
+    .eq('id', user.id)
+    .maybeSingle();
 
   const effectiveRole =
     existing?.role === 'admin' || role === 'admin' ? 'admin' : 'user';
@@ -154,6 +159,7 @@ export async function upsertProfileFromAuthUser(user: User): Promise<ProfileRow>
         role: effectiveRole,
         last_seen_at: now,
         signup_provider: extractSignupProvider(user),
+        onboarding_completed_at: existing?.onboarding_completed_at ?? now,
         updated_at: now,
       },
       { onConflict: 'id' }

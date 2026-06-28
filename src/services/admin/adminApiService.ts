@@ -122,6 +122,7 @@ export type AdminProfile = {
   banned_at: string | null;
   banned_reason: string | null;
   signup_source: string | null;
+  onboarding_completed_at: string | null;
 };
 
 export type AdminUserListResponse = {
@@ -414,10 +415,17 @@ export async function submitUserFeedback(message: string, category?: string): Pr
   }
 }
 
-type SyncedProfile = Pick<AdminProfile, 'id' | 'role'>;
+type SyncedProfile = Pick<AdminProfile, 'id' | 'role'> & {
+  onboarding_completed_at?: string | null;
+};
 
 let cachedProfileRole: AdminProfile['role'] | null = null;
 let cachedAuthEmail: string | null = null;
+let lastSyncedProfile: SyncedProfile | null = null;
+let lastProfileSyncAt = 0;
+let profileSyncInFlight: Promise<SyncedProfile | null> | null = null;
+
+const PROFILE_SYNC_TTL_MS = 60_000;
 
 function getClientAdminEmails(): Set<string> {
   const raw = process.env.EXPO_PUBLIC_ADMIN_EMAILS?.trim() ?? '';
@@ -452,9 +460,12 @@ export function isAdminUser(): boolean {
 export function clearCachedProfileRole(): void {
   cachedProfileRole = null;
   cachedAuthEmail = null;
+  lastSyncedProfile = null;
+  lastProfileSyncAt = 0;
+  profileSyncInFlight = null;
 }
 
-export async function syncUserProfile(): Promise<SyncedProfile | null> {
+async function fetchUserProfileSync(): Promise<SyncedProfile | null> {
   const apiUrl = resolveApiUrl('/api/profile/sync');
   if (!apiUrl) return null;
 
@@ -490,7 +501,12 @@ export async function syncUserProfile(): Promise<SyncedProfile | null> {
 
     const role = resolveCachedAdminRole(payload.profile.role) ?? payload.profile.role;
     cachedProfileRole = role;
-    return { id: payload.profile.id, role };
+    lastSyncedProfile = {
+      id: payload.profile.id,
+      role,
+      onboarding_completed_at: payload.profile.onboarding_completed_at ?? null,
+    };
+    return lastSyncedProfile;
   } catch (error) {
     const fallbackRole = resolveCachedAdminRole(null);
     cachedProfileRole = fallbackRole;
@@ -500,6 +516,31 @@ export async function syncUserProfile(): Promise<SyncedProfile | null> {
     console.warn('[profile] sync failed:', error);
     return null;
   }
+}
+
+/** Sync profile role from server; dedupes parallel calls and skips within TTL unless forced. */
+export async function syncUserProfile(options?: { force?: boolean }): Promise<SyncedProfile | null> {
+  const force = options?.force ?? false;
+  const now = Date.now();
+
+  if (!force && lastProfileSyncAt > 0 && now - lastProfileSyncAt < PROFILE_SYNC_TTL_MS) {
+    return lastSyncedProfile;
+  }
+
+  if (profileSyncInFlight) {
+    return profileSyncInFlight;
+  }
+
+  profileSyncInFlight = fetchUserProfileSync()
+    .then((profile) => {
+      lastProfileSyncAt = Date.now();
+      return profile;
+    })
+    .finally(() => {
+      profileSyncInFlight = null;
+    });
+
+  return profileSyncInFlight;
 }
 
 export async function verifyAdminAccess(): Promise<

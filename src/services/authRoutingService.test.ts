@@ -14,6 +14,7 @@ function ctx(partial: Partial<AuthRoutingContext>): AuthRoutingContext {
   return {
     onboardingComplete: true,
     hasSupabaseSession: true,
+    authStateResolved: true,
     storedUser: { id: 'user-1', email: 'a@b.com', isGuest: false },
     rememberMe: true,
     lastActivityAt: Date.now(),
@@ -59,17 +60,17 @@ describe('resolveInitialRoute', () => {
     assert.equal(result.reason, 'dashboard');
   });
 
-  it('routes unauthenticated web visitors to onboarding even when onboarding flag is set', () => {
+  it('routes returning guests to the dashboard on web when onboarding is complete', () => {
     const result = resolveInitialRoute(
       ctx({
         platform: 'web',
-        onboardingComplete: true,
-        hasSupabaseSession: false,
         storedUser: { id: 'guest-1', isGuest: true },
+        hasSupabaseSession: false,
+        onboardingComplete: true,
       })
     );
-    assert.equal(result.href, '/onboarding');
-    assert.equal(result.reason, 'onboarding_incomplete');
+    assert.equal(result.href, '/(tabs)');
+    assert.equal(result.reason, 'dashboard');
   });
 
   it('redirects expired auth users to sign-in with return path', () => {

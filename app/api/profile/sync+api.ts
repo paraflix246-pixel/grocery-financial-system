@@ -20,7 +20,14 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const profile = await upsertProfileFromAuthUser(user);
-    return Response.json({ success: true, profile: { id: profile.id, role: profile.role } });
+    return Response.json({
+      success: true,
+      profile: {
+        id: profile.id,
+        role: profile.role,
+        onboarding_completed_at: profile.onboarding_completed_at,
+      },
+    });
   } catch (error) {
     console.warn('[profile/sync] failed:', error);
     const message = error instanceof Error ? error.message : 'Could not sync profile.';

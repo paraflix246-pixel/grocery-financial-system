@@ -256,7 +256,7 @@ export default function RootLayout() {
         // Defer async Supabase calls — invoking auth APIs inside this callback can deadlock.
         setTimeout(() => {
           void syncAuthUserFromSession();
-          void syncUserProfile();
+          void syncUserProfile({ force: true });
           useBudgetStore.getState().completeOnboarding();
         }, 0);
       } else if (event === 'USER_UPDATED' && session) {
