@@ -44,6 +44,29 @@ export function buildAlignedStoreRows(
   return rows.sort((a, b) => a.price - b.price);
 }
 
+/** Whether a live/API quote should replace an existing store price entry. */
+export function shouldApplyExternalQuote(
+  existing: ComparableStorePrice,
+  quote: { price: number; source?: ComparableStorePrice['source'] }
+): boolean {
+  if (existing.source === 'estimate') return true;
+  if (existing.source === 'community' && quote.source === 'api') return true;
+  if (existing.source === 'api') return quote.price < existing.price;
+  return quote.price < existing.price;
+}
+
+export function applyExternalQuoteToStorePrice(
+  existing: ComparableStorePrice,
+  quote: { price: number; source: ComparableStorePrice['source']; productLabel?: string }
+): void {
+  if (!shouldApplyExternalQuote(existing, quote)) return;
+  existing.price = quote.price;
+  existing.source = quote.source === 'community' ? 'community' : 'api';
+  if (quote.productLabel) {
+    existing.productLabel = quote.productLabel;
+  }
+}
+
 export function getItemPriceSpreadSavings(
   storeRows: ItemStorePriceRow[],
   quantity: number

@@ -9,6 +9,7 @@ import type { ListItem } from '@/src/models/types';
 import { FUZZY_MATCH_THRESHOLD } from '@/src/services/matchingService';
 import { getAllStores } from '@/src/services/storeService';
 import {
+  applyExternalQuoteToStorePrice,
   buildAlignedStoreRows,
   getItemPriceSpreadSavings,
   type ItemStorePriceRow,
@@ -246,21 +247,22 @@ export async function getStorePricesForItem(
   const catalogStores = (await getAllStores({ includeHidden: true })).map((store) => store.name);
   for (const quote of apiQuotes) {
     const resolvedStore = resolveApiStoreName(quote.storeName, catalogStores);
+    const quoteSource = externalQuoteSource(quote);
     const existing = results.find(
       (entry) => entry.store.toLowerCase() === resolvedStore.toLowerCase()
     );
     if (existing) {
-      if (quote.price < existing.price) {
-        existing.price = quote.price;
-        existing.source = externalQuoteSource(quote);
-        existing.productLabel = quote.productLabel;
-      }
+      applyExternalQuoteToStorePrice(existing, {
+        price: quote.price,
+        source: quoteSource,
+        productLabel: quote.productLabel,
+      });
       continue;
     }
     results.push({
       store: resolvedStore,
       price: quote.price,
-      source: externalQuoteSource(quote),
+      source: quoteSource,
       productLabel: quote.productLabel,
     });
   }

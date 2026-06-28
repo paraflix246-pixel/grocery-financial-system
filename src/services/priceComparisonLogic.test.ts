@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import {
+  applyExternalQuoteToStorePrice,
   buildAlignedStoreRows,
   getDisplayedPriceSpread,
   getItemPriceSpreadSavings,
   getSavingsSubtitleForStoreRows,
+  shouldApplyExternalQuote,
   type ComparableStorePrice,
 } from '@/src/services/priceComparisonLogic';
 
@@ -127,5 +129,40 @@ describe('getDisplayedPriceSpread', () => {
       { store: 'Aldi', price: 2.79, source: 'estimate' },
     ]);
     assert.equal(getDisplayedPriceSpread(rows), null);
+  });
+});
+
+describe('shouldApplyExternalQuote', () => {
+  it('always replaces static estimates with live api quotes', () => {
+    assert.equal(
+      shouldApplyExternalQuote({ store: 'Walmart', price: 4.99, source: 'estimate' }, { price: 5.47, source: 'api' }),
+      true
+    );
+  });
+
+  it('keeps receipt history unless api is cheaper', () => {
+    assert.equal(
+      shouldApplyExternalQuote({ store: 'Walmart', price: 4.5, source: 'history' }, { price: 5.47, source: 'api' }),
+      false
+    );
+    assert.equal(
+      shouldApplyExternalQuote({ store: 'Walmart', price: 6.0, source: 'history' }, { price: 5.47, source: 'api' }),
+      true
+    );
+  });
+});
+
+describe('applyExternalQuoteToStorePrice', () => {
+  it('promotes Walmart estimate to live api even when live price is higher', () => {
+    const existing: ComparableStorePrice = { store: 'Walmart', price: 4.99, source: 'estimate' };
+    applyExternalQuoteToStorePrice(existing, {
+      price: 5.47,
+      source: 'api',
+      productLabel: 'Great Value Ground Beef 80/20, 1 lb',
+    });
+
+    assert.equal(existing.price, 5.47);
+    assert.equal(existing.source, 'api');
+    assert.equal(existing.productLabel, 'Great Value Ground Beef 80/20, 1 lb');
   });
 });

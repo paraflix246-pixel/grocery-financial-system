@@ -15,6 +15,7 @@ import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import { getGroceryItemByCanonical, getGroceryTypicalPrice } from '@/src/data/groceryCatalog';
 import {
   getDisplayedPriceSpread,
+  getItemPriceSpreadSavings,
   getSavingsSubtitleForStoreRows,
 } from '@/src/services/priceComparisonLogic';
 import type { RotatingItemComparison } from '@/src/services/priceComparisonService';
@@ -270,6 +271,7 @@ export function SingleItemStoreComparison({
   const savingsSubtitle = getSavingsSubtitleForStoreRows(displayRows);
   const allEstimated = displayRows.every((row) => row.source === 'estimate');
   const priceSpread = getDisplayedPriceSpread(displayRows);
+  const displayedItemSavings = getItemPriceSpreadSavings(displayRows, current.quantity);
   const cheapestRow = displayRows.find((row) => row.isCheapest) ?? displayRows[0];
 
   return (
@@ -288,7 +290,7 @@ export function SingleItemStoreComparison({
         <View style={styles.savingsTextCol}>
           <Text style={styles.savingsLabel}>
             Save{' '}
-            <Text style={styles.savingsAmountInline}>{formatCurrency(current.itemSavings)}</Text>
+            <Text style={styles.savingsAmountInline}>{formatCurrency(displayedItemSavings)}</Text>
             {' '}on {current.itemName}
           </Text>
           {priceSpread ? (

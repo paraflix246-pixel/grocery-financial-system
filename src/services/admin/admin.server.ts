@@ -960,6 +960,15 @@ export async function getAdminHealth(requestOrigin?: string): Promise<AdminHealt
     detail: resendConfigured ? 'API key configured' : 'RESEND_API_KEY not set',
   });
 
+  const { isScraperApiConfigured } = await import('@/src/services/scraperapi/scraperApi.server');
+  const scraperapiConfigured = isScraperApiConfigured();
+  checks.push({
+    key: 'scraperapi',
+    label: 'ScraperAPI (Walmart)',
+    status: scraperapiConfigured ? 'healthy' : 'degraded',
+    detail: scraperapiConfigured ? 'API key configured' : 'SCRAPERAPI_API_KEY not set',
+  });
+
   const { resolveProductionSafeUrl } = await import('@/src/utils/productionEnvGuard');
   const paddleUrl = resolveProductionSafeUrl(process.env.PADDLEOCR_API_URL, 'PADDLEOCR_API_URL');
   if (paddleUrl) {

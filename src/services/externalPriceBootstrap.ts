@@ -1,6 +1,7 @@
 import { initExternalPriceCache } from '@/src/services/externalPriceCacheService';
 import { createKrogerPriceProvider } from '@/src/services/kroger/krogerPriceProvider';
 import { createOpenFoodFactsPriceProvider } from '@/src/services/openfoodfacts/openFoodFactsPriceProvider';
+import { createScraperApiPriceProvider } from '@/src/services/scraperapi/scraperapiPriceProvider';
 import { createSerpApiPriceProvider } from '@/src/services/serpapi/serpapiPriceProvider';
 import {
   getRegisteredExternalProviderCount,
@@ -11,7 +12,7 @@ import { createSupabaseCommunityPriceProvider } from '@/src/services/communityPr
 
 let bootstrapStarted = false;
 
-/** Register Kroger + SerpApi + Open Food Facts providers once at app startup. */
+/** Register Kroger + SerpApi + ScraperAPI + Open Food Facts providers once at app startup. */
 export async function bootstrapExternalPriceProviders(): Promise<void> {
   if (bootstrapStarted) return;
   bootstrapStarted = true;
@@ -20,6 +21,7 @@ export async function bootstrapExternalPriceProviders(): Promise<void> {
     registerExternalPriceProvider(createSupabaseCommunityPriceProvider());
     registerExternalPriceProvider(createKrogerPriceProvider());
     registerExternalPriceProvider(createSerpApiPriceProvider());
+    registerExternalPriceProvider(createScraperApiPriceProvider());
     registerExternalPriceProvider(createOpenFoodFactsPriceProvider());
     await initExternalPriceCache();
 
