@@ -1,12 +1,14 @@
 import {
   mapWalmartResultsToQuotes,
   parseWalmartSearchHtml,
+  parseWalmartStructuredSearchResponse,
 } from '@/src/services/scraperapi/scraperapiParse';
-import type { ScraperApiWalmartSearchResult } from '@/src/services/scraperapi/scraperapiTypes';
+import type { ScraperApiWalmartSearchResult, WalmartSearchItem } from '@/src/services/scraperapi/scraperapiTypes';
 import type { PriceQuote } from '@/src/services/priceRecommendationLogic';
 import { createTimedCache } from '@/src/utils/timedCache';
 
 const SCRAPERAPI_BASE = process.env.SCRAPERAPI_BASE_URL?.trim() || 'https://api.scraperapi.com/';
+const SCRAPERAPI_STRUCTURED_WALMART_SEARCH = `${SCRAPERAPI_BASE.replace(/\/?$/, '/')}structured/walmart/search`;
 const WALMART_SEARCH_BASE = 'https://www.walmart.com/search';
 const SCRAPER_CACHE_TTL_MS = 30 * 60 * 1000;
 
@@ -28,6 +30,25 @@ function buildWalmartSearchUrl(term: string): string {
   const url = new URL(WALMART_SEARCH_BASE);
   url.searchParams.set('q', term);
   return url.toString();
+}
+
+async function fetchWalmartSearchStructured(term: string): Promise<WalmartSearchItem[]> {
+  const apiUrl = new URL(SCRAPERAPI_STRUCTURED_WALMART_SEARCH);
+  apiUrl.searchParams.set('api_key', getApiKey());
+  apiUrl.searchParams.set('query', term);
+  apiUrl.searchParams.set('country_code', 'us');
+  apiUrl.searchParams.set('tld', 'com');
+
+  const response = await fetch(apiUrl.toString(), {
+    headers: { Accept: 'application/json' },
+  });
+
+  if (!response.ok) {
+    throw new Error(`ScraperAPI structured search failed (${response.status})`);
+  }
+
+  const payload: unknown = await response.json();
+  return parseWalmartStructuredSearchResponse(payload);
 }
 
 async function fetchWalmartSearchHtml(term: string): Promise<string> {
@@ -59,16 +80,36 @@ export async function searchWalmartPrices(term: string): Promise<ScraperApiWalma
   if (cached) return cached;
 
   try {
-    const html = await fetchWalmartSearchHtml(trimmed);
-    const items = parseWalmartSearchHtml(html);
+    let items: WalmartSearchItem[] = [];
+    let source: 'structured' | 'html' = 'structured';
+
+    try {
+      items = await fetchWalmartSearchStructured(trimmed);
+    } catch (structuredError) {
+      const message =
+        structuredError instanceof Error
+          ? structuredError.message
+          : 'ScraperAPI structured Walmart search failed.';
+      console.warn('ScraperAPI structured Walmart search failed, falling back to HTML:', message);
+      source = 'html';
+      const html = await fetchWalmartSearchHtml(trimmed);
+      items = parseWalmartSearchHtml(html);
+      if (items.length === 0) {
+        console.warn(
+          'ScraperAPI Walmart HTML fallback returned no parseable products',
+          JSON.stringify({ term: trimmed, htmlLength: html.length, hasNextData: html.includes('__NEXT_DATA__') })
+        );
+      }
+    }
+
     const result: ScraperApiWalmartSearchResult = { items };
     // Never cache empty parses — a transient ScraperAPI miss should not block Live quotes for 30m.
     if (items.length > 0) {
       walmartSearchCache.set(cacheKey, result);
-    } else {
+    } else if (source === 'structured') {
       console.warn(
-        'ScraperAPI Walmart search returned no parseable products',
-        JSON.stringify({ term: trimmed, htmlLength: html.length, hasNextData: html.includes('__NEXT_DATA__') })
+        'ScraperAPI structured Walmart search returned no matching products',
+        JSON.stringify({ term: trimmed })
       );
     }
     return result;

@@ -213,6 +213,23 @@ function parseWalmartSearchHtmlFallback(html: string): WalmartSearchItem[] {
   return results;
 }
 
+export function parseWalmartStructuredSearchResponse(payload: unknown): WalmartSearchItem[] {
+  const root = asRecord(payload);
+  const rawItems = root?.items;
+  if (!Array.isArray(rawItems)) return [];
+
+  const results: WalmartSearchItem[] = [];
+  for (const rawItem of rawItems) {
+    const item = asRecord(rawItem);
+    const title = extractTitleFromItem(item ?? {});
+    const price = item ? readNumericPrice(item.price) : null;
+    if (!title || price == null) continue;
+    results.push({ title, price });
+  }
+
+  return dedupeWalmartItems(results);
+}
+
 export function parseWalmartSearchHtml(html: string): WalmartSearchItem[] {
   if (!html.trim()) return [];
 

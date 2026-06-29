@@ -5,6 +5,7 @@ import {
   isRelevantWalmartProduct,
   mapWalmartResultsToQuotes,
   parseWalmartSearchHtml,
+  parseWalmartStructuredSearchResponse,
   rankWalmartSearchItems,
 } from '@/src/services/scraperapi/scraperapiParse';
 
@@ -43,6 +44,32 @@ const SAMPLE_NEXT_DATA = {
     },
   },
 };
+
+describe('parseWalmartStructuredSearchResponse', () => {
+  it('maps structured search items to title and price', () => {
+    const items = parseWalmartStructuredSearchResponse({
+      items: [
+        {
+          name: 'Great Value Ground Beef 80/20, 1 lb',
+          price: 5.47,
+        },
+        {
+          name: 'Marketside Ground Beef 85/15, 1 lb',
+          price: 6.97,
+        },
+      ],
+    });
+
+    assert.equal(items.length, 2);
+    assert.equal(items[0].title, 'Great Value Ground Beef 80/20, 1 lb');
+    assert.equal(items[0].price, 5.47);
+  });
+
+  it('returns empty array for invalid payloads', () => {
+    assert.deepEqual(parseWalmartStructuredSearchResponse(null), []);
+    assert.deepEqual(parseWalmartStructuredSearchResponse({ items: 'bad' }), []);
+  });
+});
 
 describe('parseWalmartSearchHtml', () => {
   it('extracts products from __NEXT_DATA__', () => {
