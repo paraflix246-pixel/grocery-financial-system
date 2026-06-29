@@ -56,10 +56,11 @@ export function HomeItemComparisonCard({
   const displayRows = useMemo(
     () =>
       buildDisplayStoreRows(comparison.storeRows, {
+        visibleStoreNames: comparison.visibleStoreNames,
         multiStoreUnlocked,
         maxRows: rowLimit,
       }),
-    [comparison.storeRows, multiStoreUnlocked, rowLimit]
+    [comparison.storeRows, comparison.visibleStoreNames, multiStoreUnlocked, rowLimit]
   );
 
   const displayedItemSavings = useMemo(

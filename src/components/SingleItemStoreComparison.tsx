@@ -264,8 +264,12 @@ export function SingleItemStoreComparison({
   const showCartSavings = variant === 'full' && maxCartSavings != null && maxCartSavings > 0;
 
   const displayRows = useMemo(
-    () => buildDisplayStoreRows(current.storeRows, { multiStoreUnlocked }),
-    [current.storeRows, multiStoreUnlocked]
+    () =>
+      buildDisplayStoreRows(current.storeRows, {
+        visibleStoreNames: current.visibleStoreNames,
+        multiStoreUnlocked,
+      }),
+    [current.storeRows, current.visibleStoreNames, multiStoreUnlocked]
   );
 
   const savingsSubtitle = getSavingsSubtitleForStoreRows(displayRows);

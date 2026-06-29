@@ -530,6 +530,8 @@ export type RotatingItemComparison = {
   itemName: string;
   quantity: number;
   storePreference?: string;
+  /** Non-hidden catalog stores used to filter rows for display/savings. */
+  visibleStoreNames: string[];
   storeRows: ItemStorePriceRow[];
   itemSavings: number;
   cheapestPrice: number;
@@ -578,6 +580,7 @@ export async function getRotatingItemComparisons(
         itemName: item.name,
         quantity: item.quantity,
         storePreference: item.storePreference,
+        visibleStoreNames: storeNames,
         storeRows,
         itemSavings: getItemPriceSpreadSavings(storeRows, item.quantity),
         cheapestPrice: storeRows[0].price,

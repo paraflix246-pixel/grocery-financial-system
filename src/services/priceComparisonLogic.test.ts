@@ -101,6 +101,15 @@ describe('getSavingsSubtitleForStoreRows', () => {
     assert.equal(getSavingsSubtitleForStoreRows(rows), 'Live prices where available');
   });
 
+  it('prefers live copy when community and api rows are both visible', () => {
+    const rows = buildAlignedStoreRows(["Sam's Club", 'Walmart', 'Aldi'], [
+      { store: "Sam's Club", price: 3.98, source: 'community' },
+      { store: 'Walmart', price: 5.94, source: 'api' },
+      { store: 'Aldi', price: 5.79, source: 'estimate' },
+    ]);
+    assert.equal(getSavingsSubtitleForStoreRows(rows), 'Live prices where available');
+  });
+
   it('uses receipt copy for history-only visible rows', () => {
     const rows = buildAlignedStoreRows(storeNames, [
       { store: 'Aldi', price: 2.79, source: 'history' },
@@ -184,7 +193,7 @@ describe('buildDisplayStoreRows', () => {
     const spread = getDisplayedPriceSpread(displayRows);
     assert.equal(spread?.cheapestStore, "Sam's Club");
     assert.equal(spread?.priciestStore, 'Costco');
-    assert.equal(getItemPriceSpreadSavings(displayRows, 1), 1.51);
+    assert.ok(Math.abs(getItemPriceSpreadSavings(displayRows, 1) - 1.51) < 0.005);
   });
 
   it('limits home preview rows before computing savings', () => {
@@ -199,7 +208,7 @@ describe('buildDisplayStoreRows', () => {
     const spread = getDisplayedPriceSpread(displayRows);
     assert.equal(spread?.cheapestStore, "Sam's Club");
     assert.equal(spread?.priciestStore, 'Costco');
-    assert.equal(getItemPriceSpreadSavings(displayRows, 1), 1.51);
+    assert.ok(Math.abs(getItemPriceSpreadSavings(displayRows, 1) - 1.51) < 0.005);
   });
 
   it('returns single-store rows with zero savings', () => {

@@ -26,15 +26,21 @@ export function useRotatingItemComparison(listItems: ListItem[]) {
     .map((item) => `${item.id}:${item.name}:${item.quantity}:${item.storePreference ?? ''}`)
     .join('|');
 
+  /** Ignore stale responses when a newer load (especially forceRefresh) starts. */
+  const loadGenerationRef = useRef(0);
+
   const loadComparisons = useCallback(async (forceRefresh = false) => {
     if (listItems.length === 0) {
+      loadGenerationRef.current += 1;
       setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
       return;
     }
 
+    const loadGeneration = ++loadGenerationRef.current;
     setState((prev) => ({ ...prev, loading: true }));
     try {
       const comparisons = await getRotatingItemComparisons(listItems, { forceRefresh });
+      if (loadGeneration !== loadGenerationRef.current) return;
       setState((prev) => ({
         comparisons,
         currentIndex: comparisons.length === 0 ? 0 : Math.min(prev.currentIndex, comparisons.length - 1),
@@ -42,6 +48,7 @@ export function useRotatingItemComparison(listItems: ListItem[]) {
         rotationKey: prev.rotationKey,
       }));
     } catch {
+      if (loadGeneration !== loadGenerationRef.current) return;
       setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
     }
   }, [listItems]);
