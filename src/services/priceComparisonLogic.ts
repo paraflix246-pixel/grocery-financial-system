@@ -1,3 +1,6 @@
+import { FREE_MAX_STORES } from '@/src/constants/proPricing';
+import { limitStoreRowsForTier } from '@/src/constants/tierLimitsConfig';
+
 export type ComparableStorePrice = {
   store: string;
   price: number;
@@ -11,6 +14,14 @@ export type ItemStorePriceRow = {
   source: ComparableStorePrice['source'];
   productLabel?: string;
   isCheapest: boolean;
+};
+
+export type BuildDisplayStoreRowsOptions = {
+  /** When set, only these stores are eligible for display/savings (e.g. non-hidden catalog). */
+  visibleStoreNames?: readonly string[];
+  multiStoreUnlocked?: boolean;
+  maxRows?: number;
+  maxStoresForTier?: number;
 };
 
 export function buildAlignedStoreRows(
@@ -42,6 +53,58 @@ export function buildAlignedStoreRows(
   }
 
   return rows.sort((a, b) => a.price - b.price);
+}
+
+/** Re-sort rows by price and recompute isCheapest within the given subset. */
+export function realignCheapestStoreRows(storeRows: ItemStorePriceRow[]): ItemStorePriceRow[] {
+  if (storeRows.length === 0) return [];
+
+  const sorted = [...storeRows].sort((a, b) => a.price - b.price);
+  const cheapestPrice = sorted[0]!.price;
+  return sorted.map((row) => ({
+    ...row,
+    isCheapest: Math.abs(row.price - cheapestPrice) < 0.005,
+  }));
+}
+
+export function filterStoreRowsToStoreNames(
+  storeRows: ItemStorePriceRow[],
+  storeNames: readonly string[]
+): ItemStorePriceRow[] {
+  if (storeNames.length === 0) return realignCheapestStoreRows(storeRows);
+
+  const allowed = new Set(storeNames.map((name) => name.toLowerCase()));
+  return realignCheapestStoreRows(
+    storeRows.filter((row) => allowed.has(row.store.toLowerCase()))
+  );
+}
+
+/**
+ * Rows shown in comparison UI and used for savings headline/subtitle.
+ * Filters hidden/off-catalog stores, applies tier caps, optional row limit, then realigns cheapest.
+ */
+export function buildDisplayStoreRows(
+  storeRows: ItemStorePriceRow[],
+  options: BuildDisplayStoreRowsOptions = {}
+): ItemStorePriceRow[] {
+  const {
+    visibleStoreNames,
+    multiStoreUnlocked = true,
+    maxRows,
+    maxStoresForTier = FREE_MAX_STORES,
+  } = options;
+
+  let rows = visibleStoreNames
+    ? filterStoreRowsToStoreNames(storeRows, visibleStoreNames)
+    : realignCheapestStoreRows(storeRows);
+
+  rows = limitStoreRowsForTier(rows, multiStoreUnlocked, maxStoresForTier);
+
+  if (maxRows != null && maxRows > 0) {
+    rows = rows.slice(0, maxRows);
+  }
+
+  return realignCheapestStoreRows(rows);
 }
 
 /** Whether a live/API quote should replace an existing store price entry. */

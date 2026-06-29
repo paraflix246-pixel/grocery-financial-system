@@ -4,13 +4,13 @@ export const COMMON_STORES = ['Aldi', 'Walmart', 'Target', 'Kroger', 'Costco'] a
 
 /** Normalized item key → store → unit price */
 export const STORE_PRICE_ESTIMATES: Record<string, Partial<Record<(typeof COMMON_STORES)[number], number>>> = {
-  milk: { Aldi: 2.89, Walmart: 3.19, Target: 3.49, Kroger: 3.29, Costco: 2.79 },
-  eggs: { Aldi: 2.49, Walmart: 2.89, Target: 3.19, Kroger: 2.99, Costco: 4.99 },
-  bread: { Aldi: 1.29, Walmart: 1.49, Target: 1.79, Kroger: 1.59, Costco: 2.49 },
+  milk: { Aldi: 3.29, Walmart: 3.59, Target: 3.89, Kroger: 3.69, Costco: 3.19 },
+  eggs: { Aldi: 2.99, Walmart: 3.39, Target: 3.69, Kroger: 3.49, Costco: 5.49 },
+  bread: { Aldi: 1.49, Walmart: 1.79, Target: 2.09, Kroger: 1.89, Costco: 2.99 },
   butter: { Aldi: 3.49, Walmart: 3.99, Target: 4.29, Kroger: 4.19, Costco: 3.79 },
   cheese: { Aldi: 2.99, Walmart: 3.49, Target: 3.79, Kroger: 3.69, Costco: 3.29 },
   chicken: { Aldi: 2.49, Walmart: 2.79, Target: 3.19, Kroger: 2.99, Costco: 2.29 },
-  'ground beef': { Aldi: 4.49, Walmart: 4.99, Target: 5.49, Kroger: 5.29, Costco: 4.79 },
+  'ground beef': { Aldi: 5.79, Walmart: 6.29, Target: 6.79, Kroger: 6.49, Costco: 5.49 },
   bananas: { Aldi: 0.49, Walmart: 0.55, Target: 0.59, Kroger: 0.52, Costco: 0.45 },
   apples: { Aldi: 1.29, Walmart: 1.49, Target: 1.59, Kroger: 1.39, Costco: 1.19 },
   rice: { Aldi: 1.19, Walmart: 1.39, Target: 1.49, Kroger: 1.29, Costco: 1.09 },

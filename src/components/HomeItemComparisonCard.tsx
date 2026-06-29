@@ -7,8 +7,11 @@ import { Text } from '@/components/Themed';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { getItemEmoji } from '@/src/data/commonGroceryItems';
-import { limitStoreRowsForTier } from '@/src/services/tierLimits';
 import type { RotatingItemComparison } from '@/src/services/priceComparisonService';
+import {
+  buildDisplayStoreRows,
+  getItemPriceSpreadSavings,
+} from '@/src/services/priceComparisonLogic';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
 import { formatCurrency } from '@/src/utils/priceParser';
 
@@ -50,12 +53,21 @@ export function HomeItemComparisonCard({
 
   const rowLimit = compact ? MAX_STORE_ROWS_COMPACT : maxStoreRows ?? MAX_STORE_ROWS_FULL;
 
-  const displayRows = useMemo(() => {
-    if (compact) {
-      return comparison.storeRows.slice(0, rowLimit);
-    }
-    return limitStoreRowsForTier(comparison.storeRows, multiStoreUnlocked).slice(0, rowLimit);
-  }, [compact, comparison.storeRows, multiStoreUnlocked, rowLimit]);
+  const displayRows = useMemo(
+    () =>
+      buildDisplayStoreRows(comparison.storeRows, {
+        multiStoreUnlocked,
+        maxRows: rowLimit,
+      }),
+    [comparison.storeRows, multiStoreUnlocked, rowLimit]
+  );
+
+  const displayedItemSavings = useMemo(
+    () => getItemPriceSpreadSavings(displayRows, comparison.quantity),
+    [displayRows, comparison.quantity]
+  );
+
+  const showItemSavings = displayRows.length >= 2 && displayedItemSavings > 0;
 
   const itemLabel =
     comparison.quantity > 1
@@ -80,7 +92,11 @@ export function HomeItemComparisonCard({
       ]}
       onPress={() => router.push('/cart-comparison' as never)}
       accessibilityRole="button"
-      accessibilityLabel={`Compare ${comparison.itemName}, save ${formatCurrency(comparison.itemSavings)}`}>
+      accessibilityLabel={
+        showItemSavings
+          ? `Compare ${comparison.itemName}, save ${formatCurrency(displayedItemSavings)}`
+          : `Compare ${comparison.itemName}`
+      }>
       {compact ? (
         <Animated.View
           key={`compact-item-${rotationKey}`}
@@ -95,12 +111,20 @@ export function HomeItemComparisonCard({
               {itemLabel}
             </Text>
             <View style={[styles.savingsPill, styles.savingsPillCompactCentered]}>
-              <Text style={[styles.savingsText, styles.savingsTextCompact]}>
-                Save{' '}
-                <Text style={[styles.savingsAmount, styles.savingsAmountCompact]}>
-                  {formatCurrency(comparison.itemSavings)}
+              {showItemSavings ? (
+                <Text style={[styles.savingsText, styles.savingsTextCompact]}>
+                  Save{' '}
+                  <Text style={[styles.savingsAmount, styles.savingsAmountCompact]}>
+                    {formatCurrency(displayedItemSavings)}
+                  </Text>
                 </Text>
-              </Text>
+              ) : (
+                <Text style={[styles.savingsText, styles.savingsTextCompact]}>
+                  {displayRows.length === 1
+                    ? `At ${displayRows[0]!.store}`
+                    : 'Compare prices'}
+                </Text>
+              )}
             </View>
           </View>
 
@@ -132,10 +156,16 @@ export function HomeItemComparisonCard({
           </Animated.View>
 
           <View style={styles.savingsPill}>
-            <Text style={styles.savingsText}>
-              Save{' '}
-              <Text style={styles.savingsAmount}>{formatCurrency(comparison.itemSavings)}</Text>
-            </Text>
+            {showItemSavings ? (
+              <Text style={styles.savingsText}>
+                Save{' '}
+                <Text style={styles.savingsAmount}>{formatCurrency(displayedItemSavings)}</Text>
+              </Text>
+            ) : (
+              <Text style={styles.savingsText}>
+                {displayRows.length === 1 ? `At ${displayRows[0]!.store}` : 'Compare prices'}
+              </Text>
+            )}
           </View>
 
           {itemCount > 1 ? (

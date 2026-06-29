@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   applyExternalQuoteToStorePrice,
   buildAlignedStoreRows,
+  buildDisplayStoreRows,
   getDisplayedPriceSpread,
   getItemPriceSpreadSavings,
   getSavingsSubtitleForStoreRows,
@@ -128,6 +129,89 @@ describe('getDisplayedPriceSpread', () => {
     const rows = buildAlignedStoreRows(storeNames, [
       { store: 'Aldi', price: 2.79, source: 'estimate' },
     ]);
+    assert.equal(getDisplayedPriceSpread(rows), null);
+  });
+});
+
+describe('buildDisplayStoreRows', () => {
+  const groundBeefPrices: ComparableStorePrice[] = [
+    { store: "Sam's Club", price: 3.98, source: 'api' },
+    { store: 'Aldi', price: 5.79, source: 'estimate' },
+    { store: 'Costco', price: 5.49, source: 'estimate' },
+    { store: 'Kroger', price: 6.49, source: 'estimate' },
+    { store: 'Target', price: 6.79, source: 'estimate' },
+    { store: 'Walmart', price: 6.29, source: 'estimate' },
+    { store: 'Whole Foods', price: 6.49, source: 'api' },
+  ];
+
+  const visibleStores = ["Sam's Club", 'Aldi', 'Costco', 'Kroger', 'Target', 'Walmart'];
+
+  it('excludes hidden stores from savings spread (ground beef scenario)', () => {
+    const fullRows = buildAlignedStoreRows(
+      [...visibleStores, 'Whole Foods'],
+      groundBeefPrices
+    );
+
+    const displayRows = buildDisplayStoreRows(fullRows, {
+      visibleStoreNames: visibleStores,
+      multiStoreUnlocked: true,
+    });
+
+    const spread = getDisplayedPriceSpread(displayRows);
+    assert.equal(spread?.cheapestStore, "Sam's Club");
+    assert.equal(spread?.cheapestPrice, 3.98);
+    assert.equal(spread?.priciestStore, 'Target');
+    assert.equal(spread?.priciestPrice, 6.79);
+    assert.equal(getItemPriceSpreadSavings(displayRows, 1), 2.81);
+    assert.equal(
+      displayRows.some((row) => row.store === 'Whole Foods'),
+      false
+    );
+  });
+
+  it('uses tier-visible rows only when free tier caps store count', () => {
+    const fullRows = buildAlignedStoreRows(
+      [...visibleStores, 'Whole Foods'],
+      groundBeefPrices
+    );
+
+    const displayRows = buildDisplayStoreRows(fullRows, {
+      visibleStoreNames: visibleStores,
+      multiStoreUnlocked: false,
+    });
+
+    assert.equal(displayRows.length, 2);
+    const spread = getDisplayedPriceSpread(displayRows);
+    assert.equal(spread?.cheapestStore, "Sam's Club");
+    assert.equal(spread?.priciestStore, 'Costco');
+    assert.equal(getItemPriceSpreadSavings(displayRows, 1), 1.51);
+  });
+
+  it('limits home preview rows before computing savings', () => {
+    const fullRows = buildAlignedStoreRows(visibleStores, groundBeefPrices);
+
+    const displayRows = buildDisplayStoreRows(fullRows, {
+      multiStoreUnlocked: true,
+      maxRows: 2,
+    });
+
+    assert.equal(displayRows.length, 2);
+    const spread = getDisplayedPriceSpread(displayRows);
+    assert.equal(spread?.cheapestStore, "Sam's Club");
+    assert.equal(spread?.priciestStore, 'Costco');
+    assert.equal(getItemPriceSpreadSavings(displayRows, 1), 1.51);
+  });
+
+  it('returns single-store rows with zero savings', () => {
+    const rows = buildDisplayStoreRows(
+      buildAlignedStoreRows(['Walmart'], [
+        { store: 'Walmart', price: 6.29, source: 'estimate' },
+      ]),
+      { multiStoreUnlocked: true }
+    );
+
+    assert.equal(rows.length, 1);
+    assert.equal(getItemPriceSpreadSavings(rows, 1), 0);
     assert.equal(getDisplayedPriceSpread(rows), null);
   });
 });

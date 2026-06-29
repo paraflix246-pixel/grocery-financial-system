@@ -175,7 +175,7 @@ async function mergeEstimatePrices(
   historyStores: Set<string>,
   itemName: string
 ): Promise<Array<{ store: string; price: number }>> {
-  const allStores = await getAllStores({ includeHidden: true });
+  const allStores = await getAllStores();
   const storeNames = allStores.map((store) => store.name);
   const specific = findEstimatePrices(itemName);
   const estimates =
@@ -267,7 +267,11 @@ export async function getStorePricesForItem(
     });
   }
 
-  const sorted = results.sort((a, b) => a.price - b.price);
+  const visibleStores = await getAllStores();
+  const visibleNames = new Set(visibleStores.map((store) => store.name.toLowerCase()));
+  const sorted = results
+    .filter((entry) => visibleNames.has(entry.store.toLowerCase()))
+    .sort((a, b) => a.price - b.price);
   storePricesCache.set(cacheKey, sorted);
   return sorted;
 }
@@ -383,7 +387,7 @@ export async function getStoreCartTotals(
     if (cached) return cached;
   }
 
-  const allStores = await getAllStores({ includeHidden: true });
+  const allStores = await getAllStores();
 
   const storeNames = allStores.map((s) => s.name);
 
@@ -559,7 +563,7 @@ export async function getRotatingItemComparisons(
     );
   }
 
-  const allStores = await getAllStores({ includeHidden: true });
+  const allStores = await getAllStores();
   const storeNames = allStores.map((store) => store.name);
 
   const comparisonResults = await Promise.all(

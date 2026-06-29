@@ -10,10 +10,10 @@ import { CartPriceSourceBadge } from '@/src/components/CartPriceSourceBadge';
 import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
-import { limitStoreRowsForTier } from '@/src/services/tierLimits';
 import { getItemEmoji } from '@/src/data/commonGroceryItems';
 import { getGroceryItemByCanonical, getGroceryTypicalPrice } from '@/src/data/groceryCatalog';
 import {
+  buildDisplayStoreRows,
   getDisplayedPriceSpread,
   getItemPriceSpreadSavings,
   getSavingsSubtitleForStoreRows,
@@ -264,7 +264,7 @@ export function SingleItemStoreComparison({
   const showCartSavings = variant === 'full' && maxCartSavings != null && maxCartSavings > 0;
 
   const displayRows = useMemo(
-    () => limitStoreRowsForTier(current.storeRows, multiStoreUnlocked),
+    () => buildDisplayStoreRows(current.storeRows, { multiStoreUnlocked }),
     [current.storeRows, multiStoreUnlocked]
   );
 
@@ -272,6 +272,7 @@ export function SingleItemStoreComparison({
   const allEstimated = displayRows.every((row) => row.source === 'estimate');
   const priceSpread = getDisplayedPriceSpread(displayRows);
   const displayedItemSavings = getItemPriceSpreadSavings(displayRows, current.quantity);
+  const showItemSavings = displayRows.length >= 2 && displayedItemSavings > 0;
   const cheapestRow = displayRows.find((row) => row.isCheapest) ?? displayRows[0];
 
   return (
@@ -288,12 +289,20 @@ export function SingleItemStoreComparison({
         style={styles.savingsBanner}
         pointerEvents="box-none">
         <View style={styles.savingsTextCol}>
-          <Text style={styles.savingsLabel}>
-            Save{' '}
-            <Text style={styles.savingsAmountInline}>{formatCurrency(displayedItemSavings)}</Text>
-            {' '}on {current.itemName}
-          </Text>
-          {priceSpread ? (
+          {showItemSavings ? (
+            <Text style={styles.savingsLabel}>
+              Save{' '}
+              <Text style={styles.savingsAmountInline}>{formatCurrency(displayedItemSavings)}</Text>
+              {' '}on {current.itemName}
+            </Text>
+          ) : (
+            <Text style={styles.savingsLabel}>
+              {displayRows.length === 1
+                ? `${current.itemName} at ${displayRows[0]!.store}`
+                : `Compare ${current.itemName} prices`}
+            </Text>
+          )}
+          {showItemSavings && priceSpread ? (
             <Text style={styles.savingsBreakdown}>
               {priceSpread.cheapestStore} {formatCurrency(priceSpread.cheapestPrice)} vs{' '}
               {priceSpread.priciestStore} {formatCurrency(priceSpread.priciestPrice)}
