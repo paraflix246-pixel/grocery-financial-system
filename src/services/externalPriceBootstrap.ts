@@ -10,33 +10,41 @@ import {
 import { scheduleBackgroundFoodPriceRefresh } from '@/src/services/foodPriceRefreshService';
 import { createSupabaseCommunityPriceProvider } from '@/src/services/communityPricingService';
 
-let bootstrapStarted = false;
+let bootstrapPromise: Promise<void> | null = null;
 
 /** Register Kroger + SerpApi + ScraperAPI + Open Food Facts providers once at app startup. */
-export async function bootstrapExternalPriceProviders(): Promise<void> {
-  if (bootstrapStarted) return;
-  bootstrapStarted = true;
+export function bootstrapExternalPriceProviders(): Promise<void> {
+  if (bootstrapPromise) return bootstrapPromise;
 
-  try {
-    registerExternalPriceProvider(createSupabaseCommunityPriceProvider());
-    registerExternalPriceProvider(createKrogerPriceProvider());
-    registerExternalPriceProvider(createSerpApiPriceProvider());
-    registerExternalPriceProvider(createScraperApiPriceProvider());
-    registerExternalPriceProvider(createOpenFoodFactsPriceProvider());
-    await initExternalPriceCache();
+  bootstrapPromise = (async () => {
+    try {
+      registerExternalPriceProvider(createSupabaseCommunityPriceProvider());
+      registerExternalPriceProvider(createKrogerPriceProvider());
+      registerExternalPriceProvider(createSerpApiPriceProvider());
+      registerExternalPriceProvider(createScraperApiPriceProvider());
+      registerExternalPriceProvider(createOpenFoodFactsPriceProvider());
+      await initExternalPriceCache();
 
-    if (getRegisteredExternalProviderCount() === 0) {
-      registerExternalPriceProvider({
-        id: 'smartcart-api-stub',
-        async getPricesForItem(itemName, _regionCode) {
-          void itemName;
-          return [];
-        },
-      });
+      if (getRegisteredExternalProviderCount() === 0) {
+        registerExternalPriceProvider({
+          id: 'smartcart-api-stub',
+          async getPricesForItem(itemName, _regionCode) {
+            void itemName;
+            return [];
+          },
+        });
+      }
+
+      scheduleBackgroundFoodPriceRefresh();
+    } catch (error) {
+      console.warn('External price provider bootstrap failed:', error);
     }
+  })();
 
-    scheduleBackgroundFoodPriceRefresh();
-  } catch (error) {
-    console.warn('External price provider bootstrap failed:', error);
-  }
+  return bootstrapPromise;
+}
+
+/** Wait until external price providers are registered (safe to call before app init finishes). */
+export async function ensureExternalPriceProvidersReady(): Promise<void> {
+  await bootstrapExternalPriceProviders();
 }

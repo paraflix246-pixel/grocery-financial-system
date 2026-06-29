@@ -14,6 +14,21 @@ export interface ExternalPriceSource {
 const externalProviders: ExternalPriceSource[] = [];
 const inflightRefreshes = new Map<string, Promise<PriceQuote[]>>();
 let invalidateDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let providersBootstrapPromise: Promise<void> | null = null;
+
+async function ensureExternalPriceProvidersReady(): Promise<void> {
+  if (externalProviders.length > 0) {
+    await initExternalPriceCache();
+    return;
+  }
+  providersBootstrapPromise ??= import('@/src/services/externalPriceBootstrap')
+    .then((mod) => mod.bootstrapExternalPriceProviders())
+    .catch((error) => {
+      providersBootstrapPromise = null;
+      throw error;
+    });
+  await providersBootstrapPromise;
+}
 
 function scheduleComparisonCacheInvalidation(): void {
   if (invalidateDebounceTimer) clearTimeout(invalidateDebounceTimer);
@@ -87,7 +102,7 @@ export async function fetchExternalPriceQuotes(
   regionCode?: string | null,
   options?: { forceRefresh?: boolean }
 ): Promise<PriceQuote[]> {
-  await initExternalPriceCache();
+  await ensureExternalPriceProvidersReady();
 
   const trimmed = itemName.trim();
   if (!trimmed || externalProviders.length === 0) return [];

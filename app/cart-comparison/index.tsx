@@ -52,7 +52,7 @@ export default function CartComparisonScreen() {
   const isSingleItemMode = focusedListItem != null || searchSelection != null;
 
   const { comparisons, current, currentIndex, loading, rotationKey, goToNext, reload } =
-    useRotatingItemComparison(comparisonItems);
+    useRotatingItemComparison(comparisonItems, { forceRefresh: true });
   const [maxCartSavings, setMaxCartSavings] = useState(0);
   const [cartLoading, setCartLoading] = useState(false);
 

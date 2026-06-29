@@ -7,9 +7,9 @@ import { createStaleWhileRevalidateCache } from '@/src/utils/staleWhileRevalidat
 export const EXTERNAL_PRICE_STALE_MS = 3 * 60 * 60 * 1000;
 
 /** Bump when cache shape or provider set changes (e.g. ScraperAPI added) to drop stale AsyncStorage entries. */
-export const EXTERNAL_PRICE_CACHE_VERSION = 3;
+export const EXTERNAL_PRICE_CACHE_VERSION = 4;
 
-const STORAGE_KEY = '@smartcart_external_price_cache_v3';
+const STORAGE_KEY = '@smartcart_external_price_cache_v4';
 
 type PersistedEntry = {
   quotes: PriceQuote[];

@@ -15,7 +15,16 @@ type RotationState = {
   rotationKey: number;
 };
 
-export function useRotatingItemComparison(listItems: ListItem[]) {
+type UseRotatingItemComparisonOptions = {
+  /** Always bypass in-memory price caches (cart-comparison page). */
+  forceRefresh?: boolean;
+};
+
+export function useRotatingItemComparison(
+  listItems: ListItem[],
+  options?: UseRotatingItemComparisonOptions
+) {
+  const alwaysForceRefresh = options?.forceRefresh ?? false;
   const [state, setState] = useState<RotationState>({
     comparisons: [],
     currentIndex: 0,
@@ -29,33 +38,41 @@ export function useRotatingItemComparison(listItems: ListItem[]) {
   /** Ignore stale responses when a newer load (especially forceRefresh) starts. */
   const loadGenerationRef = useRef(0);
 
-  const loadComparisons = useCallback(async (forceRefresh = false) => {
-    if (listItems.length === 0) {
-      loadGenerationRef.current += 1;
-      setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
-      return;
-    }
+  const loadComparisons = useCallback(
+    async (forceRefresh = false) => {
+      const effectiveForceRefresh = forceRefresh || alwaysForceRefresh;
 
-    const loadGeneration = ++loadGenerationRef.current;
-    setState((prev) => ({ ...prev, loading: true }));
-    try {
-      const comparisons = await getRotatingItemComparisons(listItems, { forceRefresh });
-      if (loadGeneration !== loadGenerationRef.current) return;
-      setState((prev) => ({
-        comparisons,
-        currentIndex: comparisons.length === 0 ? 0 : Math.min(prev.currentIndex, comparisons.length - 1),
-        loading: false,
-        rotationKey: prev.rotationKey,
-      }));
-    } catch {
-      if (loadGeneration !== loadGenerationRef.current) return;
-      setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
-    }
-  }, [listItems]);
+      if (listItems.length === 0) {
+        loadGenerationRef.current += 1;
+        setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
+        return;
+      }
+
+      const loadGeneration = ++loadGenerationRef.current;
+      setState((prev) => ({ ...prev, loading: true }));
+      try {
+        const comparisons = await getRotatingItemComparisons(listItems, {
+          forceRefresh: effectiveForceRefresh,
+        });
+        if (loadGeneration !== loadGenerationRef.current) return;
+        setState((prev) => ({
+          comparisons,
+          currentIndex:
+            comparisons.length === 0 ? 0 : Math.min(prev.currentIndex, comparisons.length - 1),
+          loading: false,
+          rotationKey: prev.rotationKey,
+        }));
+      } catch {
+        if (loadGeneration !== loadGenerationRef.current) return;
+        setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
+      }
+    },
+    [alwaysForceRefresh, listItems]
+  );
 
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
-      void loadComparisons();
+      void loadComparisons(false);
     });
     return () => task.cancel();
   }, [loadComparisons, listSignature]);
