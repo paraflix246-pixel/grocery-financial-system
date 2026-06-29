@@ -68,8 +68,10 @@ async function revalidateExternalPriceQuotes(
   const promise = (async () => {
     try {
       const quotes = await fetchExternalPriceQuotesFromProviders(itemName, regionCode);
-      await setCachedExternalPriceQuotes(cacheKey, quotes);
-      scheduleComparisonCacheInvalidation();
+      if (quotes.length > 0) {
+        await setCachedExternalPriceQuotes(cacheKey, quotes);
+        scheduleComparisonCacheInvalidation();
+      }
       return quotes;
     } finally {
       inflightRefreshes.delete(cacheKey);
@@ -105,6 +107,8 @@ export async function fetchExternalPriceQuotes(
   }
 
   const quotes = await fetchExternalPriceQuotesFromProviders(trimmed, regionCode);
-  await setCachedExternalPriceQuotes(cacheKey, quotes);
+  if (quotes.length > 0) {
+    await setCachedExternalPriceQuotes(cacheKey, quotes);
+  }
   return quotes;
 }

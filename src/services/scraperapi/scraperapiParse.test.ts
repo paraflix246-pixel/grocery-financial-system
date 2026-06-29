@@ -108,6 +108,16 @@ describe('mapWalmartResultsToQuotes', () => {
     );
     assert.deepEqual(quotes, []);
   });
+
+  it('matches ground beef when search term includes a unit token', () => {
+    const quotes = mapWalmartResultsToQuotes(
+      [{ title: 'Great Value Ground Beef 80/20, 1 lb', price: 5.47 }],
+      'ground beef 1lb'
+    );
+
+    assert.equal(quotes.length, 1);
+    assert.equal(quotes[0].price, 5.47);
+  });
 });
 
 describe('rankWalmartSearchItems', () => {

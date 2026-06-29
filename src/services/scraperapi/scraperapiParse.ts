@@ -3,12 +3,27 @@ import type { PriceQuote } from '@/src/services/priceRecommendationLogic';
 
 const WALMART_STORE = 'Walmart';
 
+/** Size/unit tokens that appear in item names but not Walmart product titles. */
+const SEARCH_UNIT_TOKENS = new Set([
+  'lb',
+  'lbs',
+  'oz',
+  'fl',
+  'gal',
+  'gallon',
+  'pack',
+  'count',
+  'ct',
+  'each',
+  'per',
+]);
+
 function tokenizeSearchTerm(term: string): string[] {
   return term
     .toLowerCase()
     .split(/[\s,/+-]+/)
     .map((token) => token.replace(/[^\w]/g, ''))
-    .filter((token) => token.length >= 2);
+    .filter((token) => token.length >= 2 && !SEARCH_UNIT_TOKENS.has(token));
 }
 
 function scoreSearchRelevance(title: string, searchTerm: string): number {
@@ -237,11 +252,15 @@ export function mapWalmartResultsToQuotes(
     items.filter((item) => item.price > 0),
     itemName
   );
-  const relevant = ranked.filter((item) => isRelevantWalmartProduct(item.title, itemName));
-  const priced = relevant.length > 0 ? relevant : [];
-  if (priced.length === 0) return [];
+  const tokens = tokenizeSearchTerm(itemName);
+  const minScore = tokens.length >= 2 ? 0.5 : tokens.length === 1 ? 1 : 0;
+  const candidates =
+    tokens.length === 0
+      ? ranked
+      : ranked.filter((item) => scoreSearchRelevance(item.title, itemName) >= minScore);
+  if (candidates.length === 0) return [];
 
-  const best = priced[0];
+  const best = candidates[0];
   return [
     {
       itemName,

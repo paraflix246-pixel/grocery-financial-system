@@ -36,6 +36,8 @@ async function fetchWalmartSearchHtml(term: string): Promise<string> {
   apiUrl.searchParams.set('api_key', getApiKey());
   apiUrl.searchParams.set('url', targetUrl);
   apiUrl.searchParams.set('country_code', 'us');
+  // Walmart search is Next.js-rendered; without JS the HTML often lacks __NEXT_DATA__ products.
+  apiUrl.searchParams.set('render', 'true');
 
   const response = await fetch(apiUrl.toString(), {
     headers: { Accept: 'text/html,application/xhtml+xml' },
@@ -60,7 +62,15 @@ export async function searchWalmartPrices(term: string): Promise<ScraperApiWalma
     const html = await fetchWalmartSearchHtml(trimmed);
     const items = parseWalmartSearchHtml(html);
     const result: ScraperApiWalmartSearchResult = { items };
-    walmartSearchCache.set(cacheKey, result);
+    // Never cache empty parses — a transient ScraperAPI miss should not block Live quotes for 30m.
+    if (items.length > 0) {
+      walmartSearchCache.set(cacheKey, result);
+    } else {
+      console.warn(
+        'ScraperAPI Walmart search returned no parseable products',
+        JSON.stringify({ term: trimmed, htmlLength: html.length, hasNextData: html.includes('__NEXT_DATA__') })
+      );
+    }
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Walmart scrape failed.';
