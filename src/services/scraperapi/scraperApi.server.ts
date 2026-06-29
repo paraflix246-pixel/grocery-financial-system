@@ -1,5 +1,6 @@
 import {
   mapWalmartResultsToQuotes,
+  normalizeWalmartSearchTerm,
   parseWalmartSearchHtml,
   parseWalmartStructuredSearchResponse,
 } from '@/src/services/scraperapi/scraperapiParse';
@@ -75,7 +76,8 @@ export async function searchWalmartPrices(term: string): Promise<ScraperApiWalma
   const trimmed = term.trim();
   if (!trimmed) return { items: [] };
 
-  const cacheKey = trimmed.toLowerCase();
+  const searchQuery = normalizeWalmartSearchTerm(trimmed) || trimmed;
+  const cacheKey = searchQuery.toLowerCase();
   const cached = walmartSearchCache.get(cacheKey);
   if (cached) return cached;
 
@@ -84,7 +86,7 @@ export async function searchWalmartPrices(term: string): Promise<ScraperApiWalma
     let source: 'structured' | 'html' = 'structured';
 
     try {
-      items = await fetchWalmartSearchStructured(trimmed);
+      items = await fetchWalmartSearchStructured(searchQuery);
     } catch (structuredError) {
       const message =
         structuredError instanceof Error
@@ -92,12 +94,12 @@ export async function searchWalmartPrices(term: string): Promise<ScraperApiWalma
           : 'ScraperAPI structured Walmart search failed.';
       console.warn('ScraperAPI structured Walmart search failed, falling back to HTML:', message);
       source = 'html';
-      const html = await fetchWalmartSearchHtml(trimmed);
+      const html = await fetchWalmartSearchHtml(searchQuery);
       items = parseWalmartSearchHtml(html);
       if (items.length === 0) {
         console.warn(
           'ScraperAPI Walmart HTML fallback returned no parseable products',
-          JSON.stringify({ term: trimmed, htmlLength: html.length, hasNextData: html.includes('__NEXT_DATA__') })
+          JSON.stringify({ term: trimmed, searchQuery, htmlLength: html.length, hasNextData: html.includes('__NEXT_DATA__') })
         );
       }
     }
@@ -109,7 +111,7 @@ export async function searchWalmartPrices(term: string): Promise<ScraperApiWalma
     } else if (source === 'structured') {
       console.warn(
         'ScraperAPI structured Walmart search returned no matching products',
-        JSON.stringify({ term: trimmed })
+        JSON.stringify({ term: trimmed, searchQuery })
       );
     }
     return result;

@@ -18,12 +18,18 @@ const SEARCH_UNIT_TOKENS = new Set([
   'per',
 ]);
 
+function isSearchUnitToken(token: string): boolean {
+  if (SEARCH_UNIT_TOKENS.has(token)) return true;
+  const withoutDigits = token.replace(/^\d+/, '');
+  return withoutDigits !== token && SEARCH_UNIT_TOKENS.has(withoutDigits);
+}
+
 function tokenizeSearchTerm(term: string): string[] {
   return term
     .toLowerCase()
     .split(/[\s,/+-]+/)
     .map((token) => token.replace(/[^\w]/g, ''))
-    .filter((token) => token.length >= 2 && !SEARCH_UNIT_TOKENS.has(token));
+    .filter((token) => token.length >= 2 && !isSearchUnitToken(token) && !/^\d+$/.test(token));
 }
 
 function scoreSearchRelevance(title: string, searchTerm: string): number {
@@ -36,6 +42,10 @@ function scoreSearchRelevance(title: string, searchTerm: string): number {
     if (titleLower.includes(token)) matched += 1;
   }
   return matched / tokens.length;
+}
+
+export function normalizeWalmartSearchTerm(term: string): string {
+  return tokenizeSearchTerm(term).join(' ');
 }
 
 export function isRelevantWalmartProduct(title: string, searchTerm: string): boolean {

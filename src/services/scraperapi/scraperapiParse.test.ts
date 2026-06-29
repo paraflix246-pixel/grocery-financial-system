@@ -4,6 +4,7 @@ import { describe, it } from 'node:test';
 import {
   isRelevantWalmartProduct,
   mapWalmartResultsToQuotes,
+  normalizeWalmartSearchTerm,
   parseWalmartSearchHtml,
   parseWalmartStructuredSearchResponse,
   rankWalmartSearchItems,
@@ -44,6 +45,13 @@ const SAMPLE_NEXT_DATA = {
     },
   },
 };
+
+describe('normalizeWalmartSearchTerm', () => {
+  it('strips unit tokens before Walmart search', () => {
+    assert.equal(normalizeWalmartSearchTerm('ground beef 1lb'), 'ground beef');
+    assert.equal(normalizeWalmartSearchTerm('whole milk gallon'), 'whole milk');
+  });
+});
 
 describe('parseWalmartStructuredSearchResponse', () => {
   it('maps structured search items to title and price', () => {
