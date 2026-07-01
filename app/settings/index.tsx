@@ -1,10 +1,11 @@
 import { SymbolView } from 'expo-symbols';
-import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -15,20 +16,28 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/Themed';import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { JoinFamilyCodeForm } from '@/src/components/family/JoinFamilyCodeForm';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import {
   useSubscriptionStore,
   type SubscriptionTier,
 } from '@/src/store/useSubscriptionStore';
 import { refreshScheduledNotifications } from '@/src/services/notificationService';
-import { signOut, getSession, getStoredUser, isSignedInAccount, changeAccountEmail } from '@/src/services/authService';
-import { shareText } from '@/src/utils/copyOrShare';
+import { signOut, getSession, getStoredUser, isSignedInAccount, changeAccountEmail, ChangeEmailError } from '@/src/services/authService';
+import { confirmSignOut, shareApp } from '@/src/utils/accountMenuActions';
+import { signOutAndNavigate } from '@/src/utils/logoutRouting';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import {
   getOpenLastListPreference,
   setOpenLastListPreference,
 } from '@/src/utils/listNavigationPrefs';
+import {
+  PushNotificationSettings,
+  type PushNotificationPrefs,
+} from '@/src/components/settings/PushNotificationSettings';
 import { DeleteAccountSheet } from '@/src/components/settings/DeleteAccountSheet';
 import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import {
@@ -42,7 +51,23 @@ import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackgroun
 import { WorkspaceScopeSwitcher } from '@/src/components/WorkspaceScopeSwitcher';
 import { canUseWorkspaceScope } from '@/src/services/dataScopeLogic';
 import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import {
+  disableDevFamilyWorkspacePreview,
+  isDevFamilyWorkspacePreviewActive,
+  startDevFamilyWorkspacePreview,
+} from '@/src/services/devFamilyWorkspacePreview';
+import {
+  isDevForceFreeCartPreviewActive,
+  setDevForceFreeCartPreview,
+} from '@/src/services/devFreeCartPreview';
+import {
+  getDevFamilyRoleOverride,
+  setDevFamilyRoleOverride,
+  type DevFamilyRoleOverride,
+} from '@/src/services/devFamilyRolePreview';
+import { promptDevFamilyPreviewSignIn } from '@/src/utils/devFamilyPreviewAuth';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { useAppFont } from '@/src/theme/AppFontProvider';
 import type { AppThemeId } from '@/src/theme/appThemes';
 import type { AppFontId } from '@/src/theme/appFonts';
@@ -51,6 +76,7 @@ import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { i18n, previewAppLocale, setAppLocale, type AppLocale } from '@/src/i18n';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 import { submitUserFeedback } from '@/src/services/admin/adminApiService';
+import { isLivePriceEstimatesEnabled } from '@/src/services/livePriceEstimatesPreferenceLogic';
 
 type SymbolName = ComponentProps<typeof SymbolView>['name'];
 
@@ -60,6 +86,8 @@ type MenuItem = {
   icon: SymbolName;
   route: string;
 };
+
+const SETTINGS_FOOTER_HEIGHT = 72;
 
 const MENU_ITEMS: MenuItem[] = [
   {
@@ -86,6 +114,7 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const navigation = useNavigation();
+  const { emailChanged } = useLocalSearchParams<{ emailChanged?: string }>();
   const {
     theme,
     themeId: persistedThemeId,
@@ -112,8 +141,17 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
   const [notifyPriceAlerts, setNotifyPriceAlerts] = useState(true);
+  const [notifyPriceChangeAlerts, setNotifyPriceChangeAlerts] = useState(true);
+  const [notifySaleAlerts, setNotifySaleAlerts] = useState(true);
+  const [notifyCheaperStoreAlerts, setNotifyCheaperStoreAlerts] = useState(true);
   const [notifyBudgetAlerts, setNotifyBudgetAlerts] = useState(true);
+  const [notifyWeeklySummaryAlerts, setNotifyWeeklySummaryAlerts] = useState(false);
+  const [notifyFamilyListAlerts, setNotifyFamilyListAlerts] = useState(true);
+  const [notifyPantryLowAlerts, setNotifyPantryLowAlerts] = useState(false);
+  const [notifyHouseholdReceiptAlerts, setNotifyHouseholdReceiptAlerts] = useState(false);
+  const [pushNotificationsEnabled, setPushNotificationsEnabled] = useState(true);
   const [openLastList, setOpenLastList] = useState(true);
+  const [showLivePriceEstimates, setShowLivePriceEstimates] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [savedThemeId, setSavedThemeId] = useState<AppThemeId | null>(null);
@@ -127,6 +165,12 @@ export default function SettingsScreen() {
   const allowLeaveRef = useRef(false);
   const [devResetting, setDevResetting] = useState(false);
   const [devTierSwitching, setDevTierSwitching] = useState(false);
+  const [devFamilyPreview, setDevFamilyPreview] = useState(false);
+  const [devFamilyPreviewBusy, setDevFamilyPreviewBusy] = useState(false);
+  const [devFreeCartPreview, setDevFreeCartPreview] = useState(false);
+  const [devFreeCartPreviewBusy, setDevFreeCartPreviewBusy] = useState(false);
+  const [devFamilyRole, setDevFamilyRole] = useState<DevFamilyRoleOverride | null>(null);
+  const refreshDevRoleOverride = useWorkspaceStore((s) => s.refreshDevRoleOverride);
   const [accountSheetVisible, setAccountSheetVisible] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -148,8 +192,14 @@ export default function SettingsScreen() {
   const isCurrentMember = useWorkspaceStore((s) => s.isCurrentMember);
   const hasWorkspace = canUseWorkspaceScope(isCurrentMember, hasActiveWorkspaceSub, isAdmin);
   const setActiveScope = useWorkspaceStore((s) => s.setActiveScope);
+  const loadWorkspaces = useWorkspaceStore((s) => s.loadWorkspaces);
   const insets = useSafeAreaInsets();
-  const scrollBottomPadding = getScreenBottomPadding(insets.bottom, Platform.OS === 'web' ? 56 : 40);
+  const footerBottomPadding = Math.max(insets.bottom, 12);
+  const scrollBottomPadding =
+    getScreenBottomPadding(insets.bottom, Platform.OS === 'web' ? 56 : 40) +
+    SETTINGS_FOOTER_HEIGHT +
+    footerBottomPadding;
+  const fw = useFamilyWorkspaceScreenTheme();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,8 +209,17 @@ export default function SettingsScreen() {
     const s = useSettingsStore.getState().settings;
     if (s) {
       setDisplayName(s.displayName);
+      setPushNotificationsEnabled(s.pushNotificationsEnabled ?? true);
       setNotifyPriceAlerts(s.notifyPriceAlerts);
+      setNotifyPriceChangeAlerts(s.notifyPriceChangeAlerts ?? true);
+      setNotifySaleAlerts(s.notifySaleAlerts ?? true);
+      setNotifyCheaperStoreAlerts(s.notifyCheaperStoreAlerts ?? true);
       setNotifyBudgetAlerts(s.notifyBudgetAlerts);
+      setNotifyWeeklySummaryAlerts(s.notifyWeeklySummaryAlerts ?? false);
+      setNotifyFamilyListAlerts(s.notifyFamilyListAlerts ?? true);
+      setNotifyPantryLowAlerts(s.notifyPantryLowAlerts ?? false);
+      setNotifyHouseholdReceiptAlerts(s.notifyHouseholdReceiptAlerts ?? false);
+      setShowLivePriceEstimates(isLivePriceEstimatesEnabled(s));
     }
     const storedUser = await getStoredUser();
     const session = await getSession();
@@ -168,12 +227,31 @@ export default function SettingsScreen() {
     setIsSignedIn(signedIn);
     setIsGuest(Boolean(storedUser?.isGuest || !session?.user));
     setAccountEmail(session?.user?.email ?? storedUser?.email ?? '');
+    await loadWorkspaces();
     setLoading(false);
-  }, [loadSettings]);
+  }, [loadSettings, loadWorkspaces]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (emailChanged !== '1') return;
+    void (async () => {
+      const session = await getSession();
+      setAccountEmail(session?.user?.email ?? '');
+      setEmailChangeMessage(t('settings.changeEmailConfirmed'));
+      router.replace('/settings');
+    })();
+  }, [emailChanged, router, t]);
+
+  useEffect(() => {
+    if (__DEV__) {
+      void isDevFamilyWorkspacePreviewActive().then(setDevFamilyPreview);
+      void getDevFamilyRoleOverride().then(setDevFamilyRole);
+      void isDevForceFreeCartPreviewActive().then(setDevFreeCartPreview);
+    }
+  }, [hasActiveWorkspaceSub, activeScope]);
 
   useEffect(() => {
     if (savedLocale !== null) return;
@@ -373,6 +451,16 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleDevFreeCartPreview = async (enabled: boolean) => {
+    setDevFreeCartPreviewBusy(true);
+    try {
+      await setDevForceFreeCartPreview(enabled);
+      setDevFreeCartPreview(enabled);
+    } finally {
+      setDevFreeCartPreviewBusy(false);
+    }
+  };
+
   const handleDevReset = async () => {
     setDevResetting(true);
     try {
@@ -385,19 +473,58 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    router.replace('/onboarding/signin');
+  const handleDevFamilyPreview = async () => {
+    setDevFamilyPreviewBusy(true);
+    try {
+      if (devFamilyPreview) {
+        await disableDevFamilyWorkspacePreview();
+        setDevFamilyPreview(false);
+      } else {
+        const ready = await startDevFamilyWorkspacePreview(router, 'home');
+        setDevFamilyPreview(ready);
+        if (!ready) {
+          promptDevFamilyPreviewSignIn(
+            '/settings',
+            {
+              title: t('devFamilyPreview.routeTitle'),
+              message: t('devFamilyPreview.signInRequired'),
+              cancel: t('common.cancel'),
+              signIn: t('common.signIn'),
+            },
+            (href) => router.push(href as never)
+          );
+        }
+      }
+    } catch (error) {
+      Alert.alert(
+        t('devFamilyPreview.routeTitle'),
+        error instanceof Error ? error.message : t('devFamilyPreview.enableFailed')
+      );
+    } finally {
+      setDevFamilyPreviewBusy(false);
+    }
   };
 
+  const handleDevFamilyRole = async (role: DevFamilyRoleOverride) => {
+    const next = devFamilyRole === role ? null : role;
+    await setDevFamilyRoleOverride(next);
+    setDevFamilyRole(next);
+    await refreshDevRoleOverride();
+  };
+
+  const handleLogout = () =>
+    confirmSignOut(async () => {
+      await signOutAndNavigate(router);
+    }, t);
+
   const handleShareApp = async () => {
-    await shareText(t('settings.shareMessage'), t('settings.shareApp'));
+    await shareApp(t);
   };
 
   const handleSubmitFeedback = async () => {
     const trimmed = feedbackMessage.trim();
     if (!trimmed) {
-      setFeedbackNotice('Please enter your feedback.');
+      setFeedbackNotice(t('settings.feedbackEmpty'));
       return;
     }
     setFeedbackSending(true);
@@ -405,9 +532,9 @@ export default function SettingsScreen() {
     try {
       await submitUserFeedback(trimmed, 'general');
       setFeedbackMessage('');
-      setFeedbackNotice('Thanks — your feedback was sent.');
+      setFeedbackNotice(t('settings.feedbackThanks'));
     } catch (error) {
-      setFeedbackNotice(error instanceof Error ? error.message : 'Could not send feedback.');
+      setFeedbackNotice(error instanceof Error ? error.message : t('settings.feedbackFailed'));
     } finally {
       setFeedbackSending(false);
     }
@@ -428,24 +555,132 @@ export default function SettingsScreen() {
         t('settings.changeEmailPending', { email: result.pendingNewEmail })
       );
     } catch (error) {
-      setEmailChangeMessage(
-        error instanceof Error ? error.message : t('settings.changeEmailFailed')
-      );
+      if (error instanceof ChangeEmailError) {
+        const errorKey = `settings.changeEmailErrors.${error.code}` as const;
+        setEmailChangeMessage(t(errorKey, { defaultValue: t('settings.changeEmailFailed') }));
+      } else {
+        setEmailChangeMessage(
+          error instanceof Error ? error.message : t('settings.changeEmailFailed')
+        );
+      }
     } finally {
       setChangingEmail(false);
     }
   };
 
+  const pushNotificationPrefs: PushNotificationPrefs = useMemo(
+    () => ({
+      pushNotificationsEnabled,
+      notifyPriceAlerts,
+      notifyPriceChangeAlerts,
+      notifySaleAlerts,
+      notifyCheaperStoreAlerts,
+      notifyBudgetAlerts,
+      notifyWeeklySummaryAlerts,
+      notifyFamilyListAlerts,
+      notifyPantryLowAlerts,
+      notifyHouseholdReceiptAlerts,
+    }),
+    [
+      pushNotificationsEnabled,
+      notifyPriceAlerts,
+      notifyPriceChangeAlerts,
+      notifySaleAlerts,
+      notifyCheaperStoreAlerts,
+      notifyBudgetAlerts,
+      notifyWeeklySummaryAlerts,
+      notifyFamilyListAlerts,
+      notifyPantryLowAlerts,
+      notifyHouseholdReceiptAlerts,
+    ],
+  );
+
+  const handlePushNotificationChange = useCallback(
+    (patch: Partial<PushNotificationPrefs>) => {
+      if (patch.pushNotificationsEnabled !== undefined) {
+        setPushNotificationsEnabled(patch.pushNotificationsEnabled);
+      }
+      if (patch.notifyPriceAlerts !== undefined) setNotifyPriceAlerts(patch.notifyPriceAlerts);
+      if (patch.notifyPriceChangeAlerts !== undefined) {
+        setNotifyPriceChangeAlerts(patch.notifyPriceChangeAlerts);
+      }
+      if (patch.notifySaleAlerts !== undefined) setNotifySaleAlerts(patch.notifySaleAlerts);
+      if (patch.notifyCheaperStoreAlerts !== undefined) {
+        setNotifyCheaperStoreAlerts(patch.notifyCheaperStoreAlerts);
+      }
+      if (patch.notifyBudgetAlerts !== undefined) setNotifyBudgetAlerts(patch.notifyBudgetAlerts);
+      if (patch.notifyWeeklySummaryAlerts !== undefined) {
+        setNotifyWeeklySummaryAlerts(patch.notifyWeeklySummaryAlerts);
+      }
+      if (patch.notifyFamilyListAlerts !== undefined) {
+        setNotifyFamilyListAlerts(patch.notifyFamilyListAlerts);
+      }
+      if (patch.notifyPantryLowAlerts !== undefined) {
+        setNotifyPantryLowAlerts(patch.notifyPantryLowAlerts);
+      }
+      if (patch.notifyHouseholdReceiptAlerts !== undefined) {
+        setNotifyHouseholdReceiptAlerts(patch.notifyHouseholdReceiptAlerts);
+      }
+
+      void (async () => {
+        try {
+          await saveSettings(patch);
+          await refreshScheduledNotifications();
+        } catch (error) {
+          console.warn('[settings] notification pref save failed:', error);
+        }
+      })();
+    },
+    [saveSettings],
+  );
+
+  const handleShowLivePriceEstimatesChange = useCallback(
+    (value: boolean) => {
+      setShowLivePriceEstimates(value);
+      void (async () => {
+        try {
+          await saveSettings({ showLivePriceEstimates: value });
+        } catch (error) {
+          console.warn('[settings] live price estimates pref save failed:', error);
+        }
+      })();
+    },
+    [saveSettings],
+  );
+
   const appearanceCardStyle = useMemo(
     () => [
       styles.card,
       {
-        backgroundColor: theme.surface,
-        borderColor: theme.border,
+        backgroundColor: fw.card,
+        borderColor: fw.border,
         borderWidth: StyleSheet.hairlineWidth,
       },
     ],
-    [theme],
+    [fw],
+  );
+
+  const cardStyle = useMemo(
+    () => [
+      styles.card,
+      {
+        backgroundColor: fw.card,
+        borderColor: fw.border,
+        borderWidth: StyleSheet.hairlineWidth,
+      },
+    ],
+    [fw],
+  );
+
+  const menuItemStyle = useMemo(
+    () => [
+      styles.menuItem,
+      {
+        backgroundColor: fw.card,
+        borderColor: fw.border,
+      },
+    ],
+    [fw],
   );
 
   const handleSave = async () => {
@@ -454,8 +689,17 @@ export default function SettingsScreen() {
     try {
       await saveSettings({
         displayName: displayName.trim(),
+        pushNotificationsEnabled,
         notifyPriceAlerts,
+        notifyPriceChangeAlerts,
+        notifySaleAlerts,
+        notifyCheaperStoreAlerts,
         notifyBudgetAlerts,
+        notifyWeeklySummaryAlerts,
+        notifyFamilyListAlerts,
+        notifyPantryLowAlerts,
+        notifyHouseholdReceiptAlerts,
+        showLivePriceEstimates,
       });
       if (appearanceDirty) {
         await saveAppearance();
@@ -464,7 +708,8 @@ export default function SettingsScreen() {
       await setOpenLastListPreference(openLastList);
       setSaveMessage(t('common.saved'));
     } catch {
-      setSaveMessage(t('common.saveFailed'));    } finally {
+      setSaveMessage(t('common.saveFailed'));
+    } finally {
       setSaving(false);
     }
   };
@@ -472,15 +717,19 @@ export default function SettingsScreen() {
   if (loading) {
     return (
       <PremiumScreenBackground style={styles.center}>
-        <ActivityIndicator size="large" color={SmartCartColors.primary} />
+        <ActivityIndicator size="large" color={fw.activityColor} />
       </PremiumScreenBackground>
     );
   }
 
   return (
     <PremiumScreenBackground style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerSpacer} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <BackButton showLabel={false} tintColor={theme.text} />
         <View style={styles.headerTitleWrap}>
           <Text style={styles.headerTitle}>{t('settings.title')}</Text>
           {appearanceDirty ? (
@@ -504,20 +753,21 @@ export default function SettingsScreen() {
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={Platform.OS === 'web'}>
         {isAdmin ? (
           <>
             <Text style={styles.sectionTitle}>{t('more.sections.essentials')}</Text>
             <View style={styles.menu}>
               <Pressable
-                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
                 onPress={() => router.push('/admin' as never)}
                 accessibilityRole="button"
                 accessibilityLabel={t('admin.nav.dashboard')}>
                 <View style={styles.menuIcon}>
                   <SymbolView
                     name={{ ios: 'shield.lefthalf.filled', android: 'admin_panel_settings', web: 'admin_panel_settings' }}
-                    tintColor={SmartCartColors.primary}
+                    tintColor={fw.primary}
                     size={20}
                   />
                 </View>
@@ -536,32 +786,137 @@ export default function SettingsScreen() {
         ) : null}
 
         <Text style={styles.sectionTitle}>{t('settings.profile')}</Text>
-        <View style={styles.card}>
+        <View style={cardStyle}>
           <Text style={styles.fieldLabel}>{t('settings.displayName')}</Text>
           <Text style={styles.fieldHint}>{t('settings.displayNameHint')}</Text>
           <TextInput
             style={styles.input}
             value={displayName}
             onChangeText={setDisplayName}
-            placeholder={t('settings.displayNamePlaceholder')}            placeholderTextColor={SmartCartColors.textMuted}
+            placeholder={t('settings.displayNamePlaceholder')}
+            placeholderTextColor={SmartCartColors.textMuted}
             autoCapitalize="words"
           />
         </View>
 
+        <Text style={styles.sectionTitle}>{t('settings.account')}</Text>
+        <View style={cardStyle}>
+          {isSignedIn ? (
+            <>
+              <Text style={styles.fieldHint}>{t('settings.signedIn')}</Text>
+              {accountEmail ? (
+                <>
+                  <Text style={styles.fieldLabel}>{t('settings.currentEmail')}</Text>
+                  <Text style={styles.accountEmail}>{accountEmail}</Text>
+                  <View style={styles.divider} />
+                  <Text style={styles.fieldLabel}>{t('settings.changeEmail')}</Text>
+                  <Text style={styles.fieldHint}>{t('settings.changeEmailHint')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={newEmail}
+                    onChangeText={setNewEmail}
+                    placeholder={t('settings.changeEmailPlaceholder')}
+                    placeholderTextColor={SmartCartColors.textMuted}
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    keyboardType="email-address"
+                    editable={!changingEmail}
+                  />
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.secondaryBtn,
+                      pressed && styles.secondaryBtnPressed,
+                      changingEmail && styles.secondaryBtnDisabled,
+                    ]}
+                    onPress={() => void handleChangeEmail()}
+                    disabled={changingEmail || !newEmail.trim()}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('settings.changeEmailSubmit')}
+                  >
+                    {changingEmail ? (
+                      <ActivityIndicator color={fw.primary} />
+                    ) : (
+                      <Text style={[styles.secondaryBtnText, { color: fw.primary }]}>
+                        {t('settings.changeEmailSubmit')}
+                      </Text>
+                    )}
+                  </Pressable>
+                  {emailChangeMessage ? (
+                    <Text style={styles.emailChangeMessage}>{emailChangeMessage}</Text>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          ) : null}
+          <Text style={styles.fieldHint}>
+            {isGuest ? t('settings.deleteGuestHint') : t('settings.deleteAccountHint')}
+          </Text>
+          <Pressable
+            style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
+            onPress={() => setAccountSheetVisible(true)}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.deleteAccount')}
+          >
+            <Text style={styles.dangerBtnText}>{t('settings.deleteAccount')}</Text>
+          </Pressable>
+        </View>
+
         <Text style={styles.sectionTitle}>{t('settings.household')}</Text>
-        <View style={styles.card}>
-          <WorkspaceScopeSwitcher
-            scope={activeScope}
-            workspaceName={currentWorkspace?.name}
-            hasWorkspace={hasWorkspace}
-            onScopeChange={(scope) => void setActiveScope(scope)}
-            onManageHousehold={() => router.push('/family_plans' as never)}
-          />
-          <Text style={styles.fieldHint}>{t('settings.householdHint')}</Text>
+        <View style={[cardStyle, fw.householdCard]}>
+          {hasWorkspace ? (
+            <>
+              <WorkspaceScopeSwitcher
+                scope={activeScope}
+                workspaceName={currentWorkspace?.name}
+                hasWorkspace={hasWorkspace}
+                showBranding
+                onScopeChange={(scope) => void setActiveScope(scope)}
+                onManageHousehold={() => router.push('/family_plans' as never)}
+              />
+              <Text style={styles.fieldHint}>{t('settings.householdHint')}</Text>
+              {currentWorkspace ? (
+                <Text style={styles.membershipStatus}>
+                  {t('familyJoin.joinedAs', { name: currentWorkspace.name })}
+                  {' · '}
+                  {t('familyJoin.joinedCode', { code: currentWorkspace.inviteCode })}
+                </Text>
+              ) : null}
+            </>
+          ) : isCurrentMember && currentWorkspace ? (
+            <>
+              <Text style={styles.fieldLabel}>{t('familyJoin.membershipStatus')}</Text>
+              <Text style={styles.membershipStatus}>
+                {t('familyJoin.joinedAs', { name: currentWorkspace.name })}
+              </Text>
+              <Text style={styles.fieldHint}>{t('familyJoin.errors.noSubscription')}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.fieldLabel}>{t('familyJoin.title')}</Text>
+              <Text style={styles.fieldHint}>{t('familyJoin.settingsHint')}</Text>
+              {!isSignedIn ? (
+                <>
+                  <Text style={styles.fieldHint}>{t('familyJoin.signInRequired')}</Text>
+                  <Pressable
+                    style={styles.householdUpgradeBtn}
+                    onPress={() => router.push('/onboarding/signin' as never)}>
+                    <Text style={styles.householdUpgradeBtnText}>{t('familyJoin.signInCta')}</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <JoinFamilyCodeForm
+                  variant="settings"
+                  onSignInRequired={() => router.push('/onboarding/signin' as never)}
+                />
+              )}
+            </>
+          )}
+          <View style={styles.divider} />
           <Pressable
             style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
             onPress={() => router.push('/family_plans' as never)}>
-            <Text style={styles.menuLabel}>{t('settings.householdManage')}</Text>            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={16} tintColor={SmartCartColors.textMuted} />
+            <Text style={styles.menuLabel}>{t('settings.householdManage')}</Text>
+            <SymbolView name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }} size={16} tintColor={SmartCartColors.textMuted} />
           </Pressable>
         </View>
 
@@ -600,36 +955,21 @@ export default function SettingsScreen() {
           <AppearanceSectionReset visible={localeSectionDirty} onPress={resetLocaleSection} />
         </View>
 
-        <Text style={styles.sectionTitle}>{t('settings.notifications')}</Text>
-        <View style={styles.card}>
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>{t('settings.priceAlerts')}</Text>
-              <Text style={styles.toggleHint}>{t('settings.priceAlertsHint')}</Text>            </View>
-            <Switch
-              value={notifyPriceAlerts}
-              onValueChange={setNotifyPriceAlerts}
-              trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
-              thumbColor="#fff"
-            />
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>{t('settings.budgetAlerts')}</Text>
-              <Text style={styles.toggleHint}>{t('settings.budgetAlertsHint')}</Text>            </View>
-            <Switch
-              value={notifyBudgetAlerts}
-              onValueChange={setNotifyBudgetAlerts}
-              trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
-              thumbColor="#fff"
-            />
-          </View>
-          <View style={styles.divider} />
+        <Text style={styles.sectionTitle}>{t('settings.pushNotificationsSection')}</Text>
+        <PushNotificationSettings
+          values={pushNotificationPrefs}
+          onChange={handlePushNotificationChange}
+          cardStyle={cardStyle}
+          showDevTests={false}
+        />
+
+        <Text style={styles.sectionTitle}>{t('settings.listBehavior')}</Text>
+        <View style={cardStyle}>
           <View style={styles.toggleRow}>
             <View style={styles.toggleInfo}>
               <Text style={styles.toggleLabel}>{t('settings.openLastList')}</Text>
-              <Text style={styles.toggleHint}>{t('settings.openLastListHint')}</Text>            </View>
+              <Text style={styles.toggleHint}>{t('settings.openLastListHint')}</Text>
+            </View>
             <Switch
               value={openLastList}
               onValueChange={setOpenLastList}
@@ -639,30 +979,48 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Scanning</Text>
-        <View style={styles.card}>
-          <Text style={styles.infoText}>{t('settings.scanningInfo')}</Text>        </View>
+        <Text style={styles.sectionTitle}>{t('settings.livePriceEstimatesSection')}</Text>
+        <View style={cardStyle}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleInfo}>
+              <Text style={styles.toggleLabel}>{t('settings.livePriceEstimates')}</Text>
+              <Text style={styles.toggleHint}>{t('settings.livePriceEstimatesHint')}</Text>
+            </View>
+            <Switch
+              value={showLivePriceEstimates}
+              onValueChange={handleShowLivePriceEstimatesChange}
+              trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
+              thumbColor="#fff"
+              accessibilityLabel={t('settings.livePriceEstimates')}
+            />
+          </View>
+        </View>
 
-        <Text style={styles.sectionTitle}>Feedback</Text>
-        <View style={styles.card}>
-          <Text style={styles.fieldHint}>Tell us what’s working or what we should improve.</Text>
+        <Text style={styles.sectionTitle}>{t('settings.scanning')}</Text>
+        <View style={cardStyle}>
+          <Text style={styles.infoText}>{t('settings.scanningInfo')}</Text>
+        </View>
+
+        <Text style={styles.sectionTitle}>{t('settings.feedback')}</Text>
+        <View style={cardStyle}>
+          <Text style={styles.fieldHint}>{t('settings.feedbackHint')}</Text>
           <TextInput
             value={feedbackMessage}
             onChangeText={setFeedbackMessage}
-            placeholder="Your feedback"
+            placeholder={t('settings.feedbackPlaceholder')}
             placeholderTextColor={SmartCartColors.textMuted}
             style={styles.feedbackInput}
             multiline
             editable={!feedbackSending}
           />
           <Pressable
-            style={[styles.feedbackBtn, feedbackSending && styles.feedbackBtnDisabled]}
+            style={[styles.feedbackBtn, { backgroundColor: fw.primary }, feedbackSending && styles.feedbackBtnDisabled]}
             onPress={() => void handleSubmitFeedback()}
             disabled={feedbackSending}
             accessibilityRole="button"
-            accessibilityLabel="Send feedback">
+            accessibilityLabel={t('settings.feedbackSend')}>
             <Text style={styles.feedbackBtnText}>
-              {feedbackSending ? 'Sending…' : 'Send feedback'}
+              {feedbackSending ? t('settings.feedbackSending') : t('settings.feedbackSend')}
             </Text>
           </Pressable>
           {feedbackNotice ? <Text style={styles.feedbackNotice}>{feedbackNotice}</Text> : null}
@@ -670,15 +1028,16 @@ export default function SettingsScreen() {
 
         {__DEV__ && (
           <>
-            <Text style={styles.sectionTitle}>Developer</Text>
-            <View style={styles.card}>
+            <Text style={styles.sectionTitle}>{t('settings.developer')}</Text>
+            <View style={cardStyle}>
               <Text style={styles.fieldLabel}>{t('settings.devTier')}</Text>
               <Text style={styles.fieldHint}>
                 {t('settings.devCurrent', {
                   tier: tier === 'free' ? t('common.free') : t('common.pro'),
                   trial: subscriptionSource === 'trial' ? t('settings.devTrial') : '',
                 })}
-              </Text>              <View style={styles.tierToggle}>
+              </Text>
+              <View style={styles.tierToggle}>
                 {(['free', 'pro'] as const).map((option) => (
                   <Pressable
                     key={option}
@@ -689,10 +1048,95 @@ export default function SettingsScreen() {
                     accessibilityLabel={`Set ${option === 'free' ? t('common.free') : t('common.pro')}`}
                   >
                     <Text style={[styles.tierBtnText, tier === option && styles.tierBtnTextActive]}>
-                      {option === 'free' ? t('common.free') : t('common.pro')}                    </Text>
+                      {option === 'free' ? t('common.free') : t('common.pro')}
+                    </Text>
                   </Pressable>
                 ))}
               </View>
+              <View style={styles.divider} />
+              <Text style={styles.fieldLabel}>{t('settings.devFreeCartPreview')}</Text>
+              <Text style={styles.fieldHint}>
+                {isAdmin
+                  ? t('settings.devFreeCartPreviewAdminHint')
+                  : t('settings.devFreeCartPreviewHint')}
+              </Text>
+              <View style={styles.toggleRow}>
+                <View style={styles.toggleInfo}>
+                  <Text style={styles.toggleLabel}>{t('settings.devFreeCartPreviewToggle')}</Text>
+                </View>
+                <Switch
+                  value={devFreeCartPreview}
+                  onValueChange={(value) => void handleDevFreeCartPreview(value)}
+                  disabled={devFreeCartPreviewBusy}
+                  trackColor={{ false: SmartCartColors.border, true: SmartCartColors.primaryMuted }}
+                  thumbColor="#fff"
+                  accessibilityLabel={t('settings.devFreeCartPreviewToggle')}
+                />
+              </View>
+              {devFreeCartPreview || (isAdmin && tier === 'free') ? (
+                <Text style={styles.fieldHint}>{t('settings.devFreeCartPreviewOn')}</Text>
+              ) : null}
+              <View style={styles.divider} />
+              <Text style={styles.fieldLabel}>{t('settings.devFamilyPreview')}</Text>
+              <Text style={styles.fieldHint}>{t('settings.devFamilyPreviewHint')}</Text>
+              <Pressable
+                style={[styles.devFamilyPreviewBtn, devFamilyPreview && styles.devFamilyPreviewBtnActive]}
+                onPress={() => void handleDevFamilyPreview()}
+                disabled={devFamilyPreviewBusy}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  devFamilyPreview ? t('settings.devFamilyPreviewDisable') : t('settings.devFamilyPreviewOff')
+                }>
+                <Text
+                  style={[
+                    styles.devFamilyPreviewBtnText,
+                    devFamilyPreview && styles.devFamilyPreviewBtnTextActive,
+                  ]}>
+                  {devFamilyPreviewBusy
+                    ? '…'
+                    : devFamilyPreview
+                      ? t('settings.devFamilyPreviewDisable')
+                      : t('settings.devFamilyPreviewOff')}
+                </Text>
+              </Pressable>
+              {devFamilyPreview ? (
+                <>
+                  <Text style={styles.fieldHint}>{t('settings.devFamilyPreviewOn')}</Text>
+                  <View style={styles.divider} />
+                  <Text style={styles.fieldLabel}>{t('settings.devFamilyRole')}</Text>
+                  <Text style={styles.fieldHint}>{t('settings.devFamilyRoleHint')}</Text>
+                  <View style={styles.tierToggle}>
+                    {(['owner', 'member'] as const).map((role) => (
+                      <Pressable
+                        key={role}
+                        style={[
+                          styles.tierBtn,
+                          (devFamilyRole === role || (devFamilyRole === null && role === 'owner')) &&
+                            styles.tierBtnActive,
+                        ]}
+                        onPress={() => void handleDevFamilyRole(role)}
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          role === 'owner'
+                            ? t('settings.devFamilyRoleOwner')
+                            : t('settings.devFamilyRoleMember')
+                        }>
+                        <Text
+                          style={[
+                            styles.tierBtnText,
+                            (devFamilyRole === role ||
+                              (devFamilyRole === null && role === 'owner')) &&
+                              styles.tierBtnTextActive,
+                          ]}>
+                          {role === 'owner'
+                            ? t('settings.devFamilyRoleOwner')
+                            : t('settings.devFamilyRoleMember')}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : null}
               <View style={styles.divider} />
               <Pressable
                 onPress={handleDevReset}
@@ -701,30 +1145,58 @@ export default function SettingsScreen() {
                 accessibilityLabel="Reset onboarding"
               >
                 <Text style={styles.devResetText}>
-                  {devResetting ? '…' : t('settings.devReset')}                </Text>
+                  {devResetting ? '…' : t('settings.devReset')}
+                </Text>
               </Pressable>
             </View>
           </>
         )}
 
-        <Text style={styles.sectionTitle}>Legal</Text>
+        <Text style={styles.sectionTitle}>{t('privacy.settingsTitle')}</Text>
         <View style={styles.menu}>
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
-            onPress={() => router.push('/privacy')}
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/settings/privacy')}
             accessibilityRole="link"
-            accessibilityLabel="Privacy Policy"
+            accessibilityLabel={t('privacy.settingsTitle')}
           >
             <View style={styles.menuIcon}>
               <SymbolView
                 name={{ ios: 'hand.raised.fill', android: 'privacy_tip', web: 'privacy_tip' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={20}
               />
             </View>
             <View style={styles.menuText}>
-              <Text style={styles.menuLabel}>Privacy Policy</Text>
-              <Text style={styles.menuSub}>How we collect and use your data</Text>
+              <Text style={styles.menuLabel}>{t('privacy.settingsTitle')}</Text>
+              <Text style={styles.menuSub}>{t('privacy.settingsSub')}</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
+        </View>
+
+        <Text style={styles.sectionTitle}>{t('settings.legal')}</Text>
+        <View style={styles.menu}>
+          <Pressable
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/privacy')}
+            accessibilityRole="link"
+            accessibilityLabel={t('privacy.legal.privacyPolicy')}
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'hand.raised.fill', android: 'privacy_tip', web: 'privacy_tip' }}
+                tintColor={fw.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>{t('privacy.legal.privacyPolicy')}</Text>
+              <Text style={styles.menuSub}>{t('settings.legalPrivacySub')}</Text>
             </View>
             <SymbolView
               name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
@@ -733,21 +1205,67 @@ export default function SettingsScreen() {
             />
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/data-retention')}
+            accessibilityRole="link"
+            accessibilityLabel={t('privacy.legal.dataRetention')}
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'clock.arrow.circlepath', android: 'history', web: 'history' }}
+                tintColor={fw.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>{t('privacy.legal.dataRetention')}</Text>
+              <Text style={styles.menuSub}>{t('settings.legalDataRetentionSub')}</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
+            onPress={() => router.push('/cookies')}
+            accessibilityRole="link"
+            accessibilityLabel={t('privacy.legal.cookies')}
+          >
+            <View style={styles.menuIcon}>
+              <SymbolView
+                name={{ ios: 'globe', android: 'language', web: 'language' }}
+                tintColor={fw.primary}
+                size={20}
+              />
+            </View>
+            <View style={styles.menuText}>
+              <Text style={styles.menuLabel}>{t('privacy.legal.cookies')}</Text>
+              <Text style={styles.menuSub}>{t('settings.legalCookiesSub')}</Text>
+            </View>
+            <SymbolView
+              name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
+              tintColor={SmartCartColors.textMuted}
+              size={16}
+            />
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
             onPress={() => router.push('/terms')}
             accessibilityRole="link"
-            accessibilityLabel="Terms of Service"
+            accessibilityLabel={t('privacy.legal.terms')}
           >
             <View style={styles.menuIcon}>
               <SymbolView
                 name={{ ios: 'doc.text.fill', android: 'description', web: 'description' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={20}
               />
             </View>
             <View style={styles.menuText}>
-              <Text style={styles.menuLabel}>Terms of Service</Text>
-              <Text style={styles.menuSub}>Usage rules and subscription terms</Text>
+              <Text style={styles.menuLabel}>{t('privacy.legal.terms')}</Text>
+              <Text style={styles.menuSub}>{t('settings.legalTermsSub')}</Text>
             </View>
             <SymbolView
               name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
@@ -756,21 +1274,21 @@ export default function SettingsScreen() {
             />
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
             onPress={() => router.push('/copyright')}
             accessibilityRole="link"
-            accessibilityLabel="Copyright and DMCA Policy"
+            accessibilityLabel={t('settings.legalCopyright')}
           >
             <View style={styles.menuIcon}>
               <SymbolView
                 name={{ ios: 'c.circle.fill', android: 'copyright', web: 'copyright' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={20}
               />
             </View>
             <View style={styles.menuText}>
-              <Text style={styles.menuLabel}>Copyright &amp; DMCA</Text>
-              <Text style={styles.menuSub}>Report copyright infringement</Text>
+              <Text style={styles.menuLabel}>{t('settings.legalCopyright')}</Text>
+              <Text style={styles.menuSub}>{t('settings.legalCopyrightSub')}</Text>
             </View>
             <SymbolView
               name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
@@ -779,21 +1297,21 @@ export default function SettingsScreen() {
             />
           </Pressable>
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
             onPress={() => router.push('/privacy-request')}
             accessibilityRole="link"
-            accessibilityLabel="Privacy Requests"
+            accessibilityLabel={t('privacy.legal.privacyRequests')}
           >
             <View style={styles.menuIcon}>
               <SymbolView
                 name={{ ios: 'envelope.fill', android: 'mail', web: 'mail' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={20}
               />
             </View>
             <View style={styles.menuText}>
-              <Text style={styles.menuLabel}>Privacy Requests</Text>
-              <Text style={styles.menuSub}>Access, delete, or export your data</Text>
+              <Text style={styles.menuLabel}>{t('privacy.legal.privacyRequests')}</Text>
+              <Text style={styles.menuSub}>{t('settings.legalPrivacyRequestsSub')}</Text>
             </View>
             <SymbolView
               name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
@@ -806,7 +1324,7 @@ export default function SettingsScreen() {
         <Text style={styles.sectionTitle}>{t('settings.preferences')}</Text>
         <View style={styles.menu}>
           <Pressable
-            style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+            style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
             onPress={() => void handleShareApp()}
             accessibilityRole="button"
             accessibilityLabel={t('settings.shareApp')}
@@ -814,7 +1332,7 @@ export default function SettingsScreen() {
             <View style={styles.menuIcon}>
               <SymbolView
                 name={{ ios: 'square.and.arrow.up', android: 'share', web: 'share' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={20}
               />
             </View>
@@ -831,14 +1349,15 @@ export default function SettingsScreen() {
           {MENU_ITEMS.map((item) => (
             <Pressable
               key={item.labelKey}
-              style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+              style={({ pressed }) => [menuItemStyle, pressed && styles.menuItemPressed]}
               onPress={() => router.push(item.route as never)}>
               <View style={styles.menuIcon}>
-                <SymbolView name={item.icon} tintColor={SmartCartColors.primary} size={20} />
+                <SymbolView name={item.icon} tintColor={fw.primary} size={20} />
               </View>
               <View style={styles.menuText}>
                 <Text style={styles.menuLabel}>{t(item.labelKey)}</Text>
-                <Text style={styles.menuSub}>{t(item.subtitleKey)}</Text>              </View>
+                <Text style={styles.menuSub}>{t(item.subtitleKey)}</Text>
+              </View>
               <SymbolView
                 name={{ ios: 'chevron.right', android: 'chevron_right', web: 'chevron_right' }}
                 tintColor={SmartCartColors.textMuted}
@@ -847,104 +1366,87 @@ export default function SettingsScreen() {
             </Pressable>
           ))}
         </View>
-
-        <Text style={styles.sectionTitle}>{t('settings.account')}</Text>
-        <View style={styles.card}>
-          {isSignedIn ? (
-            <>
-              <Text style={styles.fieldHint}>{t('settings.signedIn')}</Text>
-              {accountEmail ? (
-                <>
-                  <Text style={styles.fieldLabel}>{t('settings.currentEmail')}</Text>
-                  <Text style={styles.accountEmail}>{accountEmail}</Text>
-                  <View style={styles.divider} />
-                  <Text style={styles.fieldLabel}>{t('settings.changeEmail')}</Text>
-                  <Text style={styles.fieldHint}>{t('settings.changeEmailHint')}</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={newEmail}
-                    onChangeText={setNewEmail}
-                    placeholder={t('settings.changeEmailPlaceholder')}
-                    placeholderTextColor={SmartCartColors.textMuted}
-                    autoCapitalize="none"
-                    autoComplete="email"
-                    keyboardType="email-address"
-                    editable={!changingEmail}
-                  />
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.secondaryBtn,
-                      pressed && styles.secondaryBtnPressed,
-                      changingEmail && styles.secondaryBtnDisabled,
-                    ]}
-                    onPress={() => void handleChangeEmail()}
-                    disabled={changingEmail || !newEmail.trim()}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('settings.changeEmailSubmit')}
-                  >
-                    {changingEmail ? (
-                      <ActivityIndicator color={SmartCartColors.primary} />
-                    ) : (
-                      <Text style={styles.secondaryBtnText}>{t('settings.changeEmailSubmit')}</Text>
-                    )}
-                  </Pressable>
-                  {emailChangeMessage ? (
-                    <Text style={styles.emailChangeMessage}>{emailChangeMessage}</Text>
-                  ) : null}
-                  <View style={styles.divider} />
-                </>
-              ) : null}
-              <Pressable
-                style={({ pressed }) => [styles.logoutBtn, pressed && styles.logoutBtnPressed]}
-                onPress={() => void handleLogout()}
-                accessibilityRole="button"
-                accessibilityLabel={t('settings.logout')}
-              >
-                <Text style={styles.logoutBtnText}>{t('settings.logout')}</Text>              </Pressable>
-              <View style={styles.divider} />
-            </>
-          ) : null}
-          <Text style={styles.fieldHint}>
-            {isGuest ? t('settings.deleteGuestHint') : t('settings.deleteAccountHint')}
-          </Text>
-          <Pressable
-            style={({ pressed }) => [styles.dangerBtn, pressed && styles.dangerBtnPressed]}
-            onPress={() => setAccountSheetVisible(true)}
-            accessibilityRole="button"
-            accessibilityLabel={t('settings.deleteAccount')}
-          >
-            <Text style={styles.dangerBtnText}>{t('settings.deleteAccount')}</Text>          </Pressable>
-        </View>
       </ScrollView>
+
+      <View
+        style={[
+          styles.stickyFooter,
+          fw.footer,
+          { paddingBottom: footerBottomPadding, borderTopColor: fw.border },
+        ]}>
+        {isSignedIn ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.footerLogoutBtn,
+              { borderColor: fw.border },
+              pressed && styles.footerLogoutBtnPressed,
+            ]}
+            onPress={handleLogout}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.logout')}>
+            <SymbolView
+              name={{
+                ios: 'rectangle.portrait.and.arrow.right',
+                android: 'logout',
+                web: 'logout',
+              }}
+              tintColor={SmartCartColors.danger}
+              size={18}
+            />
+            <Text style={styles.footerLogoutText}>{t('settings.logout')}</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            style={({ pressed }) => [
+              styles.footerSignInBtn,
+              { backgroundColor: fw.primary },
+              pressed && styles.footerSignInBtnPressed,
+            ]}
+            onPress={() => router.push('/onboarding/signin' as never)}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.signIn')}>
+            <Text style={styles.footerSignInText}>{t('common.signIn')}</Text>
+          </Pressable>
+        )}
+      </View>
 
       <DeleteAccountSheet
         visible={accountSheetVisible}
         onClose={() => setAccountSheetVisible(false)}
       />
+      </KeyboardAvoidingView>
     </PremiumScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  flex: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
     gap: 12,
   },
   headerTitleWrap: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', textAlign: 'center', color: SmartCartColors.text },
-  headerSpacer: { width: 72 },
-  saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
+  saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary, minWidth: 72, textAlign: 'right' },
   saveLinkActive: { color: SmartCartColors.primaryDark },
   saveLinkDisabled: { opacity: 0.5 },
   unsavedHint: { fontSize: 11, fontWeight: '600', color: SmartCartColors.primary, marginTop: 2 },
   scroll: { flex: 1 },
   content: { padding: 16, flexGrow: 1 },
-  sectionTitle: { fontSize: 17, fontWeight: '700', color: SmartCartColors.text, marginBottom: 12, marginTop: 8 },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: SmartCartColors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+    marginTop: 12,
+  },
   card: {
     backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,
@@ -954,6 +1456,7 @@ const styles = StyleSheet.create({
   },
   fieldLabel: { fontSize: 14, fontWeight: '600', color: SmartCartColors.text },
   fieldHint: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2, marginBottom: 10 },
+  membershipStatus: { fontSize: 13, color: SmartCartColors.text, marginBottom: 8, lineHeight: 18 },
   input: {
     borderWidth: 1,
     borderColor: SmartCartColors.border,
@@ -1007,6 +1510,30 @@ const styles = StyleSheet.create({
   tierBtnActive: { backgroundColor: SmartCartColors.primary },
   tierBtnText: { fontSize: 13, fontWeight: '600', color: SmartCartColors.textSecondary },
   tierBtnTextActive: { color: '#fff' },
+  householdUpgradeBtn: {
+    marginTop: 4,
+    marginBottom: 8,
+    paddingVertical: 12,
+    borderRadius: SmartCartRadius.pill,
+    backgroundColor: '#16A34A',
+    alignItems: 'center',
+  },
+  householdUpgradeBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  devFamilyPreviewBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    borderRadius: SmartCartRadius.sm,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    alignItems: 'center',
+    backgroundColor: SmartCartColors.background,
+  },
+  devFamilyPreviewBtnActive: {
+    borderColor: '#16A34A',
+    backgroundColor: 'rgba(22,163,74,0.12)',
+  },
+  devFamilyPreviewBtnText: { fontSize: 14, fontWeight: '700', color: SmartCartColors.text },
+  devFamilyPreviewBtnTextActive: { color: '#16A34A' },
   dangerBtn: {
     marginTop: 8,
     paddingVertical: 12,
@@ -1017,16 +1544,30 @@ const styles = StyleSheet.create({
   },
   dangerBtnPressed: { backgroundColor: `${SmartCartColors.danger}12` },
   dangerBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.danger },
-  logoutBtn: {
-    paddingVertical: 12,
-    borderRadius: SmartCartRadius.sm,
-    borderWidth: 1,
-    borderColor: SmartCartColors.border,
-    alignItems: 'center',
-    marginBottom: 4,
+  stickyFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
-  logoutBtnPressed: { backgroundColor: SmartCartColors.badge },
-  logoutBtnText: { fontSize: 15, fontWeight: '700', color: SmartCartColors.text },
+  footerLogoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: SmartCartRadius.md,
+    borderWidth: 1,
+    backgroundColor: SmartCartColors.card,
+  },
+  footerLogoutBtnPressed: { backgroundColor: `${SmartCartColors.danger}10` },
+  footerLogoutText: { fontSize: 16, fontWeight: '700', color: SmartCartColors.danger },
+  footerSignInBtn: {
+    paddingVertical: 14,
+    borderRadius: SmartCartRadius.md,
+    alignItems: 'center',
+  },
+  footerSignInBtnPressed: { opacity: 0.9 },
+  footerSignInText: { fontSize: 16, fontWeight: '700', color: '#fff' },
   accountEmail: { fontSize: 15, color: SmartCartColors.text, marginBottom: 4 },
   secondaryBtn: {
     marginTop: 10,
@@ -1060,7 +1601,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingVertical: 12,
     borderRadius: SmartCartRadius.sm,
-    backgroundColor: SmartCartColors.primary,
     alignItems: 'center',
   },
   feedbackBtnDisabled: { opacity: 0.6 },

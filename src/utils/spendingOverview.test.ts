@@ -5,6 +5,7 @@ import type { Receipt } from '@/src/models/types';
 import {
   buildSpendingOverviewBreakdown,
   getSpendingOverviewReceipts,
+  hasReceiptsOutsideSpendingPeriod,
 } from '@/src/utils/spendingOverview';
 import { getPeriodDateRange } from '@/src/utils/spendingPeriodAnalytics';
 
@@ -55,6 +56,17 @@ describe('getSpendingOverviewReceipts', () => {
     assert.equal(result.periodLabel, 'This Week');
     assert.equal(result.receipts.length, 1);
     assert.equal(result.receipts[0]?.id, '1');
+  });
+});
+
+describe('hasReceiptsOutsideSpendingPeriod', () => {
+  it('returns true when receipts exist but none match the selected period', () => {
+    const now = new Date('2026-07-01T12:00:00');
+    const receipts = [
+      receipt({ id: '1', date: '2026-03-23', storeName: 'Walmart', total: 15.95 }),
+    ];
+    assert.equal(hasReceiptsOutsideSpendingPeriod(receipts, 'month', now), true);
+    assert.equal(hasReceiptsOutsideSpendingPeriod(receipts, 'year', now), false);
   });
 });
 

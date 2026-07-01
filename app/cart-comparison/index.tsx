@@ -1,34 +1,60 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
+import { FoodItemImageAvatar } from '@/src/components/FoodItemImageAvatar';
 import { ItemPicker } from '@/src/components/ItemPicker';
 import { SingleItemStoreComparison } from '@/src/components/SingleItemStoreComparison';
 import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { MockupCard, MockupScreenTitle } from '@/src/components/mockup/MockupUI';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { useRotatingItemComparison } from '@/src/hooks/useRotatingItemComparison';
+import { useCartComparisonAccess } from '@/src/hooks/useCartComparisonAccess';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
 import { getFeatureLabel } from '@/src/services/featureGateService';
+import {
+  applyCartComparisonItemLimit,
+  shouldShowCartComparisonUpgradeBanner,
+} from '@/src/services/cartComparisonLimitLogic';
 import { STARTER_SAMPLE_HINT } from '@/src/data/starterCommonGoods';
 import type { ListItem } from '@/src/models/types';
 import { buildSearchComparisonItem } from '@/src/services/comparisonFallbackLogic';
 import { resolveComparisonList } from '@/src/services/listComparisonService';
+import { isLivePriceEstimatesEnabled } from '@/src/services/livePriceEstimatesPreferenceLogic';
+import { loadReceiptsForScope } from '@/src/services/scopedReceiptService';
 import type { ItemPickerSelection } from '@/src/services/itemPickerService';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import { useSettingsStore } from '@/src/store/useSettingsStore';
 import {
   getMaxCartSavings,
   getStoreCartTotals,
 } from '@/src/services/priceComparisonService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
+const QUICK_SEARCH_ITEMS = ['Milk', 'Eggs', 'Bread'] as const;
+
 function selectionFromListItem(item: ListItem): ItemPickerSelection {
   return { itemName: item.name };
 }
 
 export default function CartComparisonScreen() {
+  const { t } = useTranslation();
   const { unlocked: multiStoreUnlocked } = useFeatureGate('community_pricing');
+  const cartAccess = useCartComparisonAccess();
+  const fullCartComparison = cartAccess.hasFullAccess;
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
+  const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
+  const isWorkspaceView = activeScope === 'workspace';
+  const showLivePriceEstimates = useSettingsStore((s) =>
+    isLivePriceEstimatesEnabled(s.settings)
+  );
+  const saveSettings = useSettingsStore((s) => s.saveSettings);
+  const comparisonScopeKey = isWorkspaceView
+    ? `workspace:${currentWorkspaceId ?? 'none'}`
+    : 'personal';
   const [listItems, setListItems] = useState<ListItem[]>([]);
   const [isStarterSample, setIsStarterSample] = useState(false);
   const [resolving, setResolving] = useState(true);
@@ -51,8 +77,37 @@ export default function CartComparisonScreen() {
 
   const isSingleItemMode = focusedListItem != null || searchSelection != null;
 
+  const {
+    itemsForComparison: limitedComparisonItems,
+    totalListItemCount,
+    comparisonLimit,
+  } = useMemo(
+    () =>
+      isSingleItemMode
+        ? {
+            itemsForComparison: comparisonItems,
+            totalListItemCount: comparisonItems.length,
+            comparisonLimit: null as number | null,
+          }
+        : applyCartComparisonItemLimit(comparisonItems, fullCartComparison),
+    [comparisonItems, fullCartComparison, isSingleItemMode]
+  );
+
+  const showLimitedListHint =
+    !isSingleItemMode &&
+    !fullCartComparison &&
+    comparisonLimit != null &&
+    totalListItemCount > comparisonLimit;
+
+  const showCartComparisonBanner = shouldShowCartComparisonUpgradeBanner({
+    hasFullAccess: fullCartComparison,
+    comparisonLimit,
+    totalListItemCount,
+    comparisonsCount: limitedComparisonItems.length,
+  });
+
   const { comparisons, current, currentIndex, loading, rotationKey, goToNext, reload } =
-    useRotatingItemComparison(comparisonItems, { forceRefresh: true });
+    useRotatingItemComparison(limitedComparisonItems, { forceRefresh: true });
   const [maxCartSavings, setMaxCartSavings] = useState(0);
   const [cartLoading, setCartLoading] = useState(false);
 
@@ -64,28 +119,33 @@ export default function CartComparisonScreen() {
   const loadComparisonItems = useCallback(async () => {
     setResolving(true);
     try {
-      const comparison = await resolveComparisonList();
+      const scopedReceipts = await loadReceiptsForScope(activeScope, currentWorkspaceId);
+      const comparison = await resolveComparisonList({
+        forceRefresh: true,
+        scopeKey: comparisonScopeKey,
+        scopedReceipts,
+      });
       setListItems(comparison?.items ?? []);
       setIsStarterSample(comparison?.source === 'starter');
     } finally {
       setResolving(false);
     }
-  }, []);
+  }, [activeScope, comparisonScopeKey, currentWorkspaceId]);
 
   const loadCartSavings = useCallback(async () => {
-    if (isSingleItemMode || listItems.length === 0) {
+    if (isSingleItemMode || limitedComparisonItems.length === 0) {
       setMaxCartSavings(0);
       setCartLoading(false);
       return;
     }
     setCartLoading(true);
     try {
-      const totals = await getStoreCartTotals(listItems);
+      const totals = await getStoreCartTotals(limitedComparisonItems);
       setMaxCartSavings(getMaxCartSavings(totals));
     } finally {
       setCartLoading(false);
     }
-  }, [isSingleItemMode, listItems]);
+  }, [isSingleItemMode, limitedComparisonItems]);
 
   const clearFocusedItem = useCallback(() => {
     setFocusedListItem(null);
@@ -95,6 +155,11 @@ export default function CartComparisonScreen() {
   const handlePickerSelect = useCallback((selection: ItemPickerSelection) => {
     setFocusedListItem(null);
     setSearchSelection(selection);
+  }, []);
+
+  const handleQuickSearchPress = useCallback((itemName: string) => {
+    setFocusedListItem(null);
+    setSearchSelection({ itemName });
   }, []);
 
   const handleListChipPress = useCallback((item: ListItem) => {
@@ -111,11 +176,11 @@ export default function CartComparisonScreen() {
   );
 
   useEffect(() => {
-    if (comparisonItems.length === 0 || loading) {
+    if (limitedComparisonItems.length === 0 || loading) {
       return;
     }
     void loadCartSavings();
-  }, [comparisonItems.length, loading, loadCartSavings]);
+  }, [limitedComparisonItems.length, loading, loadCartSavings]);
 
   const isRefreshing = !isSingleItemMode && cartLoading;
 
@@ -125,20 +190,55 @@ export default function CartComparisonScreen() {
       ? 'Compare prices for your item at every store'
       : 'Search any item below, or auto-rotate through your list';
 
+  if (!showLivePriceEstimates) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title={t('comparison.screenTitle')} />
+        <View style={styles.content}>
+          <MockupScreenTitle title={t('comparison.hiddenTitle')} subtitle={t('comparison.hiddenBody')} />
+          <MockupCard style={styles.hiddenCard}>
+            <Pressable
+              style={({ pressed }) => [styles.showAgainBtn, pressed && styles.showAgainBtnPressed]}
+              onPress={() => void saveSettings({ showLivePriceEstimates: true })}
+              accessibilityRole="button"
+              accessibilityLabel={t('comparison.showSection')}>
+              <Text style={styles.showAgainBtnText}>{t('comparison.showSection')}</Text>
+            </Pressable>
+          </MockupCard>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Cart Comparison" />
+      <ScreenHeader title={t('comparison.screenTitle')} />
       {resolving ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={SmartCartColors.primary} />
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <MockupScreenTitle title="Cheapest Cart Comparison" subtitle={subtitle} />
+          <MockupScreenTitle title={t('comparison.screenTitle')} subtitle={subtitle} />
 
           {!multiStoreUnlocked && (
             <ProUpgradeBanner featureName={getFeatureLabel('community_pricing')} />
           )}
+
+          {showCartComparisonBanner ? (
+            <ProUpgradeBanner
+              featureName={getFeatureLabel('cheapest_basket')}
+              hook={
+                showLimitedListHint
+                  ? t('comparison.limitedMetaLine', {
+                      shown: comparisonLimit,
+                      total: totalListItemCount,
+                    })
+                  : t('upgrade.proComparisonHook')
+              }
+              ignoreAdminBypass={cartAccess.forceFreePreview || !fullCartComparison}
+            />
+          ) : null}
 
           <MockupCard style={styles.searchCard}>
             <ItemPicker
@@ -146,6 +246,23 @@ export default function CartComparisonScreen() {
               onSelect={handlePickerSelect}
               onClear={clearFocusedItem}
             />
+            {!isSingleItemMode ? (
+              <View style={styles.quickSearchSection}>
+                <Text style={styles.listChipLabel}>Try an example</Text>
+                <HorizontalScrollRow contentContainerStyle={styles.quickSearchRow}>
+                  {QUICK_SEARCH_ITEMS.map((itemName) => (
+                    <Pressable
+                      key={itemName}
+                      style={styles.quickSearchChip}
+                      accessibilityRole="button"
+                      onPress={() => handleQuickSearchPress(itemName)}>
+                      <FoodItemImageAvatar itemName={itemName} size="sm" />
+                      <Text style={styles.quickSearchChipText}>{itemName}</Text>
+                    </Pressable>
+                  ))}
+                </HorizontalScrollRow>
+              </View>
+            ) : null}
             {isSingleItemMode ? (
               <Pressable
                 style={styles.browseListBtn}
@@ -212,6 +329,7 @@ export default function CartComparisonScreen() {
                 onStorePreferenceChange={reload}
                 variant="full"
                 maxCartSavings={isSingleItemMode ? 0 : maxCartSavings}
+                hasFullCartComparisonAccess={fullCartComparison}
                 embedded
               />
             </MockupCard>
@@ -259,6 +377,20 @@ const styles = StyleSheet.create({
   },
   listChipText: { fontSize: 13, fontWeight: '600', color: SmartCartColors.textSecondary },
   listChipTextActive: { color: SmartCartColors.primaryDark },
+  quickSearchSection: { marginTop: 8 },
+  quickSearchRow: { gap: 8, paddingBottom: 4 },
+  quickSearchChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: SmartCartRadius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: SmartCartColors.background,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+  },
+  quickSearchChipText: { fontSize: 13, fontWeight: '600', color: SmartCartColors.textSecondary },
   refreshingRow: { alignItems: 'center', paddingBottom: 8 },
   loadingCard: {
     backgroundColor: SmartCartColors.card,
@@ -278,4 +410,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 8,
   },
+  hiddenCard: { padding: 20, alignItems: 'center' },
+  showAgainBtn: {
+    borderRadius: SmartCartRadius.pill,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: SmartCartColors.primary,
+  },
+  showAgainBtnPressed: { opacity: 0.85 },
+  showAgainBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

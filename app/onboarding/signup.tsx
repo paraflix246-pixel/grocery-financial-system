@@ -17,6 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { signUpWithEmail, continueAsGuest, signInWithGoogle } from '@/src/services/authService';
+import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
+import { setOAuthIntent } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import {
   OnboardingColors,
@@ -42,6 +44,8 @@ export default function SignupScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [awaitingVerification, setAwaitingVerification] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
   async function handleSignUp() {
     setError(null);
@@ -55,8 +59,13 @@ export default function SignupScreen() {
     }
     setLoading(true);
     try {
-      await signUpWithEmail(email, password, name);
-      router.push('/onboarding/upgrade');
+      const result = await signUpWithEmail(email, password, name);
+      if (result.needsEmailVerification) {
+        setSubmittedEmail(email.trim());
+        setAwaitingVerification(true);
+        return;
+      }
+      router.push('/onboarding/join-household');
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.signup.errorGeneric'));
     } finally {
@@ -82,10 +91,14 @@ export default function SignupScreen() {
     setError(null);
     setLoading(true);
     try {
+      await setOAuthIntent('signup');
       await signInWithGoogle();
-      // OAuth redirect will handle navigation
+      if (Platform.OS !== 'web') {
+        await completeOAuthAndRoute(router, completeOnboarding);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Google sign-in failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   }
@@ -121,6 +134,27 @@ export default function SignupScreen() {
           </View>
         ) : null}
 
+        {awaitingVerification ? (
+          <View style={styles.successBox}>
+            <Text style={styles.successIcon}>✉️</Text>
+            <Text style={styles.successTitle}>{t('auth.signup.verifyTitle')}</Text>
+            <Text style={styles.successText}>
+              {t('auth.signup.verifyBody', { email: submittedEmail })}
+            </Text>
+            <Text style={styles.successHints}>{t('auth.signup.verifyHints')}</Text>
+            <Pressable
+              onPress={handleSignIn}
+              style={styles.signinLink}
+              accessibilityRole="button"
+            >
+              <Text style={styles.signinLinkText}>
+                {t('auth.signup.verifyBackToSignIn')}{' '}
+                <Text style={styles.signinHighlight}>{t('auth.signup.signIn')}</Text>
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
         {/* Name input */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>{t('auth.signup.name')}</Text>
@@ -266,6 +300,8 @@ export default function SignupScreen() {
             <Text style={styles.signinHighlight}>{t('auth.signup.signIn')}</Text>
           </Text>
         </Pressable>
+          </>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -307,6 +343,39 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#DC2626',
     fontSize: 14,
+  },
+  successBox: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 16,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+    marginBottom: 24,
+  },
+  successIcon: {
+    fontSize: 40,
+    marginBottom: 16,
+  },
+  successTitle: {
+    color: OnboardingColors.text,
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  successText: {
+    color: OnboardingColors.textMuted,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  successHints: {
+    color: OnboardingColors.textMuted,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 14,
   },
   inputGroup: {
     marginBottom: 16,

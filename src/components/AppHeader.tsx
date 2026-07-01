@@ -1,16 +1,20 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { BackButton } from '@/src/components/BackButton';
+import { HeaderDropdownMenu } from '@/src/components/HeaderDropdownMenu';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { useAdminStatus } from '@/src/hooks/useAdminStatus';
-import { getStoredUser, isSignedInAccount, signOut } from '@/src/services/authService';
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
+import { getStoredUser, isSignedInAccount } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 import { SmartCartColors } from '@/src/theme/smartCart';
+import { confirmSignOut, shareApp } from '@/src/utils/accountMenuActions';
+import { signOutAndNavigate } from '@/src/utils/logoutRouting';
 
 type Props = {
   notificationCount?: number;
@@ -18,17 +22,29 @@ type Props = {
   showBack?: boolean;
 };
 
+type AnchorRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export function AppHeader({ notificationCount = 0, onNotificationPress, showBack = true }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
   const { isAdmin } = useAdminStatus();
-  const [showLogout, setShowLogout] = useState(false);
+  const fw = useFamilyWorkspaceScreenTheme();
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const [showSignIn, setShowSignIn] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState<AnchorRect | null>(null);
+  const menuTriggerRef = useRef<View>(null);
+  const iconTint = fw.isFamilyScope ? fw.primaryDark : SmartCartColors.text;
 
   const refreshAuth = useCallback(async () => {
     const signedIn = await isSignedInAccount();
     const stored = await getStoredUser();
-    setShowLogout(signedIn);
+    setIsSignedIn(signedIn);
     setShowSignIn(!signedIn && Boolean(stored?.isGuest));
   }, []);
 
@@ -47,92 +63,161 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
     }, [refreshAuth]),
   );
 
-  const handleLogoutPress = () => {
-    const doLogout = async () => {
-      await signOut();
-      router.replace('/onboarding/signin');
-    };
+  const openMenu = useCallback(() => {
+    menuTriggerRef.current?.measureInWindow((x, y, width, height) => {
+      setMenuAnchor({ x, y, width, height });
+      setMenuOpen(true);
+    });
+  }, []);
 
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(`${t('common.logOut')} ${t('common.logOutBody')}`)) {
-        void doLogout();
-      }
-      return;
+  const closeMenu = useCallback(() => {
+    setMenuOpen(false);
+  }, []);
+
+  const menuItems = useMemo(
+    () => [
+      {
+        id: 'settings',
+        label: t('more.items.settings.label'),
+        icon: { ios: 'gearshape.fill', android: 'settings', web: 'settings' } as const,
+        onPress: () => router.push('/settings' as never),
+        accessibilityLabel: t('more.items.settings.label'),
+      },
+      {
+        id: 'notifications',
+        label: t('headerMenu.pushNotifications'),
+        icon: { ios: 'bell.badge.fill', android: 'notifications_active', web: 'notifications_active' } as const,
+        onPress: () => router.push('/settings/notifications' as never),
+        accessibilityLabel: t('headerMenu.pushNotifications'),
+      },
+      {
+        id: 'share',
+        label: t('settings.shareApp'),
+        icon: { ios: 'square.and.arrow.up', android: 'share', web: 'share' } as const,
+        onPress: () => {
+          void shareApp(t);
+        },
+        accessibilityLabel: t('settings.shareApp'),
+      },
+    ],
+    [router, t],
+  );
+
+  const footerItem = useMemo(() => {
+    if (isSignedIn) {
+      return {
+        label: t('settings.logout'),
+        icon: {
+          ios: 'rectangle.portrait.and.arrow.right',
+          android: 'logout',
+          web: 'logout',
+        } as const,
+        onPress: () =>
+          confirmSignOut(async () => {
+            await signOutAndNavigate(router);
+          }, t),
+        destructive: true,
+        accessibilityLabel: t('settings.logout'),
+      };
     }
 
-    Alert.alert(t('common.logOut'), t('common.logOutBody'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('settings.logout'),
-        style: 'destructive',
-        onPress: () => {
-          void doLogout();
-        },
-      },
-    ]);
-  };
+    if (showSignIn || !isSignedIn) {
+      return {
+        label: t('common.signIn'),
+        icon: { ios: 'person.crop.circle.badge.plus', android: 'login', web: 'login' } as const,
+        onPress: () => router.push('/onboarding/signin?returnTo=%2F(tabs)' as never),
+        primary: true,
+        accessibilityLabel: t('common.signIn'),
+      };
+    }
+
+    return null;
+  }, [isSignedIn, router, showSignIn, t]);
 
   return (
-    <View style={styles.row}>
-      <View style={styles.leftSlot}>
-        {showBack ? <BackButton /> : null}
-      </View>
+    <>
+      <View style={styles.row}>
+        <View style={styles.leftSlot}>
+          {showBack ? <BackButton /> : null}
+        </View>
 
-      <PennyPantryLogo
-        variant="inline"
-        size={22}
-        nameSize={20}
-        nameColor={SmartCartColors.primaryDark}
-        nameStyle={styles.logoName}
-        style={styles.logoRow}
-      />
+        <PennyPantryLogo
+          variant="inline"
+          size={22}
+          nameSize={20}
+          nameColor={SmartCartColors.primaryDark}
+          nameStyle={styles.logoName}
+          style={styles.logoRow}
+        />
 
-      <View style={styles.rightSlot}>
-        <View style={styles.rightActions}>
-          {showLogout && isAdmin ? (
+        <View style={styles.rightSlot}>
+          <View style={styles.rightActions}>
+            {isSignedIn && isAdmin ? (
+              <Pressable
+                style={styles.headerActionBtn}
+                accessibilityLabel={t('admin.nav.dashboard')}
+                accessibilityRole="button"
+                onPress={() => router.push('/admin' as never)}>
+                <Text style={styles.adminText}>{t('admin.nav.short')}</Text>
+              </Pressable>
+            ) : null}
+            {showSignIn ? (
+              <Pressable
+                style={styles.headerActionBtn}
+                accessibilityLabel={t('common.signIn')}
+                accessibilityRole="button"
+                onPress={() => router.push('/onboarding/signin?returnTo=%2F(tabs)' as never)}>
+                <Text style={styles.signInText}>{t('common.signIn')}</Text>
+              </Pressable>
+            ) : null}
+            <View ref={menuTriggerRef} collapsable={false}>
+              <Pressable
+                style={styles.iconBtn}
+                accessibilityLabel={t('headerMenu.openMenu')}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: menuOpen }}
+                onPress={openMenu}>
+                <SymbolView
+                  name={{ ios: 'gearshape.fill', android: 'settings', web: 'settings' }}
+                  tintColor={iconTint}
+                  size={22}
+                />
+              </Pressable>
+            </View>
             <Pressable
-              style={styles.logoutBtn}
-              accessibilityLabel={t('admin.nav.dashboard')}
+              style={styles.iconBtn}
+              accessibilityLabel={t('headerMenu.priceAlertsInbox')}
               accessibilityRole="button"
-              onPress={() => router.push('/admin' as never)}>
-              <Text style={styles.adminText}>{t('admin.nav.short')}</Text>
+              onPress={onNotificationPress ?? (() => router.push('/price-tracker?tab=alerts' as never))}>
+              <SymbolView
+                name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
+                tintColor={iconTint}
+                size={22}
+              />
+              {notificationCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
+                </View>
+              )}
             </Pressable>
-          ) : null}
-          {showLogout ? (
-            <Pressable
-              style={styles.logoutBtn}
-              accessibilityLabel={t('settings.logout')}
-              accessibilityRole="button"
-              onPress={handleLogoutPress}>
-              <Text style={styles.logoutText}>{t('settings.logout')}</Text>
-            </Pressable>
-          ) : showSignIn ? (
-            <Pressable
-              style={styles.logoutBtn}
-              accessibilityLabel="Sign in"
-              accessibilityRole="button"
-              onPress={() => router.push('/onboarding/signin?returnTo=%2F(tabs)' as never)}>
-              <Text style={styles.signInText}>Sign in</Text>
-            </Pressable>
-          ) : null}
-          <Pressable
-            style={styles.iconBtn}
-            accessibilityLabel="Notifications"
-            onPress={onNotificationPress ?? (() => router.push('/price-tracker?tab=alerts' as never))}>
-            <SymbolView
-              name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
-              tintColor={SmartCartColors.text}
-              size={22}
-            />
-            {notificationCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
-              </View>
-            )}
-          </Pressable>
+          </View>
         </View>
       </View>
-    </View>
+
+      <HeaderDropdownMenu
+        visible={menuOpen}
+        onClose={closeMenu}
+        closeMenuLabel={t('headerMenu.closeMenu')}
+        anchor={menuAnchor}
+        items={menuItems}
+        footerItem={footerItem}
+        theme={{
+          card: fw.card,
+          border: fw.border,
+          primary: fw.primary,
+        }}
+      />
+    </>
   );
 }
 
@@ -160,16 +245,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  logoutBtn: {
+  headerActionBtn: {
     minHeight: 40,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  logoutText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: SmartCartColors.text,
   },
   adminText: {
     fontSize: 14,

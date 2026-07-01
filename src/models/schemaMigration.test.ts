@@ -66,8 +66,8 @@ function mapListItemFromRow(row: Record<string, unknown>): ListItem {
 }
 
 describe('schema v16 list metadata', () => {
-  it('uses schema version 16', () => {
-    assert.equal(SCHEMA_VERSION, 19);
+  it('uses schema version 21', () => {
+    assert.equal(SCHEMA_VERSION, 24);
   });
 
   it('maps grocery list store and layout fields', () => {

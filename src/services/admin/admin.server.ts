@@ -2,6 +2,7 @@ import type { User } from '@supabase/supabase-js';
 
 import {
   getSupabaseAdmin,
+  getMissingSupabaseAdminEnvVars,
   getUserFromAuthHeader,
   isSupabaseAdminConfigured,
 } from '@/src/services/stripe/stripeSupabase.server';
@@ -75,13 +76,23 @@ export function resolveProfileRole(email: string | null | undefined): 'user' | '
 }
 
 export function adminNotConfiguredResponse(): Response {
-  const missing: string[] = [];
-  if (!process.env.EXPO_PUBLIC_SUPABASE_URL?.trim()) missing.push('EXPO_PUBLIC_SUPABASE_URL');
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  const missing = getMissingSupabaseAdminEnvVars();
   if (missing.length > 0) {
     console.warn('[admin] not configured — missing env:', missing.join(', '));
   }
-  return Response.json({ error: 'Admin system is not configured on the server.' }, { status: 503 });
+
+  const hint = missing.includes('SUPABASE_SERVICE_ROLE_KEY')
+    ? 'Add SUPABASE_SERVICE_ROLE_KEY from Supabase Dashboard → Project Settings → API Keys (secret or service_role). Set it in .env for local dev or Vercel env for production, then restart the server.'
+    : 'Set the missing env vars in .env for local dev or Vercel env for production, then restart the server.';
+
+  return Response.json(
+    {
+      error: 'Admin system is not configured on the server.',
+      missingEnv: missing,
+      hint,
+    },
+    { status: 503 }
+  );
 }
 
 export function adminUnauthorizedResponse(): Response {

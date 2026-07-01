@@ -1,16 +1,17 @@
-import type { GroceryList, ListItem } from '@/src/models/types';
+import type { GroceryList, ListItem, Receipt } from '@/src/models/types';
 import { DEFAULT_STARTER_ITEM_COUNT } from '@/src/data/starterCommonGoods';
 import {
   buildSyntheticListItemsFromTracked,
   COMPARISON_FALLBACK_LIST_ID,
   COMPARISON_STARTER_LIST_ID,
 } from '@/src/services/comparisonFallbackLogic';
-import { pickComparisonListId } from '@/src/services/listComparisonLogic';
+import { pickComparisonListId, receiptRowsFromReceipts } from '@/src/services/listComparisonLogic';
 import { resolveCanonicalName } from '@/src/services/itemNormalizationService';
 import { getEnabledRulesWithCurrentPrice } from '@/src/services/priceAlertService';
 import {
   buildRecentReceiptTrackedEntries,
   buildTrackedItems,
+  type ReceiptItemRow,
   type TrackedItemEntry,
 } from '@/src/services/priceTrackerLogic';
 import { loadTrackedItems } from '@/src/services/priceTrackerService';
@@ -41,7 +42,7 @@ function buildFallbackList(id: string, name: string): GroceryList {
   };
 }
 
-function toReceiptRows(items: ReceiptItemWithStore[]) {
+function toReceiptRows(items: ReceiptItemWithStore[]): ReceiptItemRow[] {
   return items.map((item) => ({
     name: item.name,
     price: item.price,
@@ -67,40 +68,106 @@ function buildResolvedFallback(
   };
 }
 
+type FallbackComparisonOptions = {
+  /** When set, receipt fallback uses household receipts instead of personal SQLite. */
+  scopedReceiptRows?: ReceiptItemRow[];
+  /** Personal watchlist alerts apply only in personal scope. */
+  includePersonalWatchlist?: boolean;
+  /** Skip receipt rows when receipts were already resolved upstream. */
+  skipReceipts?: boolean;
+};
+
 /** Priority: enabled alerts → recent receipt items → starter samples. */
-async function resolveFallbackComparisonItems(): Promise<TrackedItemEntry[]> {
-  const [rules, receiptItems, hiddenKeys] = await Promise.all([
-    getEnabledRulesWithCurrentPrice(),
-    getReceiptItemsWithStore(),
-    getHiddenTrackedItemKeys(),
-  ]);
-  const receiptRows = toReceiptRows(receiptItems);
+async function resolveFallbackComparisonItems(
+  options: FallbackComparisonOptions = {}
+): Promise<TrackedItemEntry[]> {
+  const includePersonalWatchlist = options.includePersonalWatchlist !== false;
+  const hiddenKeys = await getHiddenTrackedItemKeys();
 
-  if (rules.length > 0) {
-    const fromAlerts = buildTrackedItems(rules, [], hiddenKeys, resolveCanonicalName);
-    if (fromAlerts.length > 0) return fromAlerts;
+  let receiptRows = options.scopedReceiptRows;
+  let receiptItems: ReceiptItemWithStore[] = [];
+  if (!options.skipReceipts) {
+    if (!receiptRows) {
+      receiptItems = await getReceiptItemsWithStore();
+      receiptRows = toReceiptRows(receiptItems);
+    }
+
+    if (receiptRows.length > 0) {
+      const fromReceipt = buildRecentReceiptTrackedEntries(
+        receiptRows,
+        hiddenKeys,
+        resolveCanonicalName,
+        DEFAULT_STARTER_ITEM_COUNT
+      );
+      if (fromReceipt.length > 0) return fromReceipt;
+    }
   }
 
-  if (receiptRows.length > 0) {
-    const fromReceipt = buildRecentReceiptTrackedEntries(
-      receiptRows,
-      hiddenKeys,
-      resolveCanonicalName,
-      DEFAULT_STARTER_ITEM_COUNT
-    );
-    if (fromReceipt.length > 0) return fromReceipt;
+  if (includePersonalWatchlist) {
+    const rules = await getEnabledRulesWithCurrentPrice();
+    if (rules.length > 0) {
+      const fromAlerts = buildTrackedItems(rules, [], hiddenKeys, resolveCanonicalName);
+      if (fromAlerts.length > 0) return fromAlerts;
+    }
   }
 
-  return loadTrackedItems(rules, receiptItems, DEFAULT_STARTER_ITEM_COUNT);
+  if (includePersonalWatchlist) {
+    const rules = await getEnabledRulesWithCurrentPrice();
+    return loadTrackedItems(rules, receiptItems, DEFAULT_STARTER_ITEM_COUNT);
+  }
+
+  return loadTrackedItems([], [], DEFAULT_STARTER_ITEM_COUNT);
 }
 
-/** Resolve which items power home cart comparison (shopping list, then watchlist/receipt/starter fallback). */
+async function resolveReceiptComparisonTracked(
+  scopedReceiptRows?: ReceiptItemRow[]
+): Promise<TrackedItemEntry[]> {
+  const hiddenKeys = await getHiddenTrackedItemKeys();
+  let receiptRows = scopedReceiptRows;
+  if (!receiptRows) {
+    receiptRows = toReceiptRows(await getReceiptItemsWithStore());
+  }
+  if (receiptRows.length === 0) return [];
+  return buildRecentReceiptTrackedEntries(
+    receiptRows,
+    hiddenKeys,
+    resolveCanonicalName,
+    DEFAULT_STARTER_ITEM_COUNT
+  );
+}
+
+export type ResolveComparisonListOptions = {
+  forceRefresh?: boolean;
+  /** Cache partition — defaults to personal scope. */
+  scopeKey?: string;
+  /** Saved receipts for the active scope (personal SQLite or household Supabase). */
+  scopedReceipts?: Receipt[];
+};
+
+function resolveComparisonCacheKey(options?: ResolveComparisonListOptions): string {
+  return options?.scopeKey ?? 'personal';
+}
+
+/** Resolve which items power home cart comparison (receipts, then shopping list, then watchlist/starter fallback). */
 export async function resolveComparisonList(
-  options?: { forceRefresh?: boolean }
+  options?: ResolveComparisonListOptions
 ): Promise<ResolvedComparisonList | null> {
+  const cacheKey = resolveComparisonCacheKey(options);
+  const isWorkspaceScope = resolveComparisonCacheKey(options).startsWith('workspace:');
   if (!options?.forceRefresh) {
-    const cached = comparisonListCache.get('active');
+    const cached = comparisonListCache.get(cacheKey);
     if (cached !== undefined) return cached;
+  }
+
+  const scopedReceiptRows = options?.scopedReceipts
+    ? receiptRowsFromReceipts(options.scopedReceipts)
+    : undefined;
+
+  const receiptTracked = await resolveReceiptComparisonTracked(scopedReceiptRows);
+  if (receiptTracked.length > 0) {
+    const result = buildResolvedFallback(receiptTracked, 'receipt');
+    comparisonListCache.set(cacheKey, result);
+    return result;
   }
 
   const [active, lists] = await Promise.all([getActiveList(), getAllLists()]);
@@ -109,7 +176,7 @@ export async function resolveComparisonList(
     const activeItems = await getListItems(active.id);
     if (activeItems.length > 0) {
       const result: ResolvedComparisonList = { list: active, items: activeItems, source: 'list' };
-      comparisonListCache.set('active', result);
+      comparisonListCache.set(cacheKey, result);
       return result;
     }
   }
@@ -126,14 +193,17 @@ export async function resolveComparisonList(
         items,
         source: 'list',
       };
-      comparisonListCache.set('active', result);
+      comparisonListCache.set(cacheKey, result);
       return result;
     }
   }
 
-  const tracked = await resolveFallbackComparisonItems();
+  const tracked = await resolveFallbackComparisonItems({
+    includePersonalWatchlist: !isWorkspaceScope,
+    skipReceipts: true,
+  });
   if (tracked.length === 0) {
-    comparisonListCache.set('active', null);
+    comparisonListCache.set(cacheKey, null);
     return null;
   }
 
@@ -143,9 +213,9 @@ export async function resolveComparisonList(
       ? 'watchlist'
       : 'receipt';
   const result = buildResolvedFallback(tracked, source);
-  comparisonListCache.set('active', result);
+  comparisonListCache.set(cacheKey, result);
   return result;
 }
 
 export { invalidateComparisonListCache } from '@/src/services/listComparisonCache';
-export { pickComparisonListId } from '@/src/services/listComparisonLogic';
+export { pickComparisonListId, receiptRowsFromReceipts } from '@/src/services/listComparisonLogic';

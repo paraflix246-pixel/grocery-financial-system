@@ -1,8 +1,9 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -10,14 +11,19 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/Themed';
 import { ReceiptDraftLinesList, formatReceiptLineCountSummary } from '@/src/components/ReceiptDraftLinesList';
 import { DataScopePicker } from '@/src/components/DataScopePicker';
+import { FamilyWorkspaceShell } from '@/src/components/FamilyWorkspaceShell';
+import { ReceiptImageViewer } from '@/src/components/receipt/ReceiptImageViewer';
 import { ReceiptScanWarnings } from '@/src/components/ReceiptScanWarnings';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { StoreLocationSection } from '@/src/components/StoreLocationSection';
 import { StoreSearchField } from '@/src/components/StoreSearchField';
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { useUnscannedRescanPrompt } from '@/src/hooks/useUnscannedRescanPrompt';
 import {
   findDuplicateReceipt,
@@ -26,17 +32,25 @@ import {
   updateReceipt,
 } from '@/src/services/storageService';
 import { checkPriceAlertsAfterReceiptSave } from '@/src/services/priceAlertService';
-import { savePriceRecords } from '@/src/services/communityPricingService';
+import { contributeCommunityPricesIfEnabled } from '@/src/services/receiptCommunityContributionService';
+import {
+  resolveReceiptImageUriForSave,
+  resolveSavedReceiptStorageChoice,
+} from '@/src/services/privacyPreferencesService';
 import { getScanLimitStatus } from '@/src/services/scanLimitService';
 import { invalidatePrimaryStoreCache } from '@/src/services/tierLimits';
 import { useScanStore } from '@/src/store/useScanStore';
+import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import type { DataScope } from '@/src/models/workspace';
 import {
   shouldSaveReceiptToWorkspace,
   shouldSyncPersonalSideEffects,
 } from '@/src/services/dataScopeLogic';
-import { saveReceiptToWorkspace } from '@/src/services/workspaceReceiptService';
+import {
+  WorkspaceReceiptSaveError,
+  saveReceiptToWorkspace,
+} from '@/src/services/workspaceReceiptService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { generateId } from '@/src/utils/id';
@@ -62,8 +76,19 @@ async function confirmDuplicateSave(message: string): Promise<boolean> {
   });
 }
 
+function showSaveError(title: string, message: string): void {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+    return;
+  }
+  Alert.alert(title, message);
+}
+
 export default function EditReceiptScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const scrollRef = useRef<ScrollView>(null);
   const { id: routeId } = useLocalSearchParams<{ id?: string }>();
   const {
     draft,
@@ -78,7 +103,9 @@ export default function EditReceiptScreen() {
     ocrSource,
     ocrConfidence,
     parseMethod,
+    receiptStorageChoice,
   } = useScanStore();
+  const { settings, loadSettings } = useSettingsStore();
   const [saving, setSaving] = useState(false);
   const [loadingReceipt, setLoadingReceipt] = useState(false);
   const [saveScope, setSaveScope] = useState<DataScope>('personal');
@@ -87,6 +114,18 @@ export default function EditReceiptScreen() {
   const hasWorkspaceMembership = useWorkspaceStore((s) => s.isCurrentMember && Boolean(s.currentWorkspaceId));
   const hasActiveWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
   const workspaceScopeAvailable = hasWorkspaceMembership && hasActiveWorkspaceSub;
+  const isFamilySaveScope = saveScope === 'workspace';
+  const fw = useFamilyWorkspaceScreenTheme({ active: isFamilySaveScope });
+  const headerSaveLabel = isFamilySaveScope
+    ? t('workspace.saveToFamily')
+    : t('workspace.saveToPersonal');
+  const primarySaveLabel = isFamilySaveScope
+    ? t('workspace.saveReceiptToFamily')
+    : t('workspace.saveReceiptToPersonal');
+
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
 
   useEffect(() => {
     if (workspaceScopeAvailable && activeScope === 'workspace') {
@@ -218,6 +257,12 @@ export default function EditReceiptScreen() {
         return;
       }
 
+      const storageChoice =
+        receiptStorageChoice ??
+        (settings ? resolveSavedReceiptStorageChoice(settings) : null) ??
+        'image_and_data';
+      const savedImageUri = resolveReceiptImageUriForSave(imageUri, storageChoice);
+
       const receiptPayload = {
         id: generateId(),
         storeName: draft.storeName,
@@ -225,7 +270,7 @@ export default function EditReceiptScreen() {
         subtotal: totals.subtotal,
         tax: totals.tax,
         total: totals.total,
-        imageUri: imageUri ?? '',
+        imageUri: savedImageUri,
         userCorrected: true,
         ...locationFields,
         items,
@@ -233,13 +278,10 @@ export default function EditReceiptScreen() {
 
       if (shouldSaveReceiptToWorkspace(saveScope)) {
         const workspaceReceiptId = await saveReceiptToWorkspace(receiptPayload, 'workspace');
-        if (!workspaceReceiptId) {
-          throw new Error('Could not save receipt to your household workspace.');
-        }
         reset();
         router.replace({
           pathname: '/receipt/[id]',
-          params: { id: workspaceReceiptId, scope: 'workspace' },
+          params: { id: workspaceReceiptId, scope: 'workspace', fromSave: '1' },
         });
         return;
       }
@@ -247,7 +289,7 @@ export default function EditReceiptScreen() {
       const receipt = await saveReceipt(receiptPayload);
       if (shouldSyncPersonalSideEffects(saveScope)) {
         await checkPriceAlertsAfterReceiptSave(items, draft.storeName);
-        void savePriceRecords(
+        void contributeCommunityPricesIfEnabled(
           items.filter((item) => (item.lineKind ?? 'merchandise') === 'merchandise'),
           {
             storeName: draft.storeName,
@@ -260,7 +302,7 @@ export default function EditReceiptScreen() {
       }
       invalidatePrimaryStoreCache();
       reset();
-      router.replace({ pathname: '/receipt/link', params: { receiptId: receipt.id } });
+      router.replace({ pathname: '/receipt/link', params: { receiptId: receipt.id, fromSave: '1' } });
     } catch (error) {
       if (error instanceof ScanLimitError) {
         promptScanLimitReached(() => router.push('/paywall' as never));
@@ -270,6 +312,10 @@ export default function EditReceiptScreen() {
         promptStoreLimitReached(() => router.push('/paywall' as never));
         return;
       }
+      if (error instanceof WorkspaceReceiptSaveError) {
+        showSaveError(t('workspace.saveFailedTitle'), error.message);
+        return;
+      }
       throw error;
     } finally {
       setSaving(false);
@@ -277,18 +323,29 @@ export default function EditReceiptScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <FamilyWorkspaceShell active={isFamilySaveScope}>
+    <KeyboardAvoidingView
+      style={[styles.container, fw.screen]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 56 : 0}>
+    <View style={styles.flex}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>
           {isEditingSaved ? 'Edit Receipt' : isManualEntry ? 'Add Receipt' : 'Review Receipt'}
         </Text>
         <Pressable onPress={handleSave} disabled={saving}>
-          <Text style={styles.saveLink}>{saving ? '...' : 'Save'}</Text>
+          <Text style={[styles.saveLink, isFamilySaveScope && fw.primaryText]}>
+            {saving ? '...' : headerSaveLabel}
+          </Text>
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}>
         {!isEditingSaved && <ReceiptScanWarnings warnings={bannerWarnings} draft={draft} />}
 
         {!isEditingSaved ? (
@@ -301,22 +358,30 @@ export default function EditReceiptScreen() {
         ) : null}
 
         <View style={styles.storeRow}>
-          <StoreBrandAvatar store={draft.storeName} size={44} />
-          <View style={styles.storeFields}>
-            <StoreSearchField
-              value={draft.storeName}
-              onChangeText={(storeName) => updateDraft({ storeName })}
-              onSelectStore={(partial) => updateDraft(partial)}
-              placeholder="Search or enter store name"
-            />
-            <TextInput
-              style={styles.dateInput}
-              value={draft.date}
-              onChangeText={(v) => updateDraft({ date: v })}
-              placeholder="YYYY-MM-DD"
-            />
-            <Text style={styles.dateHint}>{formatDisplayDate(draft.date)}</Text>
+          <View style={styles.storeLeft}>
+            <StoreBrandAvatar store={draft.storeName} size={44} />
+            <View style={styles.storeFields}>
+              <StoreSearchField
+                value={draft.storeName}
+                onChangeText={(storeName) => updateDraft({ storeName })}
+                onSelectStore={(partial) => updateDraft(partial)}
+                placeholder="Search or enter store name"
+              />
+              <TextInput
+                style={styles.dateInput}
+                value={draft.date}
+                onChangeText={(v) => updateDraft({ date: v })}
+                placeholder="YYYY-MM-DD"
+              />
+              <Text style={styles.dateHint}>{formatDisplayDate(draft.date)}</Text>
+            </View>
           </View>
+          {imageUri ? (
+            <ReceiptImageViewer
+              imageUri={imageUri}
+              accentColor={isFamilySaveScope ? fw.primary : undefined}
+            />
+          ) : null}
         </View>
 
         <StoreLocationSection
@@ -383,20 +448,26 @@ export default function EditReceiptScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+        <Pressable
+          style={[styles.saveBtn, isFamilySaveScope && { backgroundColor: fw.primary }]}
+          onPress={handleSave}
+          disabled={saving}>
           {saving ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.saveBtnText}>Save Receipt</Text>
+            <Text style={styles.saveBtnText}>{primarySaveLabel}</Text>
           )}
         </Pressable>
       </ScrollView>
     </View>
+    </KeyboardAvoidingView>
+    </FamilyWorkspaceShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SmartCartColors.background },
+  container: { flex: 1 },
+  flex: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   backLink: { color: SmartCartColors.primary, marginTop: 12, fontWeight: '600' },
   header: {
@@ -410,7 +481,8 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 72 },
   saveLink: { fontSize: 16, fontWeight: '700', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
-  storeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20 },
+  storeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  storeLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
   storeFields: { flex: 1 },
   storeInput: { fontSize: 20, fontWeight: '800', color: SmartCartColors.text, padding: 0 },
   dateInput: { fontSize: 14, color: SmartCartColors.textSecondary, marginTop: 4, padding: 0 },

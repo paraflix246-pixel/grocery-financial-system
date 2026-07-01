@@ -6,6 +6,16 @@ import { getInviteUrl } from '@/src/services/familyCodeService';
 import { resolveAppUserId } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
+import {
+  isUserWorkspaceMember,
+  workspaceHasActiveSubscription,
+} from '@/src/services/workspaceSubscriptionService';
+import {
+  WorkspaceJoinError,
+  type JoinWorkspaceOutcome,
+} from '@/src/services/workspaceJoinErrors';
+
+export { WorkspaceJoinError, type JoinWorkspaceOutcome } from '@/src/services/workspaceJoinErrors';
 
 const CURRENT_WORKSPACE_KEY = '@pennypantry_current_workspace_id';
 const ACTIVE_SCOPE_KEY = '@pennypantry_active_scope';
@@ -209,18 +219,22 @@ export async function createWorkspace(name?: string): Promise<Workspace> {
   return workspace;
 }
 
-export async function joinWorkspaceByCode(rawCode: string): Promise<Workspace> {
+export async function joinWorkspaceByCode(rawCode: string): Promise<JoinWorkspaceOutcome> {
   const code = normalizeFamilyCode(rawCode);
-  if (!code) throw new Error('Enter a valid household code like Q3HF-DARK');
+  if (!code) {
+    throw new WorkspaceJoinError('INVALID_CODE', 'Enter a valid household code like Q3HF-DARK');
+  }
 
   const userId = await resolveAppUserId();
-  if (!userId) throw new Error('Sign in to join a household workspace.');
+  if (!userId) {
+    throw new WorkspaceJoinError('NOT_SIGNED_IN', 'Sign in to join a household workspace.');
+  }
 
   if (!supabase) {
     const localId = `local_ws_${code.replace('-', '')}`;
     const now = new Date().toISOString();
     await setStoredCurrentWorkspaceId(localId);
-    return {
+    const workspace: Workspace = {
       id: localId,
       name: 'Joined Household',
       ownerUserId: 'unknown',
@@ -232,6 +246,7 @@ export async function joinWorkspaceByCode(rawCode: string): Promise<Workspace> {
       createdAt: now,
       updatedAt: now,
     };
+    return { workspace, alreadyMember: false, subscriptionActive: false };
   }
 
   const { data, error } = await supabase
@@ -240,13 +255,32 @@ export async function joinWorkspaceByCode(rawCode: string): Promise<Workspace> {
     .eq('invite_code', code)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  if (!data) throw new Error('No household found with that code. Ask the owner to share their invite code.');
+  if (error) throw new WorkspaceJoinError('GENERIC', error.message);
+  if (!data) {
+    throw new WorkspaceJoinError(
+      'NOT_FOUND',
+      'No household found with that code. Ask the owner to share their invite code.'
+    );
+  }
 
   const workspace = mapWorkspace(data as WorkspaceRow);
+
+  if (workspace.ownerUserId === userId) {
+    throw new WorkspaceJoinError(
+      'ALREADY_OWNER',
+      'This is your household code — share it with family members instead.'
+    );
+  }
+
+  const alreadyMember = await isUserWorkspaceMember(workspace.id, userId);
   await registerWorkspaceMember(workspace.id, userId, 'member');
   await setStoredCurrentWorkspaceId(workspace.id);
-  return workspace;
+
+  return {
+    workspace,
+    alreadyMember,
+    subscriptionActive: workspaceHasActiveSubscription(workspace),
+  };
 }
 
 export async function ensureCurrentWorkspace(): Promise<Workspace | null> {

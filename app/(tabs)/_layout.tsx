@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '@/components/Themed';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { SmartCartColors, SmartCartShadow } from '@/src/theme/smartCart';
 import {
   getTabBarBottomPadding,
@@ -38,8 +39,15 @@ type WebTabScreenLayoutProps = {
 
 function WebTabScreenLayout({ children }: WebTabScreenLayoutProps) {
   const focused = useIsFocused();
+  const fw = useFamilyWorkspaceScreenTheme();
   return (
-    <View style={[styles.webScene, !focused && styles.webSceneHidden]} pointerEvents={focused ? 'auto' : 'none'}>
+    <View
+      style={[
+        styles.webScene,
+        fw.screen,
+        !focused && styles.webSceneHidden,
+      ]}
+      pointerEvents={focused ? 'auto' : 'none'}>
       {children}
     </View>
   );
@@ -48,21 +56,31 @@ function WebTabScreenLayout({ children }: WebTabScreenLayoutProps) {
 export default function TabLayout() {
   const { t } = useTranslation();
   const { theme } = useAppTheme();
+  const fw = useFamilyWorkspaceScreenTheme();
   const headerShown = useClientOnlyValue(false, true);
   const insets = useSafeAreaInsets();
   const tabBarBottomPadding = getTabBarBottomPadding(insets.bottom);
   const tabBarHeight = getTabBarHeight(insets.bottom);
+  const defaultTabBorder = `${theme.primary}40`;
 
   const tabBarStyle =
     Platform.OS === 'web'
-      ? [styles.tabBar, { backgroundColor: theme.surface, borderTopColor: `${theme.primary}40` }]
+      ? [
+          styles.tabBar,
+          {
+            backgroundColor: fw.tabBarBackground,
+            borderTopColor: fw.isFamilyScope ? fw.border : defaultTabBorder,
+            borderTopWidth: fw.isFamilyScope ? 2 : 1.5,
+          },
+        ]
       : [
           styles.tabBar,
           {
             height: tabBarHeight,
             paddingBottom: tabBarBottomPadding,
-            backgroundColor: theme.surface,
-            borderTopColor: `${theme.primary}40`,
+            backgroundColor: fw.tabBarBackground,
+            borderTopColor: fw.isFamilyScope ? fw.border : defaultTabBorder,
+            borderTopWidth: fw.isFamilyScope ? 2 : 1.5,
           },
         ];
 
@@ -71,7 +89,7 @@ export default function TabLayout() {
       screenLayout={Platform.OS === 'web' ? WebTabScreenLayout : undefined}
       screenOptions={{
         headerShown,
-        tabBarActiveTintColor: theme.primary,
+        tabBarActiveTintColor: fw.tabActiveTint,
         tabBarInactiveTintColor: theme.textMuted,
         tabBarStyle,
         tabBarLabelStyle: styles.tabLabel,

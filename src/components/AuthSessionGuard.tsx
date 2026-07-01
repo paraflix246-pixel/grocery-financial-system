@@ -11,6 +11,7 @@ import {
   WEB_IDLE_TIMEOUT_MS,
 } from '@/src/services/authRoutingService';
 import { signOut } from '@/src/services/authService';
+import { buildPostLogoutHref } from '@/src/services/authRoutingLogic';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 
 const IDLE_CHECK_INTERVAL_MS = 60_000;
@@ -75,7 +76,7 @@ export function AuthSessionGuard() {
           if (isProtectedAppRoute(pathname)) {
             setPromptReason(reason);
           } else {
-            router.replace('/onboarding/signin?returnTo=%2F(tabs)' as Href);
+            router.replace(buildPostLogoutHref({ returnTo: '/(tabs)' }) as Href);
           }
         } finally {
           handlingRef.current = false;

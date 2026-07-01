@@ -1,6 +1,9 @@
 import type { Receipt } from '@/src/models/types';
 import type { DataScope } from '@/src/models/workspace';
-import { isPersonalScope, isWorkspaceScope } from '@/src/services/dataScopeLogic';
+import { isPersonalScope } from '@/src/services/dataScopeLogic';
+import { getPersonalReceiptOwnerId } from '@/src/services/personalReceiptScope';
+import { scopedReceiptStorageCacheKey } from '@/src/services/personalReceiptScopeLogic';
+import { resolveScopedReceiptSource } from '@/src/services/scopedReceiptLoadLogic';
 import { getReceipts } from '@/src/services/storageService';
 import { listWorkspaceReceipts } from '@/src/services/workspaceReceiptService';
 import { createStaleWhileRevalidateCache } from '@/src/utils/staleWhileRevalidateCache';
@@ -8,21 +11,18 @@ import { createStaleWhileRevalidateCache } from '@/src/utils/staleWhileRevalidat
 const RECEIPTS_STALE_MS = 30_000;
 const receiptCache = createStaleWhileRevalidateCache<Receipt[]>(RECEIPTS_STALE_MS);
 
-function scopeCacheKey(scope: DataScope, workspaceId: string | null): string {
-  return `${scope}:${workspaceId ?? 'none'}`;
-}
-
 async function fetchReceiptsForScope(
   scope: DataScope,
   workspaceId: string | null
 ): Promise<Receipt[]> {
-  if (isWorkspaceScope(scope) && workspaceId) {
-    return listWorkspaceReceipts(workspaceId);
+  switch (resolveScopedReceiptSource(scope, workspaceId)) {
+    case 'workspace_remote':
+      return listWorkspaceReceipts(workspaceId!);
+    case 'personal_storage':
+      return getReceipts();
+    default:
+      return [];
   }
-  if (isPersonalScope(scope)) {
-    return getReceipts();
-  }
-  return [];
 }
 
 /** Load receipts for the active data context — personal SQLite or household Supabase. */
@@ -31,7 +31,8 @@ export async function loadReceiptsForScope(
   workspaceId: string | null,
   options?: { forceRefresh?: boolean }
 ): Promise<Receipt[]> {
-  const key = scopeCacheKey(scope, workspaceId);
+  const userId = isPersonalScope(scope) ? await getPersonalReceiptOwnerId() : null;
+  const key = scopedReceiptStorageCacheKey(scope, workspaceId, userId);
 
   if (!options?.forceRefresh) {
     const cached = receiptCache.get(key);
@@ -55,5 +56,14 @@ export function invalidateScopedReceiptsCache(scope?: DataScope, workspaceId?: s
     receiptCache.clear();
     return;
   }
-  receiptCache.delete(scopeCacheKey(scope, workspaceId ?? null));
+  if (isPersonalScope(scope)) {
+    receiptCache.clear();
+    return;
+  }
+  receiptCache.delete(scopedReceiptStorageCacheKey(scope, workspaceId ?? null, null));
+}
+
+/** Clear all cached receipt lists after account switch or sign-out. */
+export function invalidateAllScopedReceiptsCache(): void {
+  receiptCache.clear();
 }

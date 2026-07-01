@@ -401,9 +401,32 @@ export async function checkPriceAlertsAfterReceiptSave(
   if (triggered.length > 0) {
     const { notifyPriceAlertMatches } = await import('@/src/services/notificationService');
     await notifyPriceAlertMatches(triggered);
+    await notifyCheaperStoreForAlerts(triggered);
   }
 
   return triggered;
+}
+
+async function notifyCheaperStoreForAlerts(alerts: PriceAlert[]): Promise<void> {
+  const { searchCheapestStore } = await import('@/src/services/communityPricingService');
+  const { notifyCheaperStoreFound } = await import('@/src/services/notificationService');
+
+  for (const alert of alerts.slice(0, 3)) {
+    const stores = await searchCheapestStore(alert.itemName);
+    const cheaper = stores.find(
+      (store) =>
+        store.storeName.toLowerCase() !== alert.store.toLowerCase() &&
+        store.price < alert.newPrice * 0.95
+    );
+    if (!cheaper) continue;
+    await notifyCheaperStoreFound(
+      alert.itemName,
+      alert.store,
+      alert.newPrice,
+      cheaper.storeName,
+      cheaper.price
+    );
+  }
 }
 
 export async function refreshPriceAlertChecks(): Promise<PriceAlert[]> {
@@ -415,6 +438,7 @@ export async function refreshPriceAlertChecks(): Promise<PriceAlert[]> {
   if (alerts.length > 0) {
     const { notifyPriceAlertMatches } = await import('@/src/services/notificationService');
     await notifyPriceAlertMatches(alerts.slice(0, 3));
+    await notifyCheaperStoreForAlerts(alerts.slice(0, 3));
   }
   return alerts;
 }

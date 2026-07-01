@@ -92,6 +92,14 @@ Authentication → URL Configuration → Site URL should be:
   https://pennypantry.xyz
 
 Add redirect URLs your app uses, e.g.:
+  https://pennypantry.xyz/auth/callback
+  https://pennypantry.xyz/auth/callback?intent=email-change
+  https://pennypantry.xyz/settings
   https://pennypantry.xyz/reset-password
   https://pennypantry.xyz/onboarding/reset-password
   https://pennypantry.xyz/onboarding/upgrade
+
+Email sign-up verification links redirect to /auth/callback?intent=signup (set via
+signUpWithEmail emailRedirectTo). Email change confirmation uses
+/auth/callback?intent=email-change (changeAccountEmail emailRedirectTo). Ensure both
+are allowed.

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import type { DataScope } from '@/src/models/workspace';
+import { FamilyWorkspaceTheme } from '@/src/theme/familyWorkspaceTheme';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 
 type Props = {
@@ -20,13 +21,15 @@ export function DataScopePicker({
   onChange,
 }: Props) {
   const { t } = useTranslation();
+  const family = FamilyWorkspaceTheme;
 
   if (!workspaceAvailable) return null;
 
   const householdLabel = workspaceName?.trim() ? workspaceName : t('workspace.defaultName');
+  const isFamilyScope = scope === 'workspace';
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isFamilyScope && styles.containerFamily]}>
       <Text style={styles.label}>{t('workspace.saveToLabel')}</Text>
       <View style={styles.row}>
         <Pressable
@@ -44,21 +47,31 @@ export function DataScopePicker({
           </Text>
         </Pressable>
         <Pressable
-          style={[styles.option, scope === 'workspace' && styles.optionActiveWorkspace]}
+          style={[
+            styles.option,
+            isFamilyScope && {
+              borderColor: family.chipSelectedBorder,
+              backgroundColor: family.chipSelectedBg,
+            },
+          ]}
           onPress={() => onChange('workspace')}
           accessibilityRole="button"
           accessibilityState={{ selected: scope === 'workspace' }}>
           <SymbolView
             name={{ ios: 'person.2.fill', android: 'group', web: 'group' }}
-            tintColor={scope === 'workspace' ? '#16A34A' : SmartCartColors.textMuted}
+            tintColor={isFamilyScope ? family.accent : SmartCartColors.textMuted}
             size={18}
           />
-          <Text style={[styles.optionText, scope === 'workspace' && styles.optionTextWorkspace]}>
-            {householdLabel}
+          <Text style={[styles.optionText, isFamilyScope && { color: family.accentDark }]}>
+            {t('workspace.familyWorkspaceShort')}
           </Text>
         </Pressable>
       </View>
-      <Text style={styles.hint}>{t('workspace.saveToHint')}</Text>
+      <Text style={styles.hint}>
+        {isFamilyScope
+          ? t('workspace.saveToHintFamily', { name: householdLabel })
+          : t('workspace.saveToHint')}
+      </Text>
     </View>
   );
 }
@@ -67,6 +80,13 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: 16,
     gap: 8,
+  },
+  containerFamily: {
+    padding: 12,
+    borderRadius: SmartCartRadius.md,
+    backgroundColor: FamilyWorkspaceTheme.surfaceCream,
+    borderWidth: 1,
+    borderColor: FamilyWorkspaceTheme.bannerBorder,
   },
   label: {
     fontSize: 13,
@@ -96,10 +116,6 @@ const styles = StyleSheet.create({
     borderColor: SmartCartColors.primary,
     backgroundColor: 'rgba(34,197,94,0.1)',
   },
-  optionActiveWorkspace: {
-    borderColor: '#16A34A',
-    backgroundColor: 'rgba(22,163,74,0.12)',
-  },
   optionText: {
     fontSize: 14,
     fontWeight: '600',
@@ -107,9 +123,6 @@ const styles = StyleSheet.create({
   },
   optionTextActive: {
     color: SmartCartColors.primaryDark,
-  },
-  optionTextWorkspace: {
-    color: '#16A34A',
   },
   hint: {
     fontSize: 12,

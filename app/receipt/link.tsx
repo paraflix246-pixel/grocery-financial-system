@@ -1,19 +1,23 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { ComparisonSummary } from '@/src/components/ComparisonSummary';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
+import { StatusBanner } from '@/src/components/StatusBanner';
 import { runMatchingAndSave } from '@/src/services/matchingService';
 import { getReceiptById } from '@/src/services/storageService';
 import { useListStore } from '@/src/store/useListStore';
 import { useScanStore } from '@/src/store/useScanStore';
-import { SmartCartColors } from '@/src/theme/smartCart';
+import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import type { ComparisonResult } from '@/src/models/types';
 
 export default function LinkListScreen() {
-  const { receiptId } = useLocalSearchParams<{ receiptId: string }>();
+  const { t } = useTranslation();
+  const { receiptId } = useLocalSearchParams<{ receiptId: string; fromSave?: string }>();
   const router = useRouter();
   const { lists, activeListId, loadLists } = useListStore();
   const resetScan = useScanStore((s) => s.reset);
@@ -40,12 +44,7 @@ export default function LinkListScreen() {
     }
   };
 
-  const handleSkip = () => {
-    resetScan();
-    router.replace('/(tabs)');
-  };
-
-  const handleDone = () => {
+  const goHome = () => {
     resetScan();
     router.replace('/(tabs)');
   };
@@ -54,6 +53,15 @@ export default function LinkListScreen() {
     <View style={[styles.container, { backgroundColor: SmartCartColors.background }]}>
       <ScreenHeader title="Link to List" />
       <ScrollView contentContainerStyle={styles.content}>
+        <StatusBanner message={t('receipt.savedSuccess')} emoji="✓" />
+        <Pressable style={[styles.homeBtn, styles.homeBtnTop]} onPress={goHome} accessibilityRole="button">
+          <SymbolView
+            name={{ ios: 'house.fill', android: 'home', web: 'home' }}
+            tintColor="#fff"
+            size={18}
+          />
+          <Text style={styles.homeBtnText}>{t('receipt.goToHome')}</Text>
+        </Pressable>
         <Text style={styles.subtitle}>
           Your receipt is saved. Tap a list to see what you planned vs what you bought.
         </Text>
@@ -77,16 +85,13 @@ export default function LinkListScreen() {
 
         {comparison && <ComparisonSummary comparison={comparison} />}
 
-        <View style={styles.actions}>
-          <Pressable style={styles.skipBtn} onPress={handleSkip}>
-            <Text style={styles.skipText}>Skip — go home</Text>
-          </Pressable>
-          {comparison && (
-            <Pressable style={styles.doneBtn} onPress={handleDone}>
+        {comparison ? (
+          <View style={styles.actions}>
+            <Pressable style={styles.doneBtn} onPress={goHome}>
               <Text style={styles.doneText}>Done</Text>
             </Pressable>
-          )}
-        </View>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -109,8 +114,17 @@ const styles = StyleSheet.create({
   listName: { fontSize: 16, fontWeight: '700', color: SmartCartColors.text },
   suggested: { color: SmartCartColors.primaryDark, fontSize: 12, marginTop: 4, fontWeight: '600' },
   actions: { marginTop: 24, gap: 12 },
-  skipBtn: { padding: 14, alignItems: 'center' },
-  skipText: { color: SmartCartColors.textSecondary, fontWeight: '600' },
+  homeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: SmartCartColors.primary,
+    padding: 16,
+    borderRadius: SmartCartRadius.md,
+  },
+  homeBtnTop: { marginBottom: 16 },
+  homeBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   doneBtn: {
     backgroundColor: SmartCartColors.primaryDark,
     padding: 16,

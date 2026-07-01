@@ -12,14 +12,19 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { AppHeader } from '@/src/components/AppHeader';
-import { CheapestCartComparison } from '@/src/components/CheapestCartComparison';
+import {
+  CheapestCartComparison,
+  LivePriceEstimatesCollapsedHeader,
+} from '@/src/components/CheapestCartComparison';
 import { DeferredMount } from '@/src/components/DeferredMount';
 import { DonutChart } from '@/src/components/DonutChart';
 import { ForgottenItemsCard } from '@/src/components/ForgottenItemsCard';
 import { HeroScanCard } from '@/src/components/HeroScanCard';
 import { HomeScreenSkeleton } from '@/src/components/HomeScreenSkeleton';
 import { InsightCard } from '@/src/components/InsightCard';
+import { PantryInsightCards } from '@/src/components/PantryInsightCards';
 import { PlanComparisonModal } from '@/src/components/PlanComparisonModal';
+import { ReceiptProcessingBanner } from '@/src/components/ReceiptProcessingBanner';
 import { ProUpgradeBanner } from '@/src/components/ProUpgradeBanner';
 import { PriceAlertCard } from '@/src/components/PriceAlertCard';
 import { QuickActionGrid } from '@/src/components/QuickActionGrid';
@@ -36,6 +41,7 @@ import {
 import {
   buildSpendingOverviewBreakdown,
   getSpendingOverviewReceipts,
+  hasReceiptsOutsideSpendingPeriod,
 } from '@/src/utils/spendingOverview';
 import type { SpendingPeriod } from '@/src/utils/spendingPeriodAnalytics';
 import {
@@ -45,7 +51,9 @@ import {
 } from '@/src/services/priceAlertService';
 import { resolveComparisonList } from '@/src/services/listComparisonService';
 import type { ResolvedComparisonList } from '@/src/services/listComparisonService';
+import { isLivePriceEstimatesEnabled } from '@/src/services/livePriceEstimatesPreferenceLogic';
 import { WorkspaceScopeBar } from '@/src/components/WorkspaceScopeBar';
+import { FamilyWorkspaceScopeAccent } from '@/src/components/FamilyWorkspaceScopeAccent';
 import { loadReceiptsForScope } from '@/src/services/scopedReceiptService';
 import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { getActiveList, createListItem } from '@/src/services/storageService';
@@ -54,6 +62,9 @@ import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useListStore } from '@/src/store/useListStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
+import { buildPantryInsights } from '@/src/services/pantryInsightService';
+import type { PantryInsightCard } from '@/src/services/pantryInsightService';
+import { loadPantryItems } from '@/src/services/pantryService';
 import { PRO_MONTHLY_PRICE } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { formatHomeGreetingI18n, getGreetingFirstName, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -79,6 +90,9 @@ export default function HomeScreen() {
   const { avatarId } = useAvatar();
   const { unlocked: hasProAvatars } = useFeatureGate('custom_avatars');
   const notifyBudgetAlerts = useSettingsStore((s) => s.settings?.notifyBudgetAlerts ?? true);
+  const showLivePriceEstimates = useSettingsStore((s) =>
+    isLivePriceEstimatesEnabled(s.settings)
+  );
   const subscriptionTier = useSubscriptionStore((s) => s.tier);
   const { isAdmin } = useAdminStatus();
   const activeScope = useWorkspaceStore((s) => s.activeScope);
@@ -94,15 +108,35 @@ export default function HomeScreen() {
   const [comparisonResolved, setComparisonResolved] = useState(false);
   const [comparisonSource, setComparisonSource] = useState<ResolvedComparisonList['source'] | null>(null);
   const [forgottenItems, setForgottenItems] = useState<RepurchaseCadence[]>([]);
+  const [pantryInsights, setPantryInsights] = useState<PantryInsightCard[]>([]);
   const [planComparisonVisible, setPlanComparisonVisible] = useState(false);
   const comparisonLoadedRef = useRef(false);
+  const comparisonScopeRef = useRef<string | null>(null);
+  const receiptsCacheRef = useRef<{ key: string; receipts: Receipt[]; at: number } | null>(null);
+
+  const comparisonScopeKey = isWorkspaceView
+    ? `workspace:${currentWorkspaceId ?? 'none'}`
+    : 'personal';
 
   const load = useCallback(async () => {
     try {
+      if (comparisonScopeRef.current !== comparisonScopeKey) {
+        comparisonLoadedRef.current = false;
+        comparisonScopeRef.current = comparisonScopeKey;
+      }
+
       const budget = weeklyBudgetSetting;
       const threshold = alertThresholdSetting;
 
-      const receipts = await loadReceiptsForScope(activeScope, currentWorkspaceId);
+      const scopeKey = `${activeScope}:${currentWorkspaceId ?? 'none'}`;
+      const cached = receiptsCacheRef.current;
+      let receipts: Receipt[];
+      if (cached && cached.key === scopeKey && Date.now() - cached.at < 5_000) {
+        receipts = cached.receipts;
+      } else {
+        receipts = await loadReceiptsForScope(activeScope, currentWorkspaceId);
+        receiptsCacheRef.current = { key: scopeKey, receipts, at: Date.now() };
+      }
       const weekReceipts = getWeekReceipts(receipts);
       const insight = await buildHomeInsight(budget, threshold, weekReceipts);
 
@@ -110,18 +144,49 @@ export default function HomeScreen() {
       setAllReceipts(receipts);
       setHomeInsight(insight);
 
+      if (!isWorkspaceView) {
+        const pantryItems = await loadPantryItems();
+        setPantryInsights(buildPantryInsights({ pantryItems, receipts }));
+      } else {
+        setPantryInsights([]);
+      }
+
+      if (!isWorkspaceView && (insight.isOverBudget || insight.isOverThreshold)) {
+        const { scheduleBudgetAlertNotification } = await import('@/src/services/notificationService');
+        await scheduleBudgetAlertNotification(insight.weeklySpend, insight.weeklyBudget, threshold);
+      }
+
+      const comparisonPromise = resolveComparisonList({
+        forceRefresh: !comparisonLoadedRef.current,
+        scopeKey: comparisonScopeKey,
+        scopedReceipts: receipts,
+      });
+
       if (isWorkspaceView) {
-        setListItems([]);
-        setComparisonSource(null);
         setPriceAlerts([]);
         setPriceAlertRules([]);
         setForgottenItems([]);
-        setComparisonResolved(true);
+        void comparisonPromise
+          .then((comparison) => {
+            const comparisonItems = comparison?.items ?? [];
+            setListItems(comparisonItems);
+            setComparisonSource(comparison?.source ?? null);
+            comparisonLoadedRef.current = true;
+            if (comparison?.source === 'list') {
+              void useListStore.getState().loadListItems(comparison.list.id);
+            }
+          })
+          .catch((error) => {
+            console.error('Home screen workspace comparison load failed:', error);
+          })
+          .finally(() => {
+            setComparisonResolved(true);
+          });
         return;
       }
 
       void Promise.all([
-        resolveComparisonList({ forceRefresh: !comparisonLoadedRef.current }),
+        comparisonPromise,
         getAllPriceAlerts(),
         getAllRulesWithCurrentPrice(),
         getForgottenItemNudges(3),
@@ -148,7 +213,14 @@ export default function HomeScreen() {
       console.error('Home screen load failed:', error);
       setComparisonResolved(true);
     }
-  }, [weeklyBudgetSetting, alertThresholdSetting, activeScope, currentWorkspaceId, isWorkspaceView]);
+  }, [
+    weeklyBudgetSetting,
+    alertThresholdSetting,
+    activeScope,
+    currentWorkspaceId,
+    isWorkspaceView,
+    comparisonScopeKey,
+  ]);
 
   const categoryData = useMemo(() => {
     const { receipts } = getSpendingOverviewReceipts(allReceipts, spendingPeriod);
@@ -158,6 +230,11 @@ export default function HomeScreen() {
       color: entry.color,
     }));
   }, [allReceipts, spendingPeriod, t]);
+
+  const spendingOutsidePeriod = useMemo(
+    () => hasReceiptsOutsideSpendingPeriod(allReceipts, spendingPeriod),
+    [allReceipts, spendingPeriod]
+  );
 
   const greetingText = useMemo(() => {
     const base = formatHomeGreetingI18n(displayName, t);
@@ -169,7 +246,7 @@ export default function HomeScreen() {
     return `${base} 👋`;
   }, [displayName, t, hasProAvatars, avatarId]);
 
-  const { blocking } = useFocusReload(load);
+  const { blocking } = useFocusReload(load, { minRefocusMs: 5_000 });
 
   if (blocking) {
     return <HomeScreenSkeleton />;
@@ -199,12 +276,16 @@ export default function HomeScreen() {
         onNotificationPress={() => router.push('/price-tracker?tab=alerts' as never)}
       />
 
+      <FamilyWorkspaceScopeAccent variant="both" />
+
       <WorkspaceScopeBar />
+
+      <ReceiptProcessingBanner />
 
       <View style={styles.greetingBlock}>
         <Text style={styles.greeting}>{greetingText}</Text>
         <Text style={styles.greetingSub} muted>
-          {t('home.greetingSub')}
+          {isWorkspaceView ? t('home.greetingSubFamily') : t('home.greetingSub')}
         </Text>
       </View>
 
@@ -304,6 +385,13 @@ export default function HomeScreen() {
         />
       ) : null}
 
+      {!isWorkspaceView && pantryInsights.length > 0 ? (
+        <PantryInsightCards
+          insights={pantryInsights}
+          onPressPantry={() => router.push('/pantry' as never)}
+        />
+      ) : null}
+
       <HeroScanCard />
 
       <QuickActionGrid />
@@ -318,6 +406,11 @@ export default function HomeScreen() {
             {t('home.spendingOverviewSub')}
           </Text>
           <DonutChart data={categoryData} />
+          {spendingOutsidePeriod ? (
+            <Text style={styles.spendingPeriodHint} muted>
+              {t('home.spendingOutsidePeriodHint')}
+            </Text>
+          ) : null}
         </View>
         {underBudget > 0 && weeklySpend > 0 && (
           <View style={[isWide && styles.analyticsHalf, styles.statusWrap]}>
@@ -329,11 +422,15 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {comparisonResolved ? (
-        <CheapestCartComparison
-          listItems={listItems}
-          isStarterSample={comparisonSource === 'starter'}
-        />
+      {comparisonResolved && listItems.length > 0 ? (
+        showLivePriceEstimates ? (
+          <CheapestCartComparison
+            listItems={listItems}
+            isStarterSample={comparisonSource === 'starter'}
+          />
+        ) : (
+          <LivePriceEstimatesCollapsedHeader />
+        )
       ) : null}
 
       <View style={[styles.dashboardRow, isWide && styles.dashboardRowWide]}>
@@ -341,7 +438,10 @@ export default function HomeScreen() {
           <PriceAlertCard rules={priceAlertRules} />
         </View>
         <View style={[styles.dashboardCol, isWide && styles.dashboardColWide]}>
-          <RecentReceiptsCard receipts={recentReceipts} />
+          <RecentReceiptsCard
+            receipts={recentReceipts}
+            receiptScope={isWorkspaceView ? 'workspace' : 'personal'}
+          />
         </View>
       </View>
 
@@ -388,6 +488,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sectionSubtitle: { fontSize: 12, marginBottom: 12 },
+  spendingPeriodHint: { fontSize: 12, marginTop: 10 },
   dashboardRow: { gap: 12, marginBottom: 16, width: '100%' },
   dashboardRowWide: { flexDirection: 'row', alignItems: 'flex-start' },
   dashboardCol: { width: '100%', minWidth: 0, alignSelf: 'stretch', flexShrink: 0 },

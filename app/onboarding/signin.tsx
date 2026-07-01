@@ -24,6 +24,8 @@ import {
   setRememberMePreference,
 } from '@/src/services/authRoutingService';
 import { resolvePostOAuthRoute } from '@/src/services/postAuthRoutingLogic';
+import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
+import { setOAuthIntent, setOAuthReturnTo } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import {
   OnboardingColors,
@@ -131,7 +133,7 @@ export default function SigninScreen() {
       await continueAsGuest();
       await completeOnboarding();
       await recordActivityTimestamp();
-      router.replace('/(tabs)');
+      router.replace(returnTo ? resolveReturnPath() : ('/(tabs)' as Href));
     } catch (e) {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -145,10 +147,17 @@ export default function SigninScreen() {
     setShowSignUpHint(false);
     setLoading(true);
     try {
+      await setOAuthIntent('signin');
+      if (typeof returnTo === 'string' && returnTo.trim()) {
+        await setOAuthReturnTo(returnTo);
+      }
       await signInWithGoogle();
-      // OAuth redirect will handle navigation — no explicit push needed
+      if (Platform.OS !== 'web') {
+        await completeOAuthAndRoute(router, completeOnboarding);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Google sign-in failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   }

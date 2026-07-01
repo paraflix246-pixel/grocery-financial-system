@@ -8,6 +8,7 @@ import { Text } from '@/components/Themed';
 import { ThemePreviewMini } from '@/src/components/ThemePreviewMini';
 import { AvatarBadge } from '@/src/components/avatars/AvatarBadge';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { useFamilyWorkspaceScope } from '@/src/hooks/useFamilyWorkspaceScope';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { useAppFont } from '@/src/theme/AppFontProvider';
 import type { AppFontId, AppFontPreset } from '@/src/theme/appFonts';
@@ -17,6 +18,7 @@ import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { setAppLocale, type AppLocale } from '@/src/i18n';
 import { SmartCartRadius } from '@/src/theme/smartCart';
 import { getFontReadabilityStyle, fontPairsWithTheme } from '@/src/theme/fontThemeUtils';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
 const VISIBLE_FONT_COUNT = 3;
 const VISIBLE_AVATAR_COUNT = 4;
@@ -94,6 +96,60 @@ export function LanguagePicker({ compact = false, locale: controlledLocale, onLo
   );
 }
 
+function useAppearanceLockMessage(): string | null {
+  const { t } = useTranslation();
+  const { unlocked } = useFeatureGate('custom_themes');
+  const isFamilyScope = useFamilyWorkspaceScope();
+  const isCurrentMember = useWorkspaceStore((s) => s.isCurrentMember);
+  const isCurrentOwner = useWorkspaceStore((s) => s.isCurrentOwner);
+  const hasActiveWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
+
+  if (unlocked) return null;
+
+  if (isCurrentMember && hasActiveWorkspaceSub && !isCurrentOwner && !isFamilyScope) {
+    return t('settings.appearanceLockedFamilyScope');
+  }
+
+  return null;
+}
+
+type ProLockedBannerProps = {
+  messageKey: 'settings.themeLocked' | 'settings.fontLocked' | 'settings.avatarLocked';
+};
+
+function ProLockedBanner({ messageKey }: ProLockedBannerProps) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { theme } = useAppTheme();
+  const familyScopeMessage = useAppearanceLockMessage();
+
+  return (
+    <Pressable
+      style={[
+        styles.lockedBanner,
+        { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}33` },
+      ]}
+      onPress={() => {
+        if (!familyScopeMessage) {
+          router.push('/paywall' as never);
+        }
+      }}
+      accessibilityRole="button">
+      <SymbolView
+        name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
+        tintColor={theme.primary}
+        size={16}
+      />
+      <Text style={styles.lockedText} muted>
+        {familyScopeMessage ?? t(messageKey)}
+      </Text>
+      {!familyScopeMessage ? (
+        <Text style={[styles.lockedLink, { color: theme.primary }]}>{t('settings.themeLockedBtn')}</Text>
+      ) : null}
+    </Pressable>
+  );
+}
+
 type ThemePickerProps = {
   themeId?: AppThemeId;
   onThemeSelect?: (id: AppThemeId) => void;
@@ -101,7 +157,6 @@ type ThemePickerProps = {
 
 export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: ThemePickerProps = {}) {
   const { t } = useTranslation();
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const compact = width < 420;
   const { theme, themeId: contextThemeId, setThemeId, themes } = useAppTheme();
@@ -118,7 +173,8 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
   }, [themeId, extraThemes]);
 
   const handleSelect = (id: AppThemeId) => {
-    if (!unlocked) {
+    const preset = themes.find((item) => item.id === id);
+    if (preset?.isPremium && !unlocked) {
       requestAccess();
       return;
     }
@@ -134,7 +190,7 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
       key={preset.id}
       preset={preset}
       selected={themeId === preset.id}
-      locked={!unlocked}
+      locked={preset.isPremium && !unlocked}
       compact={compact}
       onPress={() => handleSelect(preset.id)}
       activeTheme={theme}
@@ -143,24 +199,7 @@ export function ThemePicker({ themeId: controlledThemeId, onThemeSelect }: Theme
 
   return (
     <View style={styles.themeSection} accessibilityRole="radiogroup" accessibilityLabel={t('settings.theme')}>
-      {!unlocked ? (
-        <Pressable
-          style={[
-            styles.lockedBanner,
-            { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}33` },
-          ]}
-          onPress={() => router.push('/paywall' as never)}>
-          <SymbolView
-            name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-            tintColor={theme.primary}
-            size={16}
-          />
-          <Text style={styles.lockedText} muted>
-            {t('settings.themeLocked')}
-          </Text>
-          <Text style={[styles.lockedLink, { color: theme.primary }]}>{t('settings.themeLockedBtn')}</Text>
-        </Pressable>
-      ) : null}
+      {!unlocked ? <ProLockedBanner messageKey="settings.themeLocked" /> : null}
 
       <View style={styles.swatches}>
         {visibleThemes.map(renderSwatch)}
@@ -186,7 +225,6 @@ type FontPickerProps = {
 
 export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPickerProps = {}) {
   const { t } = useTranslation();
-  const router = useRouter();
   const { theme, themeId } = useAppTheme();
   const { fontId: contextFontId, setFontId, fonts } = useAppFont();
   const fontId = controlledFontId ?? contextFontId;
@@ -216,24 +254,7 @@ export function FontPicker({ fontId: controlledFontId, onFontSelect }: FontPicke
 
   return (
     <View style={styles.themeSection} accessibilityRole="radiogroup" accessibilityLabel={t('settings.font')}>
-      {!unlocked ? (
-        <Pressable
-          style={[
-            styles.lockedBanner,
-            { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}33` },
-          ]}
-          onPress={() => router.push('/paywall' as never)}>
-          <SymbolView
-            name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-            tintColor={theme.primary}
-            size={16}
-          />
-          <Text style={styles.lockedText} muted>
-            {t('settings.fontLocked')}
-          </Text>
-          <Text style={[styles.lockedLink, { color: theme.primary }]}>{t('settings.themeLockedBtn')}</Text>
-        </Pressable>
-      ) : null}
+      {!unlocked ? <ProLockedBanner messageKey="settings.fontLocked" /> : null}
 
       <View style={styles.fontList}>
         {visibleFonts.map((preset) => (
@@ -283,7 +304,6 @@ type AvatarPickerProps = {
 
 export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: AvatarPickerProps = {}) {
   const { t } = useTranslation();
-  const router = useRouter();
   const { width } = useWindowDimensions();
   const isMobileLayout = Platform.OS !== 'web' || width < MOBILE_LAYOUT_BREAKPOINT;
   const { theme } = useAppTheme();
@@ -301,7 +321,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
   }, [avatarId, extraAvatars]);
 
   const handleSelect = (id: AppAvatarId) => {
-    if (!unlocked) {
+    if (id !== 'cart' && !unlocked) {
       requestAccess();
       return;
     }
@@ -314,24 +334,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
 
   return (
     <View style={styles.themeSection}>
-      {!unlocked ? (
-        <Pressable
-          style={[
-            styles.lockedBanner,
-            { backgroundColor: `${theme.primary}12`, borderColor: `${theme.primary}33` },
-          ]}
-          onPress={() => router.push('/paywall' as never)}>
-          <SymbolView
-            name={{ ios: 'lock.fill', android: 'lock', web: 'lock' }}
-            tintColor={theme.primary}
-            size={16}
-          />
-          <Text style={styles.lockedText} muted>
-            {t('settings.avatarLocked')}
-          </Text>
-          <Text style={[styles.lockedLink, { color: theme.primary }]}>{t('settings.themeLockedBtn')}</Text>
-        </Pressable>
-      ) : null}
+      {!unlocked ? <ProLockedBanner messageKey="settings.avatarLocked" /> : null}
 
       <View style={styles.avatarGrid}>
         {visibleAvatars.map((preset) => (
@@ -339,7 +342,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
             key={preset.id}
             preset={preset}
             selected={avatarId === preset.id}
-            locked={!unlocked}
+            locked={preset.id !== 'cart' && !unlocked}
             onPress={() => handleSelect(preset.id)}
             theme={theme}
           />
@@ -350,7 +353,7 @@ export function AvatarPicker({ avatarId: controlledAvatarId, onAvatarSelect }: A
                 key={preset.id}
                 preset={preset}
                 selected={avatarId === preset.id}
-                locked={!unlocked}
+                locked={preset.id !== 'cart' && !unlocked}
                 onPress={() => handleSelect(preset.id)}
                 theme={theme}
               />

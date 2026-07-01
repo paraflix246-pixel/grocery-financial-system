@@ -17,7 +17,6 @@ import {
 } from '@/src/utils/receiptAiCleanupGate';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
 import type { ReceiptScanStage } from '@/src/utils/scanWaitTime';
-import { savePriceRecords } from '@/src/services/communityPricingService';
 
 export type ReceiptParseMethod = 'openai' | 'deepseek' | 'paddleocr' | 'deepread' | 'rules';
 
@@ -144,17 +143,6 @@ export async function scanReceiptFromImage(
 
   const deepReadResult = await scanReceiptWithDeepRead(imageUri, options);
   const result = await maybeRefineDeepReadWithAi(deepReadResult, imageUri, options);
-
-  void savePriceRecords(
-    result.draft.items ?? [],
-    {
-      storeName: result.draft.storeName,
-      city: result.draft.storeCity ?? undefined,
-      state: result.draft.storeRegion ?? undefined,
-      zip: result.draft.storePostalCode ?? undefined,
-    },
-    result.draft.date
-  );
 
   return result;
 }

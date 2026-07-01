@@ -28,13 +28,48 @@ import {
   applyReceiptTotals,
   normalizeReceiptTotalsForSave,
 } from '@/src/utils/receiptTotals';
+import { DEFAULT_NOTIFICATION_PREFS } from '@/src/services/notificationPreferenceLogic';
+import { DEFAULT_LIVE_PRICE_ESTIMATES_ENABLED } from '@/src/services/livePriceEstimatesPreferenceLogic';
 import { inferPantryCategory } from '@/src/utils/pantryCategory';
 import { inferDefaultShelfLifeDays } from '@/src/utils/pantryStatus';
 import { migrateLegacyListNames } from '@/src/utils/shoppingListCreate';
+import {
+  getPersonalReceiptOwnerId,
+  readLegacyReceiptOwnerId,
+  writeLegacyReceiptOwnerId,
+} from '@/src/services/personalReceiptScope';
+import {
+  filterPersonalReceipts,
+  resolveLegacyReceiptClaim,
+} from '@/src/services/personalReceiptScopeLogic';
 
 const DEFAULT_STORAGE_KEY = '@grocery_financial_async_data_v1';
 
 let storageKey = DEFAULT_STORAGE_KEY;
+
+function normalizeAsyncNotificationPrefs(
+  partial?: Partial<AppSettings> | null
+): typeof DEFAULT_NOTIFICATION_PREFS {
+  return {
+    pushNotificationsEnabled:
+      partial?.pushNotificationsEnabled ?? DEFAULT_NOTIFICATION_PREFS.pushNotificationsEnabled,
+    notifyPriceAlerts: partial?.notifyPriceAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyPriceAlerts,
+    notifyPriceChangeAlerts:
+      partial?.notifyPriceChangeAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyPriceChangeAlerts,
+    notifySaleAlerts: partial?.notifySaleAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifySaleAlerts,
+    notifyCheaperStoreAlerts:
+      partial?.notifyCheaperStoreAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyCheaperStoreAlerts,
+    notifyBudgetAlerts: partial?.notifyBudgetAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyBudgetAlerts,
+    notifyWeeklySummaryAlerts:
+      partial?.notifyWeeklySummaryAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyWeeklySummaryAlerts,
+    notifyFamilyListAlerts:
+      partial?.notifyFamilyListAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyFamilyListAlerts,
+    notifyPantryLowAlerts:
+      partial?.notifyPantryLowAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyPantryLowAlerts,
+    notifyHouseholdReceiptAlerts:
+      partial?.notifyHouseholdReceiptAlerts ?? DEFAULT_NOTIFICATION_PREFS.notifyHouseholdReceiptAlerts,
+  };
+}
 
 export function configureAsyncStorageKey(key: string): void {
   storageKey = key;
@@ -102,14 +137,23 @@ async function loadStore(): Promise<void> {
         ...(parsed.appSettings ?? {
           id: generateId(),
           displayName: '',
-          notifyPriceAlerts: true,
-          notifyBudgetAlerts: true,
+          ...DEFAULT_NOTIFICATION_PREFS,
           enhancedCloudOcr: false,
           aiReceiptCleanup: true,
+          communityPriceSharing: false,
+          receiptImageStorage: 'ask_each_time',
+          rememberReceiptImageChoice: false,
+          showLivePriceEstimates: DEFAULT_LIVE_PRICE_ESTIMATES_ENABLED,
           updatedAt: new Date().toISOString(),
         }),
         enhancedCloudOcr: parsed.appSettings?.enhancedCloudOcr ?? false,
         aiReceiptCleanup: parsed.appSettings?.aiReceiptCleanup ?? true,
+        ...normalizeAsyncNotificationPrefs(parsed.appSettings),
+        communityPriceSharing: parsed.appSettings?.communityPriceSharing ?? false,
+        receiptImageStorage: parsed.appSettings?.receiptImageStorage ?? 'ask_each_time',
+        rememberReceiptImageChoice: parsed.appSettings?.rememberReceiptImageChoice ?? false,
+        showLivePriceEstimates:
+          parsed.appSettings?.showLivePriceEstimates ?? DEFAULT_LIVE_PRICE_ESTIMATES_ENABLED,
       },
       customStores: parsed.customStores ?? [],
       storePreferences: parsed.storePreferences ?? [],
@@ -176,10 +220,12 @@ async function loadStore(): Promise<void> {
     appSettings: {
       id: generateId(),
       displayName: '',
-      notifyPriceAlerts: true,
-      notifyBudgetAlerts: true,
+      ...DEFAULT_NOTIFICATION_PREFS,
       enhancedCloudOcr: false,
       aiReceiptCleanup: true,
+      communityPriceSharing: false,
+      receiptImageStorage: 'ask_each_time',
+      rememberReceiptImageChoice: false,
       updatedAt: now,
     },
     customStores: [],
@@ -426,6 +472,60 @@ export async function deleteListItems(ids: string[]): Promise<void> {
 
 // --- Receipts ---
 
+async function ensurePersonalReceiptOwnership(data: WebStore): Promise<string | null> {
+  const ownerId = await getPersonalReceiptOwnerId();
+  if (!ownerId) return null;
+
+  const unownedCount = data.receipts.filter((receipt) => !receipt.ownerUserId).length;
+  if (unownedCount <= 0) return ownerId;
+
+  const legacyOwnerId = await readLegacyReceiptOwnerId();
+  const claim = resolveLegacyReceiptClaim(ownerId, legacyOwnerId, unownedCount);
+  if (claim.action === 'assign') {
+    if (!legacyOwnerId) {
+      await writeLegacyReceiptOwnerId(claim.ownerId);
+    }
+    for (const receipt of data.receipts) {
+      if (!receipt.ownerUserId) {
+        receipt.ownerUserId = claim.ownerId;
+      }
+    }
+    await persist();
+  }
+
+  return ownerId;
+}
+
+async function getScopedPersonalReceipts(data: WebStore): Promise<{
+  ownerId: string;
+  receipts: Receipt[];
+} | null> {
+  const ownerId = await ensurePersonalReceiptOwnership(data);
+  if (!ownerId) return null;
+  return {
+    ownerId,
+    receipts: filterPersonalReceipts(data.receipts, ownerId),
+  };
+}
+
+export async function transferPersonalReceiptsOnSignIn(
+  fromOwnerId: string,
+  toOwnerId: string
+): Promise<void> {
+  if (!fromOwnerId || !toOwnerId || fromOwnerId === toOwnerId) return;
+  const data = await ensureLoaded();
+  let changed = false;
+  for (const receipt of data.receipts) {
+    if (receipt.ownerUserId === fromOwnerId) {
+      receipt.ownerUserId = toOwnerId;
+      changed = true;
+    }
+  }
+  if (changed) {
+    await persist();
+  }
+}
+
 function migrateReceiptTotalsWeb(data: WebStore): boolean {
   let changed = false;
   const now = new Date().toISOString();
@@ -445,7 +545,10 @@ function migrateReceiptTotalsWeb(data: WebStore): boolean {
 
 export async function getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> {
   const data = await ensureLoaded();
-  let receipts = [...data.receipts];
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return [];
+
+  let receipts = [...scoped.receipts];
   if (filters?.storeName) {
     const needle = filters.storeName.toLowerCase();
     receipts = receipts.filter((receipt) => receipt.storeName.toLowerCase().includes(needle));
@@ -475,7 +578,10 @@ export async function getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> 
 
 export async function getReceiptById(id: string): Promise<Receipt | null> {
   const data = await ensureLoaded();
-  const receipt = data.receipts.find((entry) => entry.id === id);
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return null;
+
+  const receipt = scoped.receipts.find((entry) => entry.id === id);
   if (!receipt) return null;
   const items = await getReceiptItems(id);
   return applyReceiptTotals({ ...receipt, items }, items);
@@ -494,9 +600,12 @@ export async function findDuplicateReceipt(
   storeRegion?: string | null
 ): Promise<Receipt | null> {
   const data = await ensureLoaded();
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return null;
+
   const normalizedStore = normalizeStoreForDuplicate(storeName);
   const normalizedRegion = storeRegion?.trim().toUpperCase();
-  for (const receipt of data.receipts) {
+  for (const receipt of scoped.receipts) {
     if (excludeId && receipt.id === excludeId) continue;
     if (receipt.date !== date) continue;
     if (normalizeStoreForDuplicate(receipt.storeName) !== normalizedStore) continue;
@@ -516,6 +625,9 @@ export async function saveReceipt(
   }
 ): Promise<Receipt> {
   const data = await ensureLoaded();
+  const ownerId = await ensurePersonalReceiptOwnership(data);
+  if (!ownerId) throw new Error('Sign in to save personal receipts.');
+
   const { assertCanSaveNewReceipt } = await import('@/src/services/scanLimitService');
   const { assertCanTrackStore } = await import('@/src/services/tierLimits');
   await assertCanSaveNewReceipt();
@@ -527,6 +639,7 @@ export async function saveReceipt(
   const saved: Receipt = {
     ...receiptFields,
     id,
+    ownerUserId: ownerId,
     createdAt: now,
     updatedAt: now,
   };
@@ -545,6 +658,8 @@ export async function saveReceipt(
   await contributeFromReceipt(result);
   const { syncPantryFromReceipt } = await import('@/src/services/pantryService');
   await syncPantryFromReceipt(result, { quantityMode: 'increment' });
+  const { invalidateScopedReceiptsCache } = await import('@/src/services/scopedReceiptService');
+  invalidateScopedReceiptsCache('personal');
   return result;
 }
 
@@ -553,6 +668,9 @@ export async function updateReceipt(
   receipt: Partial<Omit<Receipt, 'items'>> & { items?: Array<Omit<ReceiptItem, 'receiptId'>> }
 ): Promise<void> {
   const data = await ensureLoaded();
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return;
+
   const existing = await getReceiptById(id);
   if (!existing) return;
 
@@ -611,23 +729,55 @@ export async function deleteReceipt(id: string): Promise<void> {
 export async function deleteReceipts(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const data = await ensureLoaded();
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return;
+
   const idSet = new Set(ids);
+  const ownedIds = new Set(scoped.receipts.filter((receipt) => idSet.has(receipt.id)).map((r) => r.id));
+  if (ownedIds.size === 0) return;
+
   const comparisonIds = data.comparisons
-    .filter((comparison) => idSet.has(comparison.receiptId))
+    .filter((comparison) => ownedIds.has(comparison.receiptId))
     .map((comparison) => comparison.id);
   const comparisonIdSet = new Set(comparisonIds);
   data.comparisonItems = data.comparisonItems.filter(
     (item) => !comparisonIdSet.has(item.comparisonId)
   );
-  data.comparisons = data.comparisons.filter((comparison) => !idSet.has(comparison.receiptId));
-  data.receiptItems = data.receiptItems.filter((item) => !idSet.has(item.receiptId));
-  data.receipts = data.receipts.filter((receipt) => !idSet.has(receipt.id));
+  data.comparisons = data.comparisons.filter((comparison) => !ownedIds.has(comparison.receiptId));
+  data.receiptItems = data.receiptItems.filter((item) => !ownedIds.has(item.receiptId));
+  data.receipts = data.receipts.filter((receipt) => !ownedIds.has(receipt.id));
   await persist();
+}
+
+export async function deleteAllReceipts(): Promise<number> {
+  const data = await ensureLoaded();
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return 0;
+
+  const count = scoped.receipts.length;
+  if (count === 0) return 0;
+
+  const ownedIds = new Set(scoped.receipts.map((receipt) => receipt.id));
+  const comparisonIds = data.comparisons
+    .filter((comparison) => ownedIds.has(comparison.receiptId))
+    .map((comparison) => comparison.id);
+  const comparisonIdSet = new Set(comparisonIds);
+  data.comparisonItems = data.comparisonItems.filter(
+    (item) => !comparisonIdSet.has(item.comparisonId)
+  );
+  data.comparisons = data.comparisons.filter((comparison) => !ownedIds.has(comparison.receiptId));
+  data.receiptItems = data.receiptItems.filter((item) => !ownedIds.has(item.receiptId));
+  data.receipts = data.receipts.filter((receipt) => !ownedIds.has(receipt.id));
+  await persist();
+  return count;
 }
 
 export async function linkReceiptToList(receiptId: string, listId: string): Promise<void> {
   const data = await ensureLoaded();
-  const receipt = data.receipts.find((entry) => entry.id === receiptId);
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return;
+
+  const receipt = scoped.receipts.find((entry) => entry.id === receiptId);
   if (!receipt) return;
   receipt.linkedListId = listId;
   receipt.updatedAt = new Date().toISOString();
@@ -728,10 +878,30 @@ export async function updateAppSettings(
   data.appSettings = {
     ...data.appSettings,
     displayName: partial.displayName ?? data.appSettings.displayName,
+    pushNotificationsEnabled:
+      partial.pushNotificationsEnabled ?? data.appSettings.pushNotificationsEnabled,
     notifyPriceAlerts: partial.notifyPriceAlerts ?? data.appSettings.notifyPriceAlerts,
+    notifyPriceChangeAlerts:
+      partial.notifyPriceChangeAlerts ?? data.appSettings.notifyPriceChangeAlerts,
+    notifySaleAlerts: partial.notifySaleAlerts ?? data.appSettings.notifySaleAlerts,
+    notifyCheaperStoreAlerts:
+      partial.notifyCheaperStoreAlerts ?? data.appSettings.notifyCheaperStoreAlerts,
     notifyBudgetAlerts: partial.notifyBudgetAlerts ?? data.appSettings.notifyBudgetAlerts,
+    notifyWeeklySummaryAlerts:
+      partial.notifyWeeklySummaryAlerts ?? data.appSettings.notifyWeeklySummaryAlerts,
+    notifyFamilyListAlerts:
+      partial.notifyFamilyListAlerts ?? data.appSettings.notifyFamilyListAlerts,
+    notifyPantryLowAlerts: partial.notifyPantryLowAlerts ?? data.appSettings.notifyPantryLowAlerts,
+    notifyHouseholdReceiptAlerts:
+      partial.notifyHouseholdReceiptAlerts ?? data.appSettings.notifyHouseholdReceiptAlerts,
     enhancedCloudOcr: partial.enhancedCloudOcr ?? data.appSettings.enhancedCloudOcr,
     aiReceiptCleanup: partial.aiReceiptCleanup ?? data.appSettings.aiReceiptCleanup,
+    communityPriceSharing: partial.communityPriceSharing ?? data.appSettings.communityPriceSharing,
+    receiptImageStorage: partial.receiptImageStorage ?? data.appSettings.receiptImageStorage,
+    rememberReceiptImageChoice:
+      partial.rememberReceiptImageChoice ?? data.appSettings.rememberReceiptImageChoice,
+    showLivePriceEstimates:
+      partial.showLivePriceEstimates ?? data.appSettings.showLivePriceEstimates,
     updatedAt: now,
   };
   await persist();
@@ -752,7 +922,10 @@ export type ReceiptItemWithStore = ReceiptItem & {
 
 export async function getReceiptItemsWithStore(): Promise<ReceiptItemWithStore[]> {
   const data = await ensureLoaded();
-  const receiptById = new Map(data.receipts.map((receipt) => [receipt.id, receipt]));
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return [];
+
+  const receiptById = new Map(scoped.receipts.map((receipt) => [receipt.id, receipt]));
   const items: ReceiptItemWithStore[] = [];
   for (const item of data.receiptItems) {
     const receipt = receiptById.get(item.receiptId);
@@ -771,14 +944,18 @@ export async function getReceiptItemsWithStore(): Promise<ReceiptItemWithStore[]
 
 export async function getDistinctStores(): Promise<string[]> {
   const data = await ensureLoaded();
-  return [...new Set(data.receipts.map((receipt) => receipt.storeName))].sort();
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return [];
+  return [...new Set(scoped.receipts.map((receipt) => receipt.storeName))].sort();
 }
 
 export async function getDistinctRegions(): Promise<string[]> {
   const data = await ensureLoaded();
+  const scoped = await getScopedPersonalReceipts(data);
+  if (!scoped) return [];
   return [
     ...new Set(
-      data.receipts
+      scoped.receipts
         .map((receipt) => receipt.storeRegion?.trim())
         .filter((region): region is string => Boolean(region))
     ),
@@ -968,14 +1145,18 @@ export async function updatePantryItem(
   if (index < 0) {
     throw new Error(`Pantry item not found: ${id}`);
   }
+  const before = data.pantryItems[index];
   const now = new Date().toISOString();
   const next = {
-    ...data.pantryItems[index],
+    ...before,
     ...itemData,
     updatedAt: now,
   };
   data.pantryItems[index] = next;
   await persist();
+  void import('@/src/services/notificationService').then(({ maybeNotifyPantryLowStock }) =>
+    maybeNotifyPantryLowStock(before, next)
+  );
   return next;
 }
 

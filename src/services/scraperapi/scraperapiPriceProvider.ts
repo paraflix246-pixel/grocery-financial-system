@@ -1,6 +1,14 @@
 import { searchScraperApiProducts } from '@/src/services/scraperapi/scraperapiClient';
 import type { ExternalPriceSource } from '@/src/services/externalPriceService';
 
+const loggedScraperApiErrors = new Set<string>();
+
+function warnScraperApiLookupSkipped(error: string): void {
+  if (loggedScraperApiErrors.has(error)) return;
+  loggedScraperApiErrors.add(error);
+  console.warn('ScraperAPI Walmart lookup skipped:', error);
+}
+
 export function createScraperApiPriceProvider(): ExternalPriceSource {
   return {
     id: 'scraperapi-walmart',
@@ -17,7 +25,7 @@ export function createScraperApiPriceProvider(): ExternalPriceSource {
           __DEV__ &&
           (proxyUrl.includes('localhost') || proxyUrl.includes('127.0.0.1'));
         if (!isLocalProxy) {
-          console.warn('ScraperAPI Walmart lookup skipped:', result.error);
+          warnScraperApiLookupSkipped(result.error);
         }
         return [];
       }

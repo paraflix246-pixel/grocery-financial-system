@@ -92,7 +92,7 @@ describe('buildTrackedItems', () => {
 });
 
 describe('buildRecentReceiptTrackedEntries', () => {
-  it('uses only items from the most recent receipt and dedupes by canonical name', () => {
+  it('prefers newer receipts, dedupes by canonical name, and fills up to maxItems', () => {
     const items: ReceiptItemRow[] = [
       {
         name: 'Whole Wheat Bread',
@@ -127,7 +127,7 @@ describe('buildRecentReceiptTrackedEntries', () => {
     const tracked = buildRecentReceiptTrackedEntries(items, new Set(), resolveCanonical);
     assert.deepEqual(
       tracked.map((item) => item.name),
-      ['Bread', 'Orange Juice']
+      ['Bread', 'Orange Juice', 'Eggs']
     );
     assert.equal(tracked.every((item) => item.source === 'receipt'), true);
   });

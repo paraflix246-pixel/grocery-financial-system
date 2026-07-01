@@ -10,7 +10,13 @@ const PURPLE = '#7C3AED';
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_MUTED = 'rgba(255,255,255,0.52)';
 
-export type LegalHref = '/privacy' | '/terms' | '/copyright' | '/privacy-request';
+export type LegalHref =
+  | '/privacy'
+  | '/terms'
+  | '/cookies'
+  | '/data-retention'
+  | '/copyright'
+  | '/privacy-request';
 
 type RelatedPage = {
   label: string;

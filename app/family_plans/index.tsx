@@ -15,7 +15,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { useDevFamilyPreview } from '@/src/hooks/useDevFamilyPreview';
+import { buildPaywallHref } from '@/src/utils/paywallRoutes';
+import { startDevFamilyWorkspacePreview } from '@/src/services/devFamilyWorkspacePreview';
+import { promptDevFamilyPreviewSignIn } from '@/src/utils/devFamilyPreviewAuth';
 import {
   buildFamilyInviteUrl,
   getOrCreateFamilyCode,
@@ -43,14 +48,16 @@ import {
   isValidInviteEmail,
 } from '@/src/services/workspaceInviteService';
 import { SmartCartRadius } from '@/src/theme/smartCart';
+import { FamilyWorkspaceTheme } from '@/src/theme/familyWorkspaceTheme';
 import { copyText, shareText } from '@/src/utils/copyOrShare';
 import { showInfoAlert } from '@/src/utils/platformAlert';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
 const BG = '#0F0F0F';
 const GREEN = '#22C55E';
-const GREEN_DARK = '#16A34A';
 const GOLD = '#EAB308';
+const FAMILY = FamilyWorkspaceTheme.accent;
+const FAMILY_DARK = FamilyWorkspaceTheme.accentDark;
 const TEXT_PRIMARY = '#FFFFFF';
 const TEXT_MUTED = 'rgba(255,255,255,0.55)';
 const TEXT_DIM = 'rgba(255,255,255,0.38)';
@@ -128,7 +135,9 @@ export default function FamilyPlansScreen() {
   const { t, i18n } = useTranslation();
   const { unlocked, requestAccess } = useFeatureGate('family_plans');
   const { unlocked: syncUnlocked, requestAccess: requestSyncAccess } = useFeatureGate('multi_user_sync');
+  const { active: devPreviewActive } = useDevFamilyPreview();
   const hasLiveSync = syncUnlocked;
+  const [devPreviewBusy, setDevPreviewBusy] = useState(false);
 
   const [familyCode, setFamilyCode] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
@@ -367,19 +376,49 @@ export default function FamilyPlansScreen() {
     }
   };
 
-  const heroAccent = hasLiveSync ? GREEN_DARK : unlocked ? GREEN : TEXT_MUTED;
+  const handleDevPreview = async () => {
+    setDevPreviewBusy(true);
+    try {
+      const ready = await startDevFamilyWorkspacePreview(router, 'family_plans');
+      if (!ready) {
+        promptDevFamilyPreviewSignIn(
+          '/family_plans',
+          {
+            title: t('devFamilyPreview.routeTitle'),
+            message: t('devFamilyPreview.signInRequired'),
+            cancel: t('common.cancel'),
+            signIn: t('common.signIn'),
+          },
+          (href) => router.push(href as never)
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        t('devFamilyPreview.routeTitle'),
+        error instanceof Error ? error.message : t('devFamilyPreview.enableFailed')
+      );
+    } finally {
+      setDevPreviewBusy(false);
+    }
+  };
+
+  const heroAccent = hasLiveSync ? FAMILY_DARK : unlocked ? FAMILY : TEXT_MUTED;
 
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerStyle: { backgroundColor: BG },
-          contentStyle: { backgroundColor: BG },
+          headerShown: false,
+          contentStyle: { backgroundColor: BG, overflow: 'visible' },
         }}
       />
 
       <View style={[styles.pageHeader, { paddingTop: insets.top + 8 }]}>
-        <Text style={styles.pageTitle}>{t('familyPlans.title')}</Text>
+        <BackButton showLabel={false} tintColor={TEXT_PRIMARY} />
+        <View style={styles.pageTitleWrap}>
+          <Text style={styles.pageTitle}>{t('familyPlans.title')}</Text>
+        </View>
+        <View style={styles.pageHeaderSpacer} />
       </View>
 
       <ScrollView
@@ -387,15 +426,15 @@ export default function FamilyPlansScreen() {
         showsVerticalScrollIndicator={false}>
         {unlocked ? (
           <LinearGradient
-            colors={['rgba(22,163,74,0.4)', 'rgba(22,163,74,0.14)', 'rgba(15,15,15,0)']}
+            colors={[...FamilyWorkspaceTheme.heroGradient]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroGradient}>
             <TierBadge
               label={t('familyPlans.tierFamily')}
               accent={GOLD}
-              accentBg="rgba(22,163,74,0.22)"
-              accentBorder="rgba(234,179,8,0.45)"
+              accentBg={FamilyWorkspaceTheme.heroBadgeBg}
+              accentBorder={FamilyWorkspaceTheme.heroBadgeBorder}
             />
             <Text style={styles.heroTitle}>{t('familyPlans.hero.title')}</Text>
             <Text style={styles.heroSubtitle}>{t('familyPlans.hero.subtitle')}</Text>
@@ -410,11 +449,34 @@ export default function FamilyPlansScreen() {
             />
             <Text style={[styles.heroTitle, styles.heroTitleMuted]}>{t('familyPlans.freeHero.title')}</Text>
             <Text style={styles.heroSubtitle}>{t('familyPlans.freeHero.subtitle')}</Text>
-            <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall?family=1' as never)}>
+            {__DEV__ ? (
+              <Pressable
+                style={[styles.previewWorkspaceBtn, devPreviewBusy && styles.previewWorkspaceBtnBusy]}
+                disabled={devPreviewBusy || devPreviewActive}
+                onPress={() => void handleDevPreview()}>
+                <Text style={styles.previewWorkspaceBtnText}>
+                  {devPreviewActive
+                    ? t('familyPlans.previewWorkspaceActive')
+                    : devPreviewBusy
+                      ? t('common.processing')
+                      : t('familyPlans.previewWorkspace')}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.upgradeBtn} onPress={() => router.push(buildPaywallHref('family') as never)}>
               <Text style={styles.upgradeBtnText}>{t('familyPlans.getFamilyWorkspace')}</Text>
             </Pressable>
           </View>
         )}
+
+        {unlocked ? (
+          <View style={styles.workspaceOverviewCard}>
+            <Text style={styles.workspaceOverviewTitle}>{t('familyPlans.workspaceOverview.title')}</Text>
+            <Text style={styles.workspaceOverviewItem}>• {t('familyPlans.workspaceOverview.personal')}</Text>
+            <Text style={styles.workspaceOverviewItem}>• {t('familyPlans.workspaceOverview.family')}</Text>
+            <Text style={styles.workspaceOverviewHint}>{t('familyPlans.workspaceOverview.switcher')}</Text>
+          </View>
+        ) : null}
 
         <View style={styles.sectionCard}>
           <Text style={styles.sectionLabel}>{t('familyPlans.howItWorks')}</Text>
@@ -435,7 +497,7 @@ export default function FamilyPlansScreen() {
               title={t('familyPlans.steps.sync.title')}
               body={t('familyPlans.steps.sync.body')}
               icon={SYNC_STEP_ICON}
-              accent={GREEN_DARK}
+              accent={FAMILY_DARK}
               locked={!syncUnlocked}
             />
           )}
@@ -445,7 +507,7 @@ export default function FamilyPlansScreen() {
           <View style={styles.sectionHeaderRow}>
             <SymbolView
               name={{ ios: 'key.fill', android: 'key', web: 'key' }}
-              tintColor={unlocked ? (hasLiveSync ? GREEN_DARK : GREEN) : TEXT_DIM}
+              tintColor={unlocked ? (hasLiveSync ? FAMILY_DARK : FAMILY) : TEXT_DIM}
               size={20}
             />
             <Text style={styles.sectionTitle}>{t('familyPlans.familyCode.title')}</Text>
@@ -550,7 +612,7 @@ export default function FamilyPlansScreen() {
             <View style={styles.sectionHeaderRow}>
               <SymbolView
                 name={{ ios: 'arrow.triangle.2.circlepath', android: 'sync', web: 'sync' }}
-                tintColor={hasLiveSync ? GREEN_DARK : TEXT_MUTED}
+                tintColor={hasLiveSync ? FAMILY_DARK : TEXT_MUTED}
                 size={20}
               />
               <Text style={styles.sectionTitle}>{t('familyPlans.sync.title')}</Text>
@@ -585,7 +647,7 @@ export default function FamilyPlansScreen() {
             ) : (
               <>
                 <Text style={styles.sectionHint}>{t('familyPlans.sync.upgradeHint')}</Text>
-                <Pressable style={[styles.primaryBtn, styles.primaryBtnHousehold]} onPress={() => router.push('/paywall?family=1' as never)}>
+                <Pressable style={[styles.primaryBtn, styles.primaryBtnHousehold]} onPress={() => router.push(buildPaywallHref('family') as never)}>
                   <Text style={styles.primaryBtnText}>{t('familyPlans.getFamilyWorkspace')}</Text>
                 </Pressable>
               </>
@@ -597,7 +659,7 @@ export default function FamilyPlansScreen() {
           <View style={styles.sectionHeaderRow}>
             <SymbolView
               name={{ ios: 'tray.and.arrow.down.fill', android: 'download', web: 'download' }}
-              tintColor={unlocked ? (hasLiveSync ? GREEN_DARK : GREEN) : TEXT_DIM}
+              tintColor={unlocked ? (hasLiveSync ? FAMILY_DARK : FAMILY) : TEXT_DIM}
               size={20}
             />
             <Text style={styles.sectionTitle}>{t('familyPlans.receive.title')}</Text>
@@ -626,7 +688,21 @@ export default function FamilyPlansScreen() {
             <Text style={styles.planCompareTitle}>{t('familyPlans.compare.title')}</Text>
             <Text style={styles.planCompareItem}>{t('familyPlans.compare.item1')}</Text>
             <Text style={styles.planCompareItem}>{t('familyPlans.compare.item2')}</Text>
-            <Pressable style={styles.upgradeBtn} onPress={() => router.push('/paywall?family=1' as never)}>
+            {__DEV__ ? (
+              <Pressable
+                style={styles.previewWorkspaceBtn}
+                disabled={devPreviewBusy || devPreviewActive}
+                onPress={() => void handleDevPreview()}>
+                <Text style={styles.previewWorkspaceBtnText}>
+                  {devPreviewActive
+                    ? t('familyPlans.previewWorkspaceActive')
+                    : devPreviewBusy
+                      ? t('common.processing')
+                      : t('familyPlans.previewWorkspace')}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.upgradeBtn} onPress={() => router.push(buildPaywallHref('family') as never)}>
               <Text style={styles.upgradeBtnText}>{t('familyPlans.compare.comparePlans')}</Text>
             </Pressable>
           </View>
@@ -639,22 +715,26 @@ export default function FamilyPlansScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   pageHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 4,
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
   },
+  pageTitleWrap: { flex: 1, alignItems: 'center' },
   pageTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: TEXT_PRIMARY,
     textAlign: 'center',
   },
+  pageHeaderSpacer: { width: 40 },
   content: { padding: 16, paddingBottom: 48, gap: 16 },
   heroGradient: {
     borderRadius: SmartCartRadius.lg,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'rgba(22,163,74,0.4)',
+    borderColor: FamilyWorkspaceTheme.bannerBorder,
     gap: 12,
   },
   heroCard: {
@@ -692,17 +772,38 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   tierBadgeText: { fontSize: 12, fontWeight: '700' },
+  workspaceOverviewCard: {
+    borderRadius: SmartCartRadius.lg,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: FamilyWorkspaceTheme.bannerBorder,
+    backgroundColor: FamilyWorkspaceTheme.bannerBg,
+    gap: 8,
+  },
+  workspaceOverviewTitle: { fontSize: 16, fontWeight: '800', color: TEXT_PRIMARY },
+  workspaceOverviewItem: { fontSize: 14, color: TEXT_MUTED, lineHeight: 21 },
+  workspaceOverviewHint: { fontSize: 13, color: TEXT_DIM, lineHeight: 19, marginTop: 4 },
   upgradeBtn: {
-    backgroundColor: GREEN,
+    backgroundColor: FAMILY,
     borderRadius: 999,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 4,
   },
   upgradeBtnText: { fontSize: 15, fontWeight: '700', color: '#000' },
+  previewWorkspaceBtn: {
+    backgroundColor: FamilyWorkspaceTheme.heroBadgeBg,
+    borderRadius: 999,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: FamilyWorkspaceTheme.syncCardBorder,
+  },
+  previewWorkspaceBtnBusy: { opacity: 0.7 },
+  previewWorkspaceBtnText: { fontSize: 15, fontWeight: '700', color: FamilyWorkspaceTheme.accentLight },
   householdLink: { marginTop: 8, paddingVertical: 6 },
   householdLinkText: { fontSize: 13, color: TEXT_MUTED, textAlign: 'center', lineHeight: 19 },
-  householdLinkAccent: { color: GREEN_DARK, fontWeight: '600' },
+  householdLinkAccent: { color: FAMILY_DARK, fontWeight: '600' },
   sectionCard: {
     backgroundColor: CARD_BG,
     borderRadius: SmartCartRadius.lg,
@@ -751,8 +852,8 @@ const styles = StyleSheet.create({
   },
   codeDisplayPro: { borderColor: 'rgba(34,197,94,0.25)' },
   codeDisplayHousehold: {
-    borderColor: 'rgba(22,163,74,0.4)',
-    backgroundColor: 'rgba(22,163,74,0.1)',
+    borderColor: FamilyWorkspaceTheme.syncCardBorder,
+    backgroundColor: FamilyWorkspaceTheme.syncCardBg,
   },
   codeValue: {
     fontSize: 26,
@@ -773,7 +874,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
   },
-  primaryBtnHousehold: { backgroundColor: GREEN_DARK },
+  primaryBtnHousehold: { backgroundColor: FAMILY_DARK },
   primaryBtnMuted: {
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
@@ -803,11 +904,11 @@ const styles = StyleSheet.create({
   metaText: { fontSize: 12, color: TEXT_DIM, textAlign: 'center' },
   syncCardPro: { borderColor: 'rgba(34,197,94,0.2)' },
   syncCardHousehold: {
-    borderColor: 'rgba(22,163,74,0.45)',
-    backgroundColor: 'rgba(22,163,74,0.1)',
+    borderColor: FamilyWorkspaceTheme.syncCardBorder,
+    backgroundColor: FamilyWorkspaceTheme.syncCardBg,
   },
   liveBadge: {
-    backgroundColor: 'rgba(22,163,74,0.22)',
+    backgroundColor: FamilyWorkspaceTheme.liveBadgeBg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,

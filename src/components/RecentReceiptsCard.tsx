@@ -13,6 +13,8 @@ import { getReceiptDisplayTotal } from '@/src/utils/receiptTotals';
 
 type Props = {
   receipts: Receipt[];
+  /** When viewing the household workspace, open receipt detail in workspace scope. */
+  receiptScope?: 'personal' | 'workspace';
 };
 
 const MAX_VISIBLE_ROWS = 4;
@@ -38,10 +40,19 @@ function ReceiptRow({ receipt, onPress }: { receipt: Receipt; onPress: () => voi
   );
 }
 
-export const RecentReceiptsCard = memo(function RecentReceiptsCard({ receipts }: Props) {
+export const RecentReceiptsCard = memo(function RecentReceiptsCard({
+  receipts,
+  receiptScope = 'personal',
+}: Props) {
   const { t } = useTranslation();
   const router = useRouter();
-  const openReceipt = (id: string) => router.push(`/receipt/${id}`);
+  const openReceipt = (id: string) => {
+    if (receiptScope === 'workspace') {
+      router.push({ pathname: '/receipt/[id]', params: { id, scope: 'workspace' } });
+      return;
+    }
+    router.push(`/receipt/${id}`);
+  };
   const openAll = () => router.push('/(tabs)/receipts');
 
   const rows = receipts.map((receipt, index) => (

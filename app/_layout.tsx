@@ -17,6 +17,9 @@ import { useColorScheme } from '@/components/useColorScheme';
 import { BackButton } from '@/src/components/BackButton';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { DevConnectionBanner } from '@/src/components/DevConnectionBanner';
+import { DevFamilyPreviewBanner } from '@/src/components/DevFamilyPreviewBanner';
+import { DevFamilyPreviewBootstrap } from '@/src/components/DevFamilyPreviewBootstrap';
+import { ProAppearanceScopeGuard } from '@/src/components/ProAppearanceScopeGuard';
 import { MaintenanceBanner } from '@/src/components/MaintenanceBanner';
 import { StorageSlowBanner } from '@/src/components/StorageSlowBanner';
 import { GlobalErrorBoundary, ErrorBoundary } from '@/src/components/GlobalErrorBoundary';
@@ -49,6 +52,7 @@ import { canAccessWorkspaceFeature } from '@/src/services/featureGateService';
 import { startFamilyRealtimeSync } from '@/src/services/familySyncService';
 import { AuthSessionGuard } from '@/src/components/AuthSessionGuard';
 import { FamilyCheckoutSuccessSync } from '@/src/components/FamilyCheckoutSuccessSync';
+import { ReceiptProcessingBootstrap } from '@/src/components/ReceiptProcessingBootstrap';
 
 export { ErrorBoundary };
 
@@ -130,6 +134,10 @@ function ensureAppInitialized(): Promise<void> {
         useSettingsStore.getState().loadSettings(),
         initializeSubscriptionProvider(),
       ]);
+    });
+    await runInitStep('notifications', async () => {
+      const { initializeNotificationSystem } = await import('@/src/services/notificationService');
+      await initializeNotificationSystem();
     });
     await runInitStep('profile name', async () => {
       const session = await getSession();
@@ -326,9 +334,13 @@ export default function RootLayout() {
                   <UpgradePromptProvider>
                     <TrialReminderProvider>
                       <FamilyCheckoutSuccessSync />
+                      <ReceiptProcessingBootstrap />
                       <FamilyRealtimeBootstrap />
+                      <DevFamilyPreviewBootstrap />
+                      <ProAppearanceScopeGuard />
                       <AuthSessionGuard />
                       <DevConnectionBanner />
+                      <DevFamilyPreviewBanner />
                       <MaintenanceBanner />
                       <StorageSlowBanner />
                       <RootLayoutNav />
@@ -370,6 +382,27 @@ function RootLayoutNav() {
         <Stack.Screen
           name="settings/index"
           options={{
+            headerShown: false,
+            contentStyle: {
+              backgroundColor: SmartCartColors.background,
+              overflow: 'visible',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="settings/notifications"
+          options={{
+            headerShown: false,
+            contentStyle: {
+              backgroundColor: SmartCartColors.background,
+              overflow: 'visible',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="settings/privacy"
+          options={{
+            headerShown: false,
             contentStyle: {
               backgroundColor: SmartCartColors.background,
               overflow: 'visible',
@@ -379,6 +412,16 @@ function RootLayoutNav() {
         <Stack.Screen
           name="settings/budget"
           options={{
+            contentStyle: {
+              backgroundColor: SmartCartColors.background,
+              overflow: 'visible',
+            },
+          }}
+        />
+        <Stack.Screen
+          name="family_plans/index"
+          options={{
+            headerShown: false,
             contentStyle: {
               backgroundColor: SmartCartColors.background,
               overflow: 'visible',

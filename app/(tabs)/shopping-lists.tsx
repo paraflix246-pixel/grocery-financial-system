@@ -84,6 +84,11 @@ import { loadCheckedIds, saveCheckedIds } from '@/src/utils/listCheckedStorage';
 
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
+import { FamilyWorkspaceScopeAccent } from '@/src/components/FamilyWorkspaceScopeAccent';
+import { FamilyWorkspaceShell } from '@/src/components/FamilyWorkspaceShell';
+import { WorkspaceScopeBar } from '@/src/components/WorkspaceScopeBar';
+
 import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 
@@ -107,6 +112,8 @@ export default function ListsScreen() {
   const itemsByList = useListStore((s) => s.itemsByList);
 
   const { unlocked: familyShareUnlocked, requestAccess: requestFamilyShare } = useFeatureGate('family_plans');
+
+  const fw = useFamilyWorkspaceScreenTheme();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -696,11 +703,13 @@ export default function ListsScreen() {
 
     return (
 
-      <View style={styles.center}>
+      <FamilyWorkspaceShell>
+      <View style={[styles.center, fw.screen]}>
 
-        <ActivityIndicator size="large" color={SmartCartColors.primary} />
+        <ActivityIndicator size="large" color={fw.activityColor} />
 
       </View>
+      </FamilyWorkspaceShell>
 
     );
 
@@ -710,12 +719,18 @@ export default function ListsScreen() {
 
   return (
 
-    <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
+    <FamilyWorkspaceShell>
+    <View style={[styles.container, fw.screen, { paddingTop: insets.top + 12 }]}>
 
       <View style={styles.headerWrap}>
 
         <AppHeader />
 
+      </View>
+
+      <View style={styles.scopeBarWrap}>
+        <FamilyWorkspaceScopeAccent />
+        <WorkspaceScopeBar />
       </View>
 
 
@@ -732,7 +747,12 @@ export default function ListsScreen() {
 
         <Pressable
 
-          style={({ pressed }) => [styles.newListBtn, pressed && styles.pressed, creating && styles.disabled]}
+          style={({ pressed }) => [
+            styles.newListBtn,
+            fw.isFamilyScope && { backgroundColor: fw.primary, borderColor: fw.primaryDark },
+            pressed && styles.pressed,
+            creating && styles.disabled,
+          ]}
 
           accessibilityRole="button"
 
@@ -762,7 +782,7 @@ export default function ListsScreen() {
 
           Platform.OS === 'web' ? undefined : (
 
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={SmartCartColors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={fw.activityColor} />
 
           )
 
@@ -944,6 +964,7 @@ export default function ListsScreen() {
       </AppBottomSheetModal>
 
     </View>
+    </FamilyWorkspaceShell>
 
   );
 
@@ -957,13 +978,13 @@ const styles = StyleSheet.create({
 
     flex: 1,
 
-    backgroundColor: SmartCartColors.background,
-
     ...(Platform.OS === 'web' ? { overflow: 'hidden' as const } : null),
 
   },
 
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: SmartCartColors.background },
+  scopeBarWrap: { paddingHorizontal: 16, paddingBottom: 4 },
+
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   headerWrap: { paddingHorizontal: 16 },
 

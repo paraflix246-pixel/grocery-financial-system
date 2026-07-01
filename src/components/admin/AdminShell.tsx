@@ -20,7 +20,7 @@ import {
   SIDEBAR_WIDTH,
   TOUCH_TARGET,
 } from '@/src/components/admin/utils';
-import { signOut } from '@/src/services/authService';
+import { signOutAndNavigate } from '@/src/utils/logoutRouting';
 import { AdminColors, AdminRadius, AdminShadow } from '@/src/theme/adminTheme';
 
 type AdminShellProps = {
@@ -52,8 +52,7 @@ export function AdminShell({
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = async () => {
-    await signOut();
-    router.replace('/');
+    await signOutAndNavigate(router);
   };
 
   const navContent = (

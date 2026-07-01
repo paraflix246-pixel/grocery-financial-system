@@ -20,7 +20,19 @@ describe('resolvePostOAuthRoute', () => {
     assert.equal(result.reason, 'admin');
   });
 
-  it('routes non-admin users to onboarding upgrade', () => {
+  it('routes signup OAuth to join-household', () => {
+    const result = resolvePostOAuthRoute(false, 'web', 'signup');
+    assert.equal(result.href, '/onboarding/join-household');
+    assert.equal(result.reason, 'join_household');
+  });
+
+  it('routes signin OAuth to onboarding upgrade', () => {
+    const result = resolvePostOAuthRoute(false, 'web', 'signin');
+    assert.equal(result.href, '/onboarding/upgrade');
+    assert.equal(result.reason, 'upgrade');
+  });
+
+  it('defaults non-admin users to onboarding upgrade', () => {
     const result = resolvePostOAuthRoute(false, 'web');
     assert.equal(result.href, '/onboarding/upgrade');
     assert.equal(result.reason, 'upgrade');

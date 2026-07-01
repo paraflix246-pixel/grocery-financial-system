@@ -27,6 +27,12 @@ import {
 } from '@/src/components/mockup/MockupUI';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { WorkspaceScopeBar } from '@/src/components/WorkspaceScopeBar';
+import { FamilyWorkspaceScopeAccent } from '@/src/components/FamilyWorkspaceScopeAccent';
+import { FamilyWorkspaceShell } from '@/src/components/FamilyWorkspaceShell';
+import { PantryInsightCards } from '@/src/components/PantryInsightCards';
+import { buildPantryInsights } from '@/src/services/pantryInsightService';
+import type { PantryInsightCard } from '@/src/services/pantryInsightService';
+import { loadReceiptsForScope } from '@/src/services/scopedReceiptService';
 import { loadPantryItemsForScope } from '@/src/services/scopedPantryService';
 import {
   addWorkspacePantryItem,
@@ -56,6 +62,7 @@ import {
   type PantryItemView,
 } from '@/src/services/pantryService';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { useFocusReload } from '@/src/hooks/useFocusReload';
 import { PantryLimitError } from '@/src/services/tierLimits';
 import { promptPantryLimitReached } from '@/src/utils/promptPantryLimit';
@@ -110,6 +117,7 @@ export default function PantryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [items, setItems] = useState<PantryItemView[]>([]);
+  const [pantryInsights, setPantryInsights] = useState<PantryInsightCard[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectMode, setSelectMode] = useState(false);
@@ -131,12 +139,20 @@ export default function PantryScreen() {
   const activeScope = useWorkspaceStore((s) => s.activeScope);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const isWorkspaceView = activeScope === 'workspace';
+  const fw = useFamilyWorkspaceScreenTheme();
 
   const quickAddItems = useMemo(() => getPantryQuickAddItems(), []);
 
   const load = useCallback(async () => {
-    setItems(await loadPantryItemsForScope(activeScope, currentWorkspaceId));
-  }, [activeScope, currentWorkspaceId]);
+    const loadedItems = await loadPantryItemsForScope(activeScope, currentWorkspaceId);
+    setItems(loadedItems);
+    if (!isWorkspaceView) {
+      const receipts = await loadReceiptsForScope(activeScope, currentWorkspaceId);
+      setPantryInsights(buildPantryInsights({ pantryItems: loadedItems, receipts }));
+    } else {
+      setPantryInsights([]);
+    }
+  }, [activeScope, currentWorkspaceId, isWorkspaceView]);
 
   const { blocking } = useFocusReload(load);
 
@@ -509,7 +525,7 @@ export default function PantryScreen() {
     return (
       <Pressable
         key={item.id}
-        style={[styles.listRow, selected && styles.listRowSelected]}
+        style={[styles.listRow, fw.cardSurface, selected && styles.listRowSelected]}
         onPress={() => handleRowPress(item)}
         onLongPress={() => handleRowLongPress(item)}>
         {selectMode ? (
@@ -552,7 +568,8 @@ export default function PantryScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <FamilyWorkspaceShell>
+    <View style={[styles.container, fw.screen]}>
       <ScreenHeader
         title={t('pantry.title')}
         rightAction={
@@ -564,11 +581,12 @@ export default function PantryScreen() {
         }
       />
       <View style={styles.scopeBarWrap}>
+        <FamilyWorkspaceScopeAccent />
         <WorkspaceScopeBar />
       </View>
       {blocking ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={SmartCartColors.primary} />
+          <ActivityIndicator size="large" color={fw.activityColor} />
         </View>
       ) : (
         <>
@@ -578,18 +596,20 @@ export default function PantryScreen() {
             style={showModal ? styles.listHiddenUnderModal : undefined}>
             <MockupScreenTitle title={t('pantry.title')} subtitle={t('pantry.subtitle')} />
 
+            {pantryInsights.length > 0 ? <PantryInsightCards insights={pantryInsights} /> : null}
+
             <View style={styles.statsRow}>
-              <MockupCard style={styles.statCard}>
+              <MockupCard style={[styles.statCard, fw.cardSurface]}>
                 <Text style={styles.statValue}>{stats.total}</Text>
                 <Text style={styles.statLabel}>Items in Pantry</Text>
               </MockupCard>
-              <MockupCard style={styles.statCard}>
+              <MockupCard style={[styles.statCard, fw.cardSurface]}>
                 <Text style={[styles.statValue, stats.runningLow > 0 && styles.statValueWarn]}>
                   {stats.runningLow}
                 </Text>
                 <Text style={styles.statLabel}>Running Low</Text>
               </MockupCard>
-              <MockupCard style={styles.statCard}>
+              <MockupCard style={[styles.statCard, fw.cardSurface]}>
                 <Text style={[styles.statValue, stats.expiringSoon > 0 && styles.statValueExpiring]}>
                   {stats.expiringSoon}
                 </Text>
@@ -876,7 +896,7 @@ export default function PantryScreen() {
       </AppBottomSheetModal>
 
       {!blocking && selectMode && selectedIds.size > 0 ? (
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <View style={[styles.footer, fw.footer, { paddingBottom: insets.bottom + 12 }]}>
           <Pressable style={styles.deleteBulkBtn} onPress={confirmBulkDelete}>
             <Text style={styles.deleteBulkBtnText}>Delete ({selectedIds.size})</Text>
           </Pressable>
@@ -885,6 +905,7 @@ export default function PantryScreen() {
         <View
           style={[
             styles.footer,
+            fw.footer,
             isAddModalOpen && styles.footerAboveModal,
             { paddingBottom: insets.bottom + 12 },
           ]}>
@@ -898,11 +919,12 @@ export default function PantryScreen() {
 
       <UndoSnackbar pending={undoPending} onUndo={() => void undo()} bottomInset={insets.bottom + 72} />
     </View>
+    </FamilyWorkspaceShell>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: SmartCartColors.background },
+  container: { flex: 1 },
   scopeBarWrap: { paddingHorizontal: 16, paddingTop: 4 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { padding: 16, paddingBottom: 100 },
@@ -932,12 +954,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.lg,
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: SmartCartColors.border,
     ...SmartCartShadow.cardSoft,
   },
   listRowSelected: { borderColor: SmartCartColors.primary, backgroundColor: SmartCartColors.badge },
@@ -988,9 +1008,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: 16,
     paddingTop: 12,
-    backgroundColor: SmartCartColors.background,
     borderTopWidth: 1,
-    borderTopColor: SmartCartColors.border,
   },
   footerAboveModal: Platform.select({
     web: { zIndex: 60 },

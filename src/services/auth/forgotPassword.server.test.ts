@@ -5,7 +5,7 @@ import {
   extractAuthProviders,
   isOAuthOnlyAccount,
   primaryOAuthProvider,
-} from './forgotPassword.server';
+} from './authIdentityLogic';
 
 describe('forgotPassword.server', () => {
   it('detects Google-only accounts', () => {

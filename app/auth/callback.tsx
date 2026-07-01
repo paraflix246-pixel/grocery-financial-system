@@ -1,12 +1,11 @@
-import { useRouter, type Href } from 'expo-router';
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
-import { isAdminUser, syncUserProfile } from '@/src/services/admin/adminApiService';
-import { recordActivityTimestamp } from '@/src/services/authRoutingService';
+import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
 import { syncAuthUserFromSession } from '@/src/services/authService';
-import { resolvePostOAuthRoute } from '@/src/services/postAuthRoutingLogic';
+import { setOAuthIntent } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { SmartCartColors } from '@/src/theme/smartCart';
 
@@ -14,6 +13,7 @@ const BOOT_LABEL = 'Signing you in';
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
+  const { intent } = useLocalSearchParams<{ intent?: string }>();
   const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,20 +22,16 @@ export default function AuthCallbackScreen() {
 
     void (async () => {
       try {
-        await syncAuthUserFromSession();
-        await syncUserProfile();
-        await recordActivityTimestamp();
-
         if (cancelled) return;
-
-        const platform = Platform.OS === 'web' ? 'web' : 'native';
-        const route = resolvePostOAuthRoute(isAdminUser(), platform);
-
-        if (route.reason === 'admin') {
-          await completeOnboarding();
+        if (intent === 'signup') {
+          await setOAuthIntent('signup');
         }
-
-        router.replace(route.href as Href);
+        if (intent === 'email-change') {
+          await syncAuthUserFromSession();
+          router.replace('/settings?emailChanged=1');
+          return;
+        }
+        await completeOAuthAndRoute(router, completeOnboarding);
       } catch (callbackError) {
         if (!cancelled) {
           setError(
@@ -50,7 +46,7 @@ export default function AuthCallbackScreen() {
     return () => {
       cancelled = true;
     };
-  }, [completeOnboarding, router]);
+  }, [completeOnboarding, intent, router]);
 
   return (
     <View style={styles.boot} accessibilityRole="progressbar" accessibilityLabel={BOOT_LABEL}>

@@ -29,12 +29,24 @@ async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const payload = (await response.json().catch(() => null)) as T | { error?: string } | null;
 
   if (!response.ok) {
+    const payloadObj =
+      payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null;
     const message =
-      payload && typeof payload === 'object' && 'error' in payload && payload.error
-        ? payload.error
+      payloadObj && typeof payloadObj.error === 'string' && payloadObj.error
+        ? payloadObj.error
         : `Request failed (${response.status})`;
-    const err = new Error(message) as Error & { status?: number };
+    const err = new Error(message) as Error & {
+      status?: number;
+      missingEnv?: string[];
+      hint?: string;
+    };
     err.status = response.status;
+    if (Array.isArray(payloadObj?.missingEnv)) {
+      err.missingEnv = payloadObj.missingEnv.filter((value): value is string => typeof value === 'string');
+    }
+    if (typeof payloadObj?.hint === 'string') {
+      err.hint = payloadObj.hint;
+    }
     throw err;
   }
 
@@ -538,18 +550,38 @@ export async function syncUserProfile(options?: { force?: boolean }): Promise<Sy
   return profileSyncInFlight;
 }
 
-export async function verifyAdminAccess(): Promise<
-  'ok' | 'unauthorized' | 'forbidden' | 'unavailable' | 'server_error'
-> {
+export type AdminAccessVerification = {
+  status: 'ok' | 'unauthorized' | 'forbidden' | 'unavailable' | 'server_error';
+  message?: string;
+};
+
+function formatAdminUnavailableMessage(error: Error & { missingEnv?: string[]; hint?: string }): string {
+  const missing = error.missingEnv?.filter(Boolean) ?? [];
+  if (missing.length === 0) {
+    return 'Admin system is not configured on the server.';
+  }
+  const hint = error.hint?.trim();
+  return `Admin system is not configured. Missing: ${missing.join(', ')}.${hint ? ` ${hint}` : ''}`;
+}
+
+export async function verifyAdminAccess(): Promise<AdminAccessVerification> {
   try {
     await fetchAdminStats();
-    return 'ok';
+    return { status: 'ok' };
   } catch (error) {
-    const status = (error as Error & { status?: number }).status;
-    if (status === 401) return 'unauthorized';
-    if (status === 403) return 'forbidden';
-    if (status === 503) return 'unavailable';
-    if (status === 502) return 'server_error';
-    return 'forbidden';
+    const err = error as Error & { status?: number; missingEnv?: string[]; hint?: string };
+    const status = err.status;
+    if (status === 401) return { status: 'unauthorized' };
+    if (status === 403) return { status: 'forbidden' };
+    if (status === 503) {
+      return { status: 'unavailable', message: formatAdminUnavailableMessage(err) };
+    }
+    if (status === 502) {
+      return {
+        status: 'server_error',
+        message: 'Admin dashboard is temporarily unavailable. Try again in a moment.',
+      };
+    }
+    return { status: 'forbidden' };
   }
 }

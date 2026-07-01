@@ -1,16 +1,21 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ReceiptImageViewer } from '@/src/components/receipt/ReceiptImageViewer';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/Themed';
 import { UndoSnackbar } from '@/src/components/UndoSnackbar';
 import { useUndoDelete } from '@/src/hooks/useUndoDelete';
 import { ComparisonSummary } from '@/src/components/ComparisonSummary';
+import { FamilyWorkspaceShell } from '@/src/components/FamilyWorkspaceShell';
+import { StatusBanner } from '@/src/components/StatusBanner';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { StoreLocationSection } from '@/src/components/StoreLocationSection';
 import { LocationBackfillBanner } from '@/src/components/LocationBackfillBanner';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { shareSingleReceiptExport } from '@/src/services/receiptExportService';
 import { formatUnitPriceLabel } from '@/src/utils/unitPriceParser';
 import { getComparisonForReceipt } from '@/src/services/analyticsService';
@@ -54,11 +59,18 @@ function ReceiptLineItem({ item }: { item: ReceiptItem }) {
 }
 
 export default function ReceiptDetailScreen() {
-  const { id, scope: scopeParam } = useLocalSearchParams<{ id: string; scope?: string }>();
+  const { t } = useTranslation();
+  const { id, scope: scopeParam, fromSave } = useLocalSearchParams<{
+    id: string;
+    scope?: string;
+    fromSave?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const isWorkspaceReceipt = scopeParam === 'workspace';
+  const showGoHome = fromSave === '1';
+  const fw = useFamilyWorkspaceScreenTheme({ active: isWorkspaceReceipt });
   const { unlocked: exportUnlocked, requestAccess: requestExportAccess } = useFeatureGate('export_advanced');
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
@@ -180,8 +192,11 @@ export default function ReceiptDetailScreen() {
     total: receipt.total,
   });
 
+  const goHome = () => router.replace('/(tabs)');
+
   return (
-    <View style={styles.container}>
+    <FamilyWorkspaceShell active={isWorkspaceReceipt}>
+    <View style={[styles.container, isWorkspaceReceipt && fw.screen]}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Receipt Details</Text>
@@ -195,6 +210,23 @@ export default function ReceiptDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        {showGoHome ? (
+          <View style={styles.postSaveSection}>
+            <StatusBanner message={t('receipt.savedSuccess')} emoji="✓" />
+            <Pressable
+              style={[styles.homeBtn, isWorkspaceReceipt && { backgroundColor: fw.primary }]}
+              onPress={goHome}
+              accessibilityRole="button">
+              <SymbolView
+                name={{ ios: 'house.fill', android: 'home', web: 'home' }}
+                tintColor="#fff"
+                size={18}
+              />
+              <Text style={styles.homeBtnText}>{t('receipt.goToHome')}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={styles.storeHeader}>
           <View style={styles.storeLeft}>
             <StoreBrandAvatar store={receipt.storeName} size={48} />
@@ -204,7 +236,11 @@ export default function ReceiptDetailScreen() {
             </View>
           </View>
           {receipt.imageUri ? (
-            <Image source={{ uri: receipt.imageUri }} style={styles.thumb} resizeMode="cover" />
+            <ReceiptImageViewer
+              imageUri={receipt.imageUri}
+              thumbnailStyle={styles.thumb}
+              accentColor={isWorkspaceReceipt ? fw.primary : undefined}
+            />
           ) : null}
         </View>
 
@@ -254,10 +290,12 @@ export default function ReceiptDetailScreen() {
             <Text style={styles.summaryLabel}>Subtotal</Text>
             <Text style={styles.summaryValue}>{formatCurrency(subtotal)}</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Tax</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(tax)}</Text>
-          </View>
+          {tax > 0 ? (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Tax</Text>
+              <Text style={styles.summaryValue}>{formatCurrency(tax)}</Text>
+            </View>
+          ) : null}
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
@@ -280,6 +318,7 @@ export default function ReceiptDetailScreen() {
 
       <UndoSnackbar pending={undoPending} onUndo={() => void undo()} bottomInset={insets.bottom + 24} />
     </View>
+    </FamilyWorkspaceShell>
   );
 }
 
@@ -297,6 +336,17 @@ const styles = StyleSheet.create({
   headerSpacer: { width: 72 },
   editLink: { fontSize: 16, fontWeight: '600', color: SmartCartColors.primary },
   content: { padding: 16, paddingBottom: 40 },
+  postSaveSection: { marginBottom: 20, gap: 12 },
+  homeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: SmartCartColors.primary,
+    borderRadius: SmartCartRadius.md,
+    padding: 16,
+  },
+  homeBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   storeHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
   storeLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   storeName: { fontSize: 22, fontWeight: '800', color: SmartCartColors.text },

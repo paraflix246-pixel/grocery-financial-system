@@ -41,20 +41,34 @@ describe('getEffectiveTaxRateLabel', () => {
     assert.equal(label, 'HST 13%');
   });
 
-  it('derives rate on standard subtotal + tax footers with receipt address', () => {
+  it('does not derive rate from subtotal and tax when receipt omitted a rate', () => {
     const label = getEffectiveTaxRateLabel({
       subtotal: 14.77,
       tax: 1.18,
       total: 15.95,
-      storeRegion: 'TX',
+      storeRegion: 'AZ',
       storeCountry: 'US',
-      storeCity: 'Houston',
-      storePostalCode: '77082',
+      storeCity: 'Phoenix',
+      storePostalCode: '85001',
     });
-    assert.equal(label, 'TX tax 7.99%');
+    assert.equal(label, null);
   });
 
-  it('uses generic tax label when state was not printed on the receipt', () => {
+  it('shows printed rate from OCR when receipt includes a percentage', () => {
+    const label = getEffectiveTaxRateLabel({
+      subtotal: 14.77,
+      tax: 1.18,
+      total: 15.95,
+      printedTaxRate: 7.99,
+      storeRegion: 'AZ',
+      storeCountry: 'US',
+      storeCity: 'Phoenix',
+      storePostalCode: '85001',
+    });
+    assert.equal(label, 'AZ tax 7.99%');
+  });
+
+  it('does not infer generic tax rate without a printed percentage', () => {
     const label = getEffectiveTaxRateLabel({
       subtotal: 518.85,
       tax: 42.77,
@@ -62,7 +76,7 @@ describe('getEffectiveTaxRateLabel', () => {
       storeRegion: 'PA',
       storeCountry: 'US',
     });
-    assert.equal(label, 'Tax rate 8.24%');
+    assert.equal(label, null);
   });
 });
 
@@ -78,5 +92,18 @@ describe('formatTaxSummary', () => {
     });
     assert.match(summary ?? '', /HST 13%/);
     assert.match(summary ?? '', /\$2\.53/);
+  });
+
+  it('returns null for Walmart-style TAX amount without printed rate', () => {
+    const summary = formatTaxSummary({
+      subtotal: 14.77,
+      tax: 1.18,
+      total: 15.95,
+      storeRegion: 'AZ',
+      storeCountry: 'US',
+      storeCity: 'Phoenix',
+      storePostalCode: '85001',
+    });
+    assert.equal(summary, null);
   });
 });

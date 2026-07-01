@@ -21,11 +21,19 @@ function getSupabaseUrl(): string {
   return url;
 }
 
+export function getMissingSupabaseAdminEnvVars(): string[] {
+  const missing: string[] = [];
+  if (!process.env.EXPO_PUBLIC_SUPABASE_URL?.trim()) {
+    missing.push('EXPO_PUBLIC_SUPABASE_URL');
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+    missing.push('SUPABASE_SERVICE_ROLE_KEY');
+  }
+  return missing;
+}
+
 export function isSupabaseAdminConfigured(): boolean {
-  return Boolean(
-    process.env.EXPO_PUBLIC_SUPABASE_URL?.trim() &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-  );
+  return getMissingSupabaseAdminEnvVars().length === 0;
 }
 
 export function getSupabaseAdmin(): SupabaseClient {

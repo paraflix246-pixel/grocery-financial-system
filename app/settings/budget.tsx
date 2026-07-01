@@ -3,6 +3,8 @@ import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -89,7 +91,7 @@ export default function BudgetSettingsScreen() {
     );
     await saveSettings(budget, Math.min(Math.max(threshold, 0.5), 1), categoryLimits);
     setEditing(false);
-    await load();
+    void load();
   };
 
   if (loading) {
@@ -103,6 +105,9 @@ export default function BudgetSettingsScreen() {
   const percent = monthlyBudget > 0 ? monthlySpent / monthlyBudget : 0;
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
@@ -181,6 +186,7 @@ export default function BudgetSettingsScreen() {
         ))}
       </ScrollView>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 

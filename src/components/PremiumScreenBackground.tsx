@@ -2,6 +2,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 
 type Props = {
@@ -11,28 +12,32 @@ type Props = {
 
 /**
  * Theme-aware screen wrapper with a subtle top wash and corner accent glow.
- * One gradient stack per screen — minimal perf impact.
+ * Switches to warm Family workspace palette when Household scope is active.
  */
 export function PremiumScreenBackground({ children, style }: Props) {
   const { theme } = useAppTheme();
-  const glowOpacity = theme.isPremium ? 1 : 0.55;
+  const fw = useFamilyWorkspaceScreenTheme();
+  const background = fw.isFamilyScope ? fw.background : theme.background;
+  const gradientTop = fw.isFamilyScope ? fw.backgroundGradientTop : theme.backgroundGradientTop;
+  const accentGlow = fw.isFamilyScope ? fw.accentGlow : theme.accentGlow;
+  const glowOpacity = fw.isFamilyScope ? 0.85 : theme.isPremium ? 1 : 0.55;
 
   return (
-    <View style={[styles.root, { backgroundColor: theme.background }, style]}>
+    <View style={[styles.root, { backgroundColor: background }, style]}>
       <LinearGradient
-        colors={[theme.backgroundGradientTop, 'transparent']}
+        colors={[gradientTop, 'transparent']}
         style={styles.topWash}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={[theme.accentGlow, 'transparent']}
+        colors={[accentGlow, 'transparent']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.cornerGlowLeft, { opacity: glowOpacity }]}
         pointerEvents="none"
       />
       <LinearGradient
-        colors={[theme.accentGlow, 'transparent']}
+        colors={[accentGlow, 'transparent']}
         start={{ x: 1, y: 0 }}
         end={{ x: 0, y: 1 }}
         style={[styles.cornerGlowRight, { opacity: glowOpacity }]}

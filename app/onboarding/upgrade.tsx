@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useBudgetStore } from '@/src/store/useBudgetStore';
@@ -15,6 +15,8 @@ import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { useAdminPaywallBypass } from '@/src/hooks/useAdminPaywallBypass';
 import { ProPlanFeaturesList } from '@/src/components/ProPlanFeaturesList';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
+import { resolveAppUserId } from '@/src/services/authService';
+import { shouldShowPaywallFreeJoinFallback } from '@/src/services/onboardingFlowState';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 import {
   COMMIT_NOTE,
@@ -42,8 +44,13 @@ export default function UpgradeScreen() {
   const [upgrading, setUpgrading] = useState(false);
 
   async function handleStartFree() {
+    const userId = await resolveAppUserId();
+    if (await shouldShowPaywallFreeJoinFallback(userId)) {
+      router.push('/onboarding/join-household?from=paywall-free' as Href);
+      return;
+    }
     await completeOnboarding();
-    router.replace('/(tabs)');
+    router.replace('/(tabs)' as Href);
   }
 
   async function handleStartTrial() {

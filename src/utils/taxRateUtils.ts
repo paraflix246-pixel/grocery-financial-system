@@ -155,21 +155,33 @@ export function getEffectiveTaxRateLabel(
 
 
 
-  const rate = (tax / subtotal) * 100;
+  const printedRate = draft.printedTaxRate;
+
+  if (printedRate == null || printedRate <= 0) return null;
+
+
+
+  const rateLabel = Number.isInteger(printedRate)
+
+    ? `${printedRate}%`
+
+    : `${printedRate.toFixed(2)}%`;
+
+
 
   if (isCanada) {
 
-    return `HST/GST ${rate.toFixed(2)}%`;
+    return `HST ${rateLabel}`;
 
   }
 
   if (region && hasReceiptPrintedAddress(draft)) {
 
-    return `${region} tax ${rate.toFixed(2)}%`;
+    return `${region} tax ${rateLabel}`;
 
   }
 
-  return `Tax rate ${rate.toFixed(2)}%`;
+  return `Tax ${rateLabel}`;
 
 }
 

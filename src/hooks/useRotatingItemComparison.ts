@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { InteractionManager } from 'react-native';
 
 import type { ListItem } from '@/src/models/types';
+import { buildComparisonListSignature } from '@/src/hooks/useRotatingItemComparisonLogic';
 import {
   CART_ITEM_ROTATION_MS,
   getRotatingItemComparisons,
@@ -31,9 +32,9 @@ export function useRotatingItemComparison(
     loading: true,
     rotationKey: 0,
   });
-  const listSignature = listItems
-    .map((item) => `${item.id}:${item.name}:${item.quantity}:${item.storePreference ?? ''}`)
-    .join('|');
+  const listSignature = buildComparisonListSignature(listItems);
+  const listItemsRef = useRef(listItems);
+  listItemsRef.current = listItems;
 
   /** Ignore stale responses when a newer load (especially forceRefresh) starts. */
   const loadGenerationRef = useRef(0);
@@ -41,8 +42,9 @@ export function useRotatingItemComparison(
   const loadComparisons = useCallback(
     async (forceRefresh = false) => {
       const effectiveForceRefresh = forceRefresh || alwaysForceRefresh;
+      const items = listItemsRef.current;
 
-      if (listItems.length === 0) {
+      if (items.length === 0) {
         loadGenerationRef.current += 1;
         setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
         return;
@@ -51,7 +53,7 @@ export function useRotatingItemComparison(
       const loadGeneration = ++loadGenerationRef.current;
       setState((prev) => ({ ...prev, loading: true }));
       try {
-        const comparisons = await getRotatingItemComparisons(listItems, {
+        const comparisons = await getRotatingItemComparisons(items, {
           forceRefresh: effectiveForceRefresh,
         });
         if (loadGeneration !== loadGenerationRef.current) return;
@@ -67,15 +69,20 @@ export function useRotatingItemComparison(
         setState({ comparisons: [], currentIndex: 0, loading: false, rotationKey: 0 });
       }
     },
-    [alwaysForceRefresh, listItems]
+    [alwaysForceRefresh]
   );
 
   useEffect(() => {
+    let cancelled = false;
     const task = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
       void loadComparisons(false);
     });
-    return () => task.cancel();
-  }, [loadComparisons, listSignature]);
+    return () => {
+      cancelled = true;
+      task.cancel();
+    };
+  }, [listSignature, loadComparisons]);
 
   const advance = useCallback(() => {
     setState((prev) => {

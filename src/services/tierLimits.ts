@@ -12,8 +12,8 @@ import {
   TIER_LIMITS,
   type TierLimitConfig,
 } from '@/src/constants/tierLimitsConfig';
-import type { TierGatedFeature } from '@/src/constants/tierLimitsConfig';
 import type { GatedFeature } from '@/src/services/featureGateService';
+import { canAccessFeature, hasProInCurrentScopeFromStores } from '@/src/services/featureGateService';
 import { getPantryItems, getReceipts } from '@/src/services/storageService';
 import { useSubscriptionStore, type SubscriptionTier } from '@/src/store/useSubscriptionStore';
 import { normalizeReceiptDate } from '@/src/utils/dateParser';
@@ -27,6 +27,9 @@ export {
 };
 
 export function getCurrentTierLimits(): TierLimitConfig {
+  if (hasProInCurrentScopeFromStores()) {
+    return getTierLimits('pro');
+  }
   return getTierLimits(useSubscriptionStore.getState().getEffectiveTier());
 }
 
@@ -226,5 +229,5 @@ export async function assertCanAddPantryItem(canonicalKey?: string): Promise<voi
 }
 
 export function isFeatureUnlocked(feature: GatedFeature): boolean {
-  return tierAllowsFeature(feature as TierGatedFeature, getCurrentTierLimits());
+  return canAccessFeature(feature);
 }

@@ -3,6 +3,11 @@ import { create } from 'zustand';
 import type { DataScope, Workspace, WorkspaceMember } from '@/src/models/workspace';
 import { resolveAppUserId } from '@/src/services/authService';
 import {
+  getDevFamilyRoleOverride,
+  getDevFamilyRoleOverrideSync,
+} from '@/src/services/devFamilyRolePreview';
+import { isWorkspaceOwner } from '@/src/services/featureGateScopeLogic';
+import {
   canAccessWorkspaceFeature,
   getWorkspaceMockSubscriptionIds,
   workspaceHasActiveSubscriptionAsync,
@@ -23,16 +28,21 @@ type WorkspaceStore = {
   currentWorkspaceId: string | null;
   currentWorkspace: Workspace | null;
   members: WorkspaceMember[];
+  currentUserId: string | null;
+  isCurrentOwner: boolean;
   activeScope: DataScope;
   mockSubWorkspaceIds: Set<string>;
   isCurrentMember: boolean;
   hasActiveWorkspaceSub: boolean;
   familyWorkspaceReady: boolean;
+  devRoleOverride: 'owner' | 'member' | null;
   loadWorkspaces: () => Promise<void>;
   setCurrentWorkspace: (workspaceId: string | null) => Promise<void>;
   setActiveScope: (scope: DataScope) => Promise<void>;
   refreshCurrentWorkspace: () => Promise<void>;
   refreshAfterFamilyPurchase: () => Promise<boolean>;
+  refreshDevRoleOverride: () => Promise<void>;
+  resetForSignOut: () => Promise<void>;
 };
 
 function deriveMembership(
@@ -45,20 +55,46 @@ function deriveMembership(
   return members.some((m) => m.userId === userId);
 }
 
+function deriveOwnerState(
+  workspace: Workspace | null,
+  members: WorkspaceMember[],
+  userId: string | null,
+  devRoleOverride: 'owner' | 'member' | null
+): boolean {
+  let isOwner = isWorkspaceOwner(userId, workspace, members);
+  if (__DEV__ && devRoleOverride === 'member') isOwner = false;
+  if (__DEV__ && devRoleOverride === 'owner') isOwner = true;
+  return isOwner;
+}
+
 export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   loaded: false,
   workspaces: [],
   currentWorkspaceId: null,
   currentWorkspace: null,
   members: [],
+  currentUserId: null,
+  isCurrentOwner: false,
   activeScope: 'personal',
   mockSubWorkspaceIds: new Set(),
   isCurrentMember: false,
   hasActiveWorkspaceSub: false,
   familyWorkspaceReady: false,
+  devRoleOverride: __DEV__ ? getDevFamilyRoleOverrideSync() : null,
+
+  refreshDevRoleOverride: async () => {
+    if (!__DEV__) return;
+    const devRoleOverride = await getDevFamilyRoleOverride();
+    const { currentWorkspace, members, currentUserId } = get();
+    set({
+      devRoleOverride,
+      isCurrentOwner: deriveOwnerState(currentWorkspace, members, currentUserId, devRoleOverride),
+    });
+  },
 
   loadWorkspaces: async () => {
     const userId = await resolveAppUserId();
+    const devRoleOverride = __DEV__ ? await getDevFamilyRoleOverride() : null;
     const [workspaces, storedWorkspaceId, storedScope, mockIds] = await Promise.all([
       userId ? listWorkspacesForUser(userId) : Promise.resolve([]),
       getStoredCurrentWorkspaceId(),
@@ -83,6 +119,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     const members = currentWorkspaceId ? await getWorkspaceMembers(currentWorkspaceId) : [];
     const isCurrentMember = deriveMembership(currentWorkspaceId, members, userId);
+    const isCurrentOwner = deriveOwnerState(currentWorkspace, members, userId, devRoleOverride);
     const hasActiveWorkspaceSub = canAccessWorkspaceFeature(
       currentWorkspace,
       isCurrentMember,
@@ -98,6 +135,9 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       currentWorkspaceId,
       currentWorkspace,
       members,
+      currentUserId: userId,
+      isCurrentOwner,
+      devRoleOverride,
       activeScope,
       mockSubWorkspaceIds: mockIds,
       isCurrentMember,
@@ -106,7 +146,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
   },
 
   setCurrentWorkspace: async (workspaceId) => {
-    const { workspaces, mockSubWorkspaceIds } = get();
+    const { workspaces, mockSubWorkspaceIds, devRoleOverride } = get();
     const userId = await resolveAppUserId();
     const currentWorkspace = workspaceId
       ? workspaces.find((w) => w.id === workspaceId) ?? null
@@ -115,6 +155,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
 
     const members = workspaceId ? await getWorkspaceMembers(workspaceId) : [];
     const isCurrentMember = deriveMembership(workspaceId, members, userId);
+    const isCurrentOwner = deriveOwnerState(currentWorkspace, members, userId, devRoleOverride);
     const hasActiveWorkspaceSub = canAccessWorkspaceFeature(
       currentWorkspace,
       isCurrentMember,
@@ -125,6 +166,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       currentWorkspaceId: workspaceId,
       currentWorkspace,
       members,
+      currentUserId: userId,
+      isCurrentOwner,
       isCurrentMember,
       hasActiveWorkspaceSub,
       activeScope: workspaceId && isCurrentMember ? get().activeScope : 'personal',
@@ -136,6 +179,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const nextScope =
       scope === 'workspace' && currentWorkspace && isCurrentMember ? 'workspace' : 'personal';
     await setStoredActiveScope(nextScope);
+    const { invalidateScopedReceiptsCache } = await import('@/src/services/scopedReceiptService');
+    invalidateScopedReceiptsCache();
     set({ activeScope: nextScope });
   },
 
@@ -151,6 +196,7 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const members = await getWorkspaceMembers(currentWorkspaceId);
     const mockIds = await getWorkspaceMockSubscriptionIds();
     const isCurrentMember = deriveMembership(currentWorkspaceId, members, userId);
+    const isCurrentOwner = deriveOwnerState(currentWorkspace, members, userId, get().devRoleOverride);
     const hasActiveWorkspaceSub = await workspaceHasActiveSubscriptionAsync(currentWorkspace);
     const mockActive = mockIds.has(currentWorkspaceId);
 
@@ -158,6 +204,8 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
       workspaces,
       currentWorkspace,
       members,
+      currentUserId: userId,
+      isCurrentOwner,
       mockSubWorkspaceIds: mockIds,
       isCurrentMember,
       hasActiveWorkspaceSub: hasActiveWorkspaceSub || (mockActive && isCurrentMember),
@@ -172,6 +220,25 @@ export const useWorkspaceStore = create<WorkspaceStore>((set, get) => ({
     const ready = hasActiveWorkspaceSub && isCurrentMember;
     set({ familyWorkspaceReady: ready });
     return ready;
+  },
+
+  resetForSignOut: async () => {
+    await Promise.all([setStoredCurrentWorkspaceId(null), setStoredActiveScope('personal')]);
+    set({
+      loaded: false,
+      workspaces: [],
+      currentWorkspaceId: null,
+      currentWorkspace: null,
+      members: [],
+      currentUserId: null,
+      isCurrentOwner: false,
+      activeScope: 'personal',
+      mockSubWorkspaceIds: new Set(),
+      isCurrentMember: false,
+      hasActiveWorkspaceSub: false,
+      familyWorkspaceReady: false,
+      devRoleOverride: __DEV__ ? getDevFamilyRoleOverrideSync() : null,
+    });
   },
 }));
 

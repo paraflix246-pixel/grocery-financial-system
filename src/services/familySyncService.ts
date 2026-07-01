@@ -12,7 +12,8 @@ import {
 } from '@/src/services/familyCodeService';
 import { importFamilyListSnapshot, syncFamilyListSnapshot } from '@/src/services/familyImportService';
 import type { FamilyListSnapshot } from '@/src/services/familyListSnapshot';
-import { notifyFamilyListUpdated } from '@/src/services/notificationService';
+import { notifyFamilyListUpdated, notifyHouseholdReceiptSaved } from '@/src/services/notificationService';
+import { resolveAppUserId } from '@/src/services/authService';
 import { getListById, getListItems } from '@/src/services/storageService';
 import { supabase } from '@/src/services/supabaseClient';
 import { canAccessWorkspaceFeature } from '@/src/services/featureGateService';
@@ -52,6 +53,7 @@ type SharedListMap = Record<string, string>;
 
 const pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let realtimeChannel: RealtimeChannel | null = null;
+let receiptRealtimeChannel: RealtimeChannel | null = null;
 let realtimeGroupId: string | null = null;
 
 async function readQueue(): Promise<FamilySyncQueueEntry[]> {
@@ -161,12 +163,26 @@ export async function ensureFamilyGroup(): Promise<{ groupId: string; code: stri
   return { groupId: created.id, code: created.inviteCode };
 }
 
-export async function joinFamilyGroupByCode(rawCode: string): Promise<{ groupId: string; code: string }> {
-  const workspace = await joinWorkspaceByCode(rawCode);
-  await setFamilyGroupId(workspace.id);
-  await AsyncStorage.setItem(FAMILY_CODE_KEY, workspace.inviteCode);
+export type JoinFamilyGroupOutcome = {
+  groupId: string;
+  code: string;
+  workspaceName: string;
+  alreadyMember: boolean;
+  subscriptionActive: boolean;
+};
+
+export async function joinFamilyGroupByCode(rawCode: string): Promise<JoinFamilyGroupOutcome> {
+  const outcome = await joinWorkspaceByCode(rawCode);
+  await setFamilyGroupId(outcome.workspace.id);
+  await AsyncStorage.setItem(FAMILY_CODE_KEY, outcome.workspace.inviteCode);
   await useWorkspaceStore.getState().loadWorkspaces();
-  return { groupId: workspace.id, code: workspace.inviteCode };
+  return {
+    groupId: outcome.workspace.id,
+    code: outcome.workspace.inviteCode,
+    workspaceName: outcome.workspace.name,
+    alreadyMember: outcome.alreadyMember,
+    subscriptionActive: outcome.subscriptionActive,
+  };
 }
 
 export async function enqueueFamilySync(snapshot: FamilyListSnapshot, listId?: string): Promise<void> {
@@ -339,6 +355,16 @@ async function applyRemoteSharedList(row: SharedListRow): Promise<void> {
   await notifyFamilyListUpdated(row.updated_by_name ?? 'A family member', row.name);
 }
 
+async function applyRemoteWorkspaceReceipt(row: {
+  created_by?: string | null;
+  store_name?: string | null;
+}): Promise<void> {
+  const userId = await resolveAppUserId();
+  if (row.created_by && userId && row.created_by === userId) return;
+  const storeName = row.store_name?.trim() || 'a store';
+  await notifyHouseholdReceiptSaved(storeName);
+}
+
 export async function pullFamilyListsOnce(): Promise<number> {
   if (!supabase || !workspaceSyncUnlocked()) return 0;
   const groupId = await getFamilyGroupId();
@@ -408,13 +434,44 @@ export async function startFamilyRealtimeSync(): Promise<void> {
     )
     .subscribe();
 
+  if (workspaceId) {
+    if (receiptRealtimeChannel) {
+      await supabase.removeChannel(receiptRealtimeChannel);
+      receiptRealtimeChannel = null;
+    }
+    receiptRealtimeChannel = supabase
+      .channel(`workspace-receipts:${workspaceId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'workspace_receipts',
+          filter: `workspace_id=eq.${workspaceId}`,
+        },
+        (payload) => {
+          const row = payload.new as { created_by?: string | null; store_name?: string | null };
+          void applyRemoteWorkspaceReceipt(row).catch((error) => {
+            console.warn('[familySync] workspace receipt notify failed:', error);
+          });
+        }
+      )
+      .subscribe();
+  }
+
   void pullFamilyListsOnce().catch(() => {});
 }
 
 export async function stopFamilyRealtimeSync(): Promise<void> {
-  if (!supabase || !realtimeChannel) return;
-  await supabase.removeChannel(realtimeChannel);
-  realtimeChannel = null;
+  if (!supabase) return;
+  if (realtimeChannel) {
+    await supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  if (receiptRealtimeChannel) {
+    await supabase.removeChannel(receiptRealtimeChannel);
+    receiptRealtimeChannel = null;
+  }
   realtimeGroupId = null;
 }
 

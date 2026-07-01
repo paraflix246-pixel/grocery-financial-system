@@ -43,6 +43,17 @@ export function getSpendingOverviewReceipts(
   };
 }
 
+/** True when saved receipts exist but none fall inside the selected spending period. */
+export function hasReceiptsOutsideSpendingPeriod(
+  receipts: Receipt[],
+  period: SpendingPeriod,
+  date = new Date()
+): boolean {
+  if (receipts.length === 0) return false;
+  const { receipts: inPeriod } = getSpendingOverviewReceipts(receipts, period, date);
+  return inPeriod.length === 0;
+}
+
 export function buildSpendingOverviewBreakdown(receipts: Receipt[]): SpendingOverviewBreakdown[] {
   const totals = new Map<string, number>();
 

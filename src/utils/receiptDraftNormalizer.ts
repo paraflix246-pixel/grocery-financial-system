@@ -631,6 +631,16 @@ export function isCanadianTaxInclusiveFooter(
   );
 }
 
+/** True when OCR text includes a tax footer label (TAX, HST, GST, VAT, etc.). */
+export function receiptTextHasTaxLine(text: string): boolean {
+  return text
+    .split(/\r?\n/)
+    .some((line) => {
+      const lower = line.toLowerCase();
+      return /\b(tax|hst|gst|vat|sales tax)\b/i.test(lower) && !/\btotal\b/i.test(lower);
+    });
+}
+
 function parseFooterTotalsFromOcrText(
   ocrText: string
 ): Partial<Pick<ParsedReceiptDraft, 'subtotal' | 'tax' | 'total'>> {
@@ -695,12 +705,14 @@ function parseFooterTotalsFromOcrText(
   return result;
 }
 
-/** When OCR captured subtotal and total but missed the tax line amount. */
+/** Fill tax from subtotal/total gap only when the receipt printed a tax line. */
 function inferMissingTaxFromFooter(
-  parsed: Partial<Pick<ParsedReceiptDraft, 'subtotal' | 'tax' | 'total'>>
+  parsed: Partial<Pick<ParsedReceiptDraft, 'subtotal' | 'tax' | 'total'>>,
+  options?: { taxLineDetected?: boolean }
 ): Partial<Pick<ParsedReceiptDraft, 'subtotal' | 'tax' | 'total'>> {
   const result = { ...parsed };
   if (
+    options?.taxLineDetected &&
     result.subtotal != null &&
     result.subtotal > 0 &&
     result.total != null &&
@@ -728,21 +740,23 @@ export function inferFooterTripleFromItems(
     }
   }
 
-  // Subtotal + total on consecutive rows with tax inferred (OCR often misses the tax line).
-  if (prices.length >= 3) {
-    const subtotal = prices[prices.length - 2]!;
-    const total = prices[prices.length - 1]!;
-    const priorPrices = prices.slice(0, -2);
-    const maxPrior = priorPrices.length > 0 ? Math.max(...priorPrices) : 0;
-    const tax = roundMoney(total - subtotal);
+  return null;
+}
 
-    if (
-      subtotal > maxPrior + 0.01 &&
-      total > subtotal + 0.01 &&
-      isConsistentFooterTriple(subtotal, tax, total)
-    ) {
-      return { subtotal, tax, total };
-    }
+/** Subtotal + total smuggled into items without a tax row — recover bounds only, not tax. */
+export function inferFooterBoundsFromItems(
+  items: ReceiptLineItem[]
+): Partial<Pick<ParsedReceiptDraft, 'subtotal' | 'total'>> | null {
+  const prices = items.map((item) => item.price);
+  if (prices.length < 3) return null;
+
+  const subtotal = prices[prices.length - 2]!;
+  const total = prices[prices.length - 1]!;
+  const priorPrices = prices.slice(0, -2);
+  const maxPrior = priorPrices.length > 0 ? Math.max(...priorPrices) : 0;
+
+  if (subtotal > maxPrior + 0.01 && total > subtotal + 0.01) {
+    return { subtotal, total };
   }
 
   return null;
@@ -807,10 +821,14 @@ export function resolvePrintedTotals(
   ocrText?: string | null,
   ocrDraft?: ParsedReceiptDraft | null
 ): { subtotal: number; tax: number; total: number } {
+  const taxLineDetected = ocrText?.trim() ? receiptTextHasTaxLine(ocrText) : false;
+  const inferOpts = { taxLineDetected };
   const fromOcrText = inferMissingTaxFromFooter(
-    ocrText?.trim() ? parseFooterTotalsFromOcrText(ocrText) : {}
+    ocrText?.trim() ? parseFooterTotalsFromOcrText(ocrText) : {},
+    inferOpts
   );
   const fromItems = inferFooterTripleFromItems(draft.items);
+  const fromItemBounds = inferFooterBoundsFromItems(draft.items);
 
   // A consistent subtotal + tax = total triple is the strongest signal. Prefer it
   // from OCR header text, then from any triple printed inside the item rows, then
@@ -818,16 +836,22 @@ export function resolvePrintedTotals(
   const tripleCandidates: Array<Partial<Pick<ParsedReceiptDraft, 'subtotal' | 'tax' | 'total'>>> = [
     fromOcrText,
     fromItems ?? {},
-    inferMissingTaxFromFooter({
-      subtotal: ocrDraft?.subtotal,
-      tax: ocrDraft?.tax,
-      total: ocrDraft?.total,
-    }),
-    inferMissingTaxFromFooter({
-      subtotal: draft.subtotal,
-      tax: draft.tax,
-      total: draft.total,
-    }),
+    inferMissingTaxFromFooter(
+      {
+        subtotal: ocrDraft?.subtotal,
+        tax: ocrDraft?.tax,
+        total: ocrDraft?.total,
+      },
+      inferOpts
+    ),
+    inferMissingTaxFromFooter(
+      {
+        subtotal: draft.subtotal,
+        tax: draft.tax,
+        total: draft.total,
+      },
+      inferOpts
+    ),
   ];
 
   for (const candidate of tripleCandidates) {
@@ -842,19 +866,27 @@ export function resolvePrintedTotals(
 
   // No consistent triple — fall back to the best individual fields we have.
   let subtotal =
-    fromOcrText.subtotal ?? fromItems?.subtotal ?? ocrDraft?.subtotal ?? draft.subtotal;
+    fromOcrText.subtotal ??
+    fromItems?.subtotal ??
+    fromItemBounds?.subtotal ??
+    ocrDraft?.subtotal ??
+    draft.subtotal;
   let tax = fromOcrText.tax ?? fromItems?.tax ?? ocrDraft?.tax ?? draft.tax;
-  let total = fromOcrText.total ?? fromItems?.total ?? ocrDraft?.total ?? draft.total;
+  let total =
+    fromOcrText.total ?? fromItems?.total ?? fromItemBounds?.total ?? ocrDraft?.total ?? draft.total;
 
   if (draftTotalsLookLikeTaxOnly(draft, subtotal, total, tax)) {
     const recoverySources = [
       fromItems,
       fromOcrText,
-      inferMissingTaxFromFooter({
-        subtotal: ocrDraft?.subtotal,
-        tax: ocrDraft?.tax,
-        total: ocrDraft?.total,
-      }),
+      inferMissingTaxFromFooter(
+        {
+          subtotal: ocrDraft?.subtotal,
+          tax: ocrDraft?.tax,
+          total: ocrDraft?.total,
+        },
+        inferOpts
+      ),
     ];
     for (const recovered of recoverySources) {
       if (isPlausibleMerchandiseTriple(draft, recovered?.subtotal, recovered?.tax, recovered?.total)) {

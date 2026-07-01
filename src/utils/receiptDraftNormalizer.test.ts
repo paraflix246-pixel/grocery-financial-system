@@ -668,7 +668,7 @@ describe('inferFooterTripleFromItems', () => {
     });
   });
 
-  it('infers tax from consecutive subtotal and total rows when tax line is missing', () => {
+  it('does not infer tax from consecutive subtotal and total rows without a tax line', () => {
     const triple = inferFooterTripleFromItems([
       { name: 'Eggs', price: 3.49, quantity: 1 },
       { name: 'Bread', price: 2.99, quantity: 1 },
@@ -677,11 +677,7 @@ describe('inferFooterTripleFromItems', () => {
       { name: HIDDEN_ITEM_NAME, price: 15.95, quantity: 1 },
     ]);
 
-    assert.deepEqual(triple, {
-      subtotal: 14.77,
-      tax: 1.18,
-      total: 15.95,
-    });
+    assert.equal(triple, null);
   });
 });
 
@@ -959,7 +955,7 @@ Walmart`;
 
     assert.equal(result.items.length, 3);
     assert.equal(result.subtotal, 14.77);
-    assert.equal(result.tax, 1.18);
+    assert.equal(result.tax, 0);
     assert.equal(result.total, 15.95);
     assert.ok(result.items.every((item) => item.name !== HIDDEN_ITEM_NAME));
     assert.ok(result.items.every((item) => item.price !== 14.77));
@@ -1021,7 +1017,10 @@ $15.95`;
       items: [],
     };
 
-    const result = finalizeReceiptDraft(aiDraft, '', ocrDraft);
+    const ocrText = `SUBTOTAL 14.77
+TAX
+TOTAL 15.95`;
+    const result = finalizeReceiptDraft(aiDraft, ocrText, ocrDraft);
     assert.equal(result.items.length, 3);
     assert.equal(result.subtotal, 14.77);
     assert.equal(result.tax, 1.18);

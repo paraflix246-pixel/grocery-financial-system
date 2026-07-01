@@ -1,12 +1,17 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
 import type { Receipt, ReceiptItem } from '@/src/models/types';
 import { resolveAppUserId } from '@/src/services/authService';
-import { canAccessWorkspaceFeature } from '@/src/services/featureGateService';
 import { supabase } from '@/src/services/supabaseClient';
+import {
+  getWorkspaceReceiptSaveBlocker,
+  WorkspaceReceiptSaveError,
+  workspaceReceiptSaveErrorMessage,
+} from '@/src/services/workspaceReceiptSaveLogic';
 import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { generateId } from '@/src/utils/id';
 
-export type ReceiptSaveScope = 'personal' | 'workspace';
+export type { ReceiptSaveScope, WorkspaceReceiptSaveFailureReason } from '@/src/services/workspaceReceiptSaveLogic';
+export { WorkspaceReceiptSaveError } from '@/src/services/workspaceReceiptSaveLogic';
 
 type WorkspaceReceiptRow = {
   id: string;
@@ -80,6 +85,76 @@ function isMissingTableError(error: { code?: string; message?: string } | null |
   return msg.includes('could not find the table') || (msg.includes('relation') && msg.includes('does not exist'));
 }
 
+async function persistWorkspaceReceipt(
+  payload: {
+    workspace_id: string;
+    local_receipt_id: string;
+    store_name: string;
+    receipt_date: string;
+    total: number;
+    data: WorkspaceReceiptRow['data'];
+    created_by: string;
+    updated_at: string;
+  },
+  workspaceId: string,
+  receiptId: string
+): Promise<void> {
+  if (!supabase) {
+    throw new WorkspaceReceiptSaveError(
+      workspaceReceiptSaveErrorMessage('no_supabase'),
+      'no_supabase'
+    );
+  }
+
+  const { error: insertError } = await supabase.from('workspace_receipts').insert(payload);
+
+  if (!insertError) return;
+
+  if (insertError.code === '23505') {
+    const { error: updateError } = await supabase
+      .from('workspace_receipts')
+      .update({
+        store_name: payload.store_name,
+        receipt_date: payload.receipt_date,
+        total: payload.total,
+        data: payload.data,
+        updated_at: payload.updated_at,
+      })
+      .eq('workspace_id', workspaceId)
+      .eq('local_receipt_id', receiptId);
+
+    if (!updateError) return;
+
+    if (isMissingTableError(updateError)) {
+      throw new WorkspaceReceiptSaveError(
+        'Workspace tables are not set up. Run supabase/migrations/006_workspaces.sql.',
+        'database_error',
+        updateError
+      );
+    }
+
+    throw new WorkspaceReceiptSaveError(
+      workspaceReceiptSaveErrorMessage('database_error', updateError.message),
+      'database_error',
+      updateError
+    );
+  }
+
+  if (isMissingTableError(insertError)) {
+    throw new WorkspaceReceiptSaveError(
+      'Workspace tables are not set up. Run supabase/migrations/006_workspaces.sql.',
+      'database_error',
+      insertError
+    );
+  }
+
+  throw new WorkspaceReceiptSaveError(
+    workspaceReceiptSaveErrorMessage('database_error', insertError.message),
+    'database_error',
+    insertError
+  );
+}
+
 export async function listWorkspaceReceipts(workspaceId: string): Promise<Receipt[]> {
   if (!supabase || workspaceId.startsWith('local_')) return [];
 
@@ -122,15 +197,24 @@ export async function getWorkspaceReceiptById(
 
 export async function saveReceiptToWorkspace(
   receipt: Receipt | (ParsedReceiptDraft & { id: string; imageUri?: string }),
-  scope: ReceiptSaveScope
-): Promise<string | null> {
-  if (scope !== 'workspace') return null;
-  if (!canAccessWorkspaceFeature()) return null;
-
-  const workspaceId = useWorkspaceStore.getState().currentWorkspaceId;
+  scope: import('@/src/services/workspaceReceiptSaveLogic').ReceiptSaveScope
+): Promise<string> {
+  const store = useWorkspaceStore.getState();
   const userId = await resolveAppUserId();
-  if (!supabase || !workspaceId || !userId || workspaceId.startsWith('local_')) return null;
+  const blocker = getWorkspaceReceiptSaveBlocker({
+    scope,
+    userId,
+    workspaceId: store.currentWorkspaceId,
+    hasSupabase: Boolean(supabase),
+    isMember: store.isCurrentMember,
+    hasActiveSub: store.hasActiveWorkspaceSub,
+  });
 
+  if (blocker) {
+    throw new WorkspaceReceiptSaveError(workspaceReceiptSaveErrorMessage(blocker), blocker);
+  }
+
+  const workspaceId = store.currentWorkspaceId!;
   const receiptId = 'id' in receipt ? receipt.id : generateId();
   const payload = {
     workspace_id: workspaceId,
@@ -149,19 +233,12 @@ export async function saveReceiptToWorkspace(
       storeCountry: receipt.storeCountry,
       imageUri: receipt.imageUri,
     },
-    created_by: userId,
+    created_by: userId!,
     updated_at: new Date().toISOString(),
   };
 
-  const { error } = await supabase.from('workspace_receipts').upsert(payload, {
-    onConflict: 'workspace_id,local_receipt_id',
-    ignoreDuplicates: false,
-  });
-
-  if (error) {
-    console.warn('[workspaceReceipt] save failed:', error.message);
-    return null;
-  }
-
+  await persistWorkspaceReceipt(payload, workspaceId, receiptId);
+  const { invalidateScopedReceiptsCache } = await import('@/src/services/scopedReceiptService');
+  invalidateScopedReceiptsCache('workspace', workspaceId);
   return receiptId;
 }

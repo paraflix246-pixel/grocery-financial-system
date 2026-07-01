@@ -28,16 +28,18 @@ export default function AdminLayout() {
 
       await syncUserProfile();
       const result = await verifyAdminAccess();
-      if (result === 'ok') {
+      if (result.status === 'ok') {
         setGate('ok');
         return;
       }
-      if (result === 'unauthorized') {
+      if (result.status === 'unauthorized') {
         setMessage('Sign in with an admin account to continue.');
-      } else if (result === 'unavailable') {
-        setMessage('Admin system is not configured on the server.');
-      } else if (result === 'server_error') {
-        setMessage('Admin dashboard is temporarily unavailable. Try again in a moment.');
+      } else if (result.status === 'unavailable') {
+        setMessage(result.message ?? 'Admin system is not configured on the server.');
+      } else if (result.status === 'server_error') {
+        setMessage(
+          result.message ?? 'Admin dashboard is temporarily unavailable. Try again in a moment.'
+        );
       } else {
         setMessage('You do not have permission to access the admin dashboard.');
       }

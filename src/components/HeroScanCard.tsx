@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -12,7 +12,7 @@ import { darken, getHeroGradient } from '@/src/theme/themeColorUtils';
 
 const scanReceiptBanner = require('../../assets/images/scan-receipt-banner.png');
 
-export function HeroScanCard() {
+export const HeroScanCard = memo(function HeroScanCard() {
   const { t } = useTranslation();
   const router = useRouter();
   const { theme } = useAppTheme();
@@ -73,7 +73,7 @@ export function HeroScanCard() {
       </View>
     </Pressable>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrapper: {

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import { Platform, ScrollView, type StyleProp, type ViewStyle } from 'react-native';
 
 const horizontalScrollProps = {
@@ -39,17 +39,15 @@ const nativeScrollStyle: ViewStyle = {
 };
 
 /** Horizontal chip/tab/logo rows that may extend past the viewport. */
-export function HorizontalScrollRow({
-  children,
-  style,
-  contentContainerStyle,
-  showsHorizontalScrollIndicator,
-  snapToInterval,
-}: RowProps) {
+export const HorizontalScrollRow = forwardRef<ScrollView, RowProps>(function HorizontalScrollRow(
+  { children, style, contentContainerStyle, showsHorizontalScrollIndicator, snapToInterval },
+  ref
+) {
   const showIndicator = showsHorizontalScrollIndicator ?? Platform.OS !== 'web';
 
   return (
     <ScrollView
+      ref={ref}
       {...horizontalScrollProps}
       showsHorizontalScrollIndicator={showIndicator}
       snapToInterval={snapToInterval}
@@ -61,4 +59,4 @@ export function HorizontalScrollRow({
       {children}
     </ScrollView>
   );
-}
+});

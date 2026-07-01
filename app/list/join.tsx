@@ -1,8 +1,10 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { normalizeFamilyCode } from '@/src/services/familyCodeService';
 import { isFamilySyncAvailable, joinFamilyGroupByCode, startFamilyRealtimeSync } from '@/src/services/familySyncService';
 import { SmartCartRadius } from '@/src/theme/smartCart';
@@ -19,6 +21,7 @@ const CARD_BORDER = 'rgba(255,255,255,0.1)';
 export default function FamilyJoinScreen() {
   const { code } = useLocalSearchParams<{ code?: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [joinedCode, setJoinedCode] = useState('');
@@ -62,13 +65,17 @@ export default function FamilyJoinScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerStyle: { backgroundColor: BG },
-          contentStyle: { backgroundColor: BG },
+          headerShown: false,
+          contentStyle: { backgroundColor: BG, overflow: 'visible' },
         }}
       />
 
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>Join family</Text>
+      <View style={[styles.pageHeader, { paddingTop: insets.top + 8 }]}>
+        <BackButton showLabel={false} tintColor={TEXT_PRIMARY} />
+        <View style={styles.pageTitleWrap}>
+          <Text style={styles.pageTitle}>Join family</Text>
+        </View>
+        <View style={styles.pageHeaderSpacer} />
       </View>
 
       <View style={styles.content}>
@@ -112,8 +119,16 @@ export default function FamilyJoinScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
-  pageHeader: { paddingHorizontal: 16, paddingBottom: 4, alignItems: 'center' },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  pageTitleWrap: { flex: 1, alignItems: 'center' },
   pageTitle: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY, textAlign: 'center' },
+  pageHeaderSpacer: { width: 40 },
   content: { padding: 16, gap: 16 },
   card: {
     backgroundColor: CARD_BG,

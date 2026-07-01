@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import type { ParsedReceiptDraft, Receipt } from '@/src/models/types';
 import type { OcrSource } from '@/src/services/ocrTypes';
 import type { ReceiptParseMethod } from '@/src/services/receiptParsePipeline';
+import type { ReceiptStorageSessionChoice } from '@/src/services/privacyPreferencesService';
 import type { ReceiptParseWarning } from '@/src/utils/receiptValidation';
 import {
   inferFooterTripleFromItems,
@@ -25,7 +26,11 @@ type ScanStore = {
   /** Scan image URI we already showed the rescan prompt for (once per photo). */
   rescanPromptImageUri: string | null;
   locationNeedsReview: boolean;
+  receiptStorageChoice: ReceiptStorageSessionChoice | null;
+  rememberStorageChoice: boolean;
   setLocationNeedsReview: (value: boolean) => void;
+  setReceiptStorageChoice: (choice: ReceiptStorageSessionChoice | null) => void;
+  setRememberStorageChoice: (remember: boolean) => void;
   setImageUri: (uri: string) => void;
   setRawOcrText: (text: string) => void;
   setOcrMeta: (meta: {
@@ -112,6 +117,8 @@ export const useScanStore = create<ScanStore>((set, get) => ({
   parseWarnings: [],
   rescanPromptImageUri: null,
   locationNeedsReview: false,
+  receiptStorageChoice: null,
+  rememberStorageChoice: false,
   setImageUri: (uri) => set({ imageUri: uri, rescanPromptImageUri: null }),
   setRawOcrText: (text) => set({ rawOcrText: text }),
   setOcrMeta: ({ source, confidence, parseMethod, parseVerified, deepseekAudited }) =>
@@ -124,6 +131,8 @@ export const useScanStore = create<ScanStore>((set, get) => ({
     }),
   setParseWarnings: (warnings) => set({ parseWarnings: warnings }),
   setLocationNeedsReview: (locationNeedsReview) => set({ locationNeedsReview }),
+  setReceiptStorageChoice: (receiptStorageChoice) => set({ receiptStorageChoice }),
+  setRememberStorageChoice: (rememberStorageChoice) => set({ rememberStorageChoice }),
   markRescanPromptShown: (imageUri) => set({ rescanPromptImageUri: imageUri }),
   setDraft: (draft) =>
     set({ draft: finalizeDraft(draft, get().rawOcrText), editingReceiptId: null }),
@@ -207,6 +216,8 @@ export const useScanStore = create<ScanStore>((set, get) => ({
       parseWarnings: [],
       rescanPromptImageUri: null,
       locationNeedsReview: false,
+      receiptStorageChoice: null,
+      rememberStorageChoice: false,
     }),
 
   startManualEntry: () =>
@@ -222,6 +233,8 @@ export const useScanStore = create<ScanStore>((set, get) => ({
       parseWarnings: [],
       rescanPromptImageUri: null,
       locationNeedsReview: false,
+      receiptStorageChoice: null,
+      rememberStorageChoice: false,
       draft: emptyDraft(),
     }),
 }));

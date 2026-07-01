@@ -6,7 +6,6 @@ import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 import { resolveAppApiUrl } from '@/src/utils/appOrigin';
 
 function resolveStripeApiUrl(path: string): string | null {
-  if (Platform.OS !== 'web') return null;
   return resolveAppApiUrl(path);
 }
 

@@ -3,15 +3,24 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import Animated, { FadeIn, FadeOut, SlideInRight, SlideOutLeft } from 'react-native-reanimated';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
 import { AppBottomSheetModal } from '@/src/components/AppBottomSheetModal';
 import { CartPriceSourceBadge } from '@/src/components/CartPriceSourceBadge';
+import {
+  COMPARISON_STORE_CARD_WIDTH,
+  ComparisonStoreUpgradeCard,
+} from '@/src/components/ComparisonStoreUpgradeCard';
 import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
-import { useFeatureGate } from '@/src/hooks/useFeatureGate';
-import { getItemEmoji } from '@/src/data/commonGroceryItems';
+import { FoodItemImageAvatar } from '@/src/components/FoodItemImageAvatar';
 import { getGroceryItemByCanonical, getGroceryTypicalPrice } from '@/src/data/groceryCatalog';
+import {
+  applyCartComparisonStoreRowLimit,
+  shouldShowLimitedStoreComparisonMeta,
+  shouldShowStoreComparisonUpgradeCard,
+} from '@/src/services/cartComparisonLimitLogic';
 import {
   buildDisplayStoreRows,
   getDisplayedPriceSpread,
@@ -41,6 +50,7 @@ type Props = {
   variant?: 'home' | 'full';
   maxCartSavings?: number;
   embedded?: boolean;
+  hasFullCartComparisonAccess?: boolean;
   onStorePreferenceChange?: () => void;
 };
 
@@ -52,7 +62,7 @@ type StoreMenuTarget = {
 const fadeOut = Platform.OS === 'web' ? undefined : FadeOut.duration(250);
 const slideOutLeft = Platform.OS === 'web' ? undefined : SlideOutLeft.duration(200);
 
-const STORE_CARD_WIDTH = 128;
+const STORE_CARD_WIDTH = COMPARISON_STORE_CARD_WIDTH;
 const STORE_CARD_GAP = 10;
 const STORE_CARD_SNAP_INTERVAL = STORE_CARD_WIDTH + STORE_CARD_GAP;
 
@@ -75,10 +85,11 @@ export function SingleItemStoreComparison({
   variant = 'home',
   maxCartSavings,
   embedded = false,
+  hasFullCartComparisonAccess = true,
   onStorePreferenceChange,
 }: Props) {
+  const { t } = useTranslation();
   const router = useRouter();
-  const { unlocked: multiStoreUnlocked } = useFeatureGate('community_pricing');
   const lists = useListStore((s) => s.lists);
   const loadLists = useListStore((s) => s.loadLists);
   const addList = useListStore((s) => s.addList);
@@ -263,14 +274,42 @@ export function SingleItemStoreComparison({
   const itemLabel = current.quantity > 1 ? `${current.itemName} × ${current.quantity}` : current.itemName;
   const showCartSavings = variant === 'full' && maxCartSavings != null && maxCartSavings > 0;
 
-  const displayRows = useMemo(
+  const eligibleStoreRows = useMemo(
     () =>
       buildDisplayStoreRows(current.storeRows, {
         visibleStoreNames: current.visibleStoreNames,
-        multiStoreUnlocked,
+        // Count all comparable stores; cart tier cap is applied separately below.
+        multiStoreUnlocked: true,
       }),
-    [current.storeRows, current.visibleStoreNames, multiStoreUnlocked]
+    [current.storeRows, current.visibleStoreNames]
   );
+
+  const totalStoreCount = eligibleStoreRows.length;
+
+  const displayRows = useMemo(
+    () => applyCartComparisonStoreRowLimit(eligibleStoreRows, hasFullCartComparisonAccess),
+    [eligibleStoreRows, hasFullCartComparisonAccess]
+  );
+
+  const showLimitedStoreMeta = shouldShowLimitedStoreComparisonMeta(
+    hasFullCartComparisonAccess,
+    totalStoreCount
+  );
+
+  const hiddenStoreCount = Math.max(0, totalStoreCount - displayRows.length);
+  const showStoreUpgradeCard = shouldShowStoreComparisonUpgradeCard(
+    hasFullCartComparisonAccess,
+    totalStoreCount,
+    displayRows.length
+  );
+  const useEqualColumnStoreLayout = showStoreUpgradeCard;
+
+  const storeMetaLabel = showLimitedStoreMeta
+    ? t('comparison.limitedStoresMetaShort', {
+        shown: displayRows.length,
+        total: totalStoreCount,
+      })
+    : `${displayRows.length} store${displayRows.length === 1 ? '' : 's'}`;
 
   const savingsSubtitle = getSavingsSubtitleForStoreRows(displayRows);
   const allEstimated = displayRows.every((row) => row.source === 'estimate');
@@ -345,7 +384,11 @@ export function SingleItemStoreComparison({
 
       <View style={styles.itemHeader}>
         <View style={styles.itemHeaderMain}>
-          <Text style={styles.itemEmoji}>{getItemEmoji(current.itemName, current.itemName)}</Text>
+          <FoodItemImageAvatar
+            itemName={current.itemName}
+            size="md"
+            style={styles.itemAvatar}
+          />
           <View style={styles.itemHeaderText}>
             <Animated.Text
               key={`name-${rotationKey}`}
@@ -356,8 +399,16 @@ export function SingleItemStoreComparison({
               {itemLabel}
             </Animated.Text>
             <Text style={styles.itemMeta}>
-              {displayRows.length} store{displayRows.length === 1 ? '' : 's'} · item {currentIndex + 1} of {comparisons.length}
+              {storeMetaLabel} · item {currentIndex + 1} of {comparisons.length}
             </Text>
+            {showLimitedStoreMeta ? (
+              <Text style={styles.storeLimitHint}>
+                {t('comparison.limitedStoresMetaLine', {
+                  shown: displayRows.length,
+                  total: totalStoreCount,
+                })}
+              </Text>
+            ) : null}
           </View>
         </View>
         {comparisons.length > 1 ? (
@@ -401,53 +452,107 @@ export function SingleItemStoreComparison({
         exiting={fadeOut}
         style={styles.storeScrollWrap}
         pointerEvents="box-none">
-        <HorizontalScrollRow
-          contentContainerStyle={styles.storeRowScroll}
-          snapToInterval={STORE_CARD_SNAP_INTERVAL}
-          showsHorizontalScrollIndicator={Platform.OS !== 'web'}>
-          {displayRows.map((entry) => {
-            const isPreferred =
-              current.storePreference?.toLowerCase() === entry.store.toLowerCase();
+        {useEqualColumnStoreLayout ? (
+          <View style={styles.storeRowEqual}>
+            {displayRows.map((entry) => {
+              const isPreferred =
+                current.storePreference?.toLowerCase() === entry.store.toLowerCase();
 
-            return (
-              <Pressable
-                key={entry.store}
-                unstable_pressDelay={80}
-                onPress={() => handleStorePress(entry.store, entry.price)}
-                onLongPress={() => handleStorePress(entry.store, entry.price)}
-                style={({ pressed }) => [
-                  styles.storeCard,
-                  entry.isCheapest && styles.storeCardCheapest,
-                  isPreferred && !entry.isCheapest && styles.storeCardPreferred,
-                  Platform.OS === 'web' && pressed ? styles.storeCardPressed : null,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`${entry.store}, ${formatCurrency(entry.price)}${entry.isCheapest ? ', cheapest' : ''}`}>
-                {entry.isCheapest ? (
-                  <View style={styles.cheapestPill}>
-                    <Text style={styles.cheapestPillText}>Cheapest</Text>
-                  </View>
-                ) : null}
-                <StoreBrandAvatar store={entry.store} variant="card" size={44} />
-                <Text style={[styles.storeName, entry.isCheapest && styles.storeNameCheapest]} numberOfLines={2}>
-                  {entry.store}
-                </Text>
-                <Text style={[styles.storePrice, entry.isCheapest && styles.storePriceCheapest]}>
-                  {formatCurrency(entry.price)}
-                  {current.quantity > 1 ? (
-                    <Text style={styles.storePriceUnit}> ea</Text>
+              return (
+                <Pressable
+                  key={entry.store}
+                  unstable_pressDelay={80}
+                  onPress={() => handleStorePress(entry.store, entry.price)}
+                  onLongPress={() => handleStorePress(entry.store, entry.price)}
+                  style={({ pressed }) => [
+                    styles.storeCard,
+                    styles.storeCardEqual,
+                    entry.isCheapest && styles.storeCardCheapest,
+                    isPreferred && !entry.isCheapest && styles.storeCardPreferred,
+                    Platform.OS === 'web' && pressed ? styles.storeCardPressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${entry.store}, ${formatCurrency(entry.price)}${entry.isCheapest ? ', cheapest' : ''}`}>
+                  {entry.isCheapest ? (
+                    <View style={styles.cheapestPill}>
+                      <Text style={styles.cheapestPillText}>Cheapest</Text>
+                    </View>
                   ) : null}
-                </Text>
-                <CartPriceSourceBadge source={entry.source} />
-                {isPreferred ? (
-                  <View style={styles.preferredPill}>
-                    <Text style={styles.preferredPillText}>Your pick</Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </HorizontalScrollRow>
+                  <StoreBrandAvatar store={entry.store} variant="card" size={40} />
+                  <Text
+                    style={[styles.storeName, styles.storeNameEqual, entry.isCheapest && styles.storeNameCheapest]}
+                    numberOfLines={2}>
+                    {entry.store}
+                  </Text>
+                  <Text style={[styles.storePrice, styles.storePriceEqual, entry.isCheapest && styles.storePriceCheapest]}>
+                    {formatCurrency(entry.price)}
+                    {current.quantity > 1 ? (
+                      <Text style={styles.storePriceUnit}> ea</Text>
+                    ) : null}
+                  </Text>
+                  <CartPriceSourceBadge source={entry.source} />
+                  {isPreferred ? (
+                    <View style={styles.preferredPill}>
+                      <Text style={styles.preferredPillText}>Your pick</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+            <ComparisonStoreUpgradeCard
+              hiddenStoreCount={hiddenStoreCount}
+              variant="compact-column"
+            />
+          </View>
+        ) : (
+          <HorizontalScrollRow
+            contentContainerStyle={styles.storeRowScroll}
+            snapToInterval={STORE_CARD_SNAP_INTERVAL}
+            showsHorizontalScrollIndicator={Platform.OS !== 'web'}>
+            {displayRows.map((entry) => {
+              const isPreferred =
+                current.storePreference?.toLowerCase() === entry.store.toLowerCase();
+
+              return (
+                <Pressable
+                  key={entry.store}
+                  unstable_pressDelay={80}
+                  onPress={() => handleStorePress(entry.store, entry.price)}
+                  onLongPress={() => handleStorePress(entry.store, entry.price)}
+                  style={({ pressed }) => [
+                    styles.storeCard,
+                    entry.isCheapest && styles.storeCardCheapest,
+                    isPreferred && !entry.isCheapest && styles.storeCardPreferred,
+                    Platform.OS === 'web' && pressed ? styles.storeCardPressed : null,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${entry.store}, ${formatCurrency(entry.price)}${entry.isCheapest ? ', cheapest' : ''}`}>
+                  {entry.isCheapest ? (
+                    <View style={styles.cheapestPill}>
+                      <Text style={styles.cheapestPillText}>Cheapest</Text>
+                    </View>
+                  ) : null}
+                  <StoreBrandAvatar store={entry.store} variant="card" size={44} />
+                  <Text style={[styles.storeName, entry.isCheapest && styles.storeNameCheapest]} numberOfLines={2}>
+                    {entry.store}
+                  </Text>
+                  <Text style={[styles.storePrice, entry.isCheapest && styles.storePriceCheapest]}>
+                    {formatCurrency(entry.price)}
+                    {current.quantity > 1 ? (
+                      <Text style={styles.storePriceUnit}> ea</Text>
+                    ) : null}
+                  </Text>
+                  <CartPriceSourceBadge source={entry.source} />
+                  {isPreferred ? (
+                    <View style={styles.preferredPill}>
+                      <Text style={styles.preferredPillText}>Your pick</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              );
+            })}
+          </HorizontalScrollRow>
+        )}
       </Animated.View>
 
       <AppBottomSheetModal visible={priceInfoVisible} onClose={closePriceInfo}>
@@ -628,7 +733,7 @@ const styles = StyleSheet.create({
     borderBottomColor: SmartCartColors.border,
   },
   itemHeaderMain: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  itemEmoji: { fontSize: 28, lineHeight: 32 },
+  itemAvatar: { flexShrink: 0 },
   itemHeaderText: { flex: 1, gap: 2 },
   itemName: {
     fontSize: 16,
@@ -636,6 +741,12 @@ const styles = StyleSheet.create({
     ...SmartCartTypography.title,
   },
   itemMeta: { fontSize: 11, color: SmartCartColors.textSecondary },
+  storeLimitHint: {
+    fontSize: 10,
+    color: SmartCartColors.primaryMid,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   nextButton: {
     borderRadius: SmartCartRadius.pill,
     paddingHorizontal: 12,
@@ -669,6 +780,12 @@ const styles = StyleSheet.create({
     paddingLeft: 2,
     paddingRight: 24,
   },
+  storeRowEqual: {
+    flexDirection: 'row',
+    gap: STORE_CARD_GAP,
+    paddingVertical: 4,
+    alignItems: 'stretch',
+  },
   storeCard: {
     width: STORE_CARD_WIDTH,
     alignItems: 'center',
@@ -680,6 +797,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: SmartCartColors.border,
     ...(Platform.OS === 'web' ? { cursor: 'pointer' as const } : null),
+  },
+  storeCardEqual: {
+    flex: 1,
+    minWidth: 0,
+    width: undefined,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    gap: 4,
   },
   storeCardPressed: { opacity: 0.85 },
   storeCardCheapest: {
@@ -699,6 +824,10 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     textAlign: 'center',
     minHeight: 34,
+  },
+  storeNameEqual: {
+    fontSize: 11,
+    minHeight: 28,
   },
   storeNameCheapest: { color: SmartCartColors.primaryDark },
   cheapestPill: {
@@ -724,6 +853,9 @@ const styles = StyleSheet.create({
     color: SmartCartColors.text,
     letterSpacing: -0.4,
     textAlign: 'center',
+  },
+  storePriceEqual: {
+    fontSize: 14,
   },
   storePriceCheapest: { color: SmartCartColors.primaryMid },
   storePriceUnit: { fontSize: 11, fontWeight: '600', color: SmartCartColors.textSecondary },

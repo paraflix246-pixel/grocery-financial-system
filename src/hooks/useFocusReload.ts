@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type FocusReloadOptions = {
   /** Skip background refetch when refocusing within this window (default 3s). */
@@ -8,6 +8,7 @@ type FocusReloadOptions = {
 
 /**
  * Reload on screen focus without blocking the UI after the first successful load.
+ * Also reloads when `loadFn` changes (e.g. household/personal scope switch on the same tab).
  */
 export function useFocusReload(loadFn: () => Promise<void>, options?: FocusReloadOptions) {
   const minRefocusMs = options?.minRefocusMs ?? 3_000;
@@ -38,6 +39,11 @@ export function useFocusReload(loadFn: () => Promise<void>, options?: FocusReloa
       setBlocking(false);
     }
   }, [minRefocusMs]);
+
+  useEffect(() => {
+    if (!hasLoadedRef.current) return;
+    void reload(true);
+  }, [loadFn, reload]);
 
   useFocusEffect(
     useCallback(() => {

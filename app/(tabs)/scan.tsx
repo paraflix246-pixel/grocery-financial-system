@@ -1,13 +1,15 @@
 import * as ImagePicker from 'expo-image-picker';
 import { SymbolView } from 'expo-symbols';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +19,10 @@ import { BackButton } from '@/src/components/BackButton';
 import { i18n } from '@/src/i18n';
 import { CameraOverlay } from '@/src/components/CameraOverlay';
 import { ReceiptScanProcessing } from '@/src/components/ReceiptScanProcessing';
+import { assessReceiptLikelihood } from '@/src/services/receiptLikelihoodLogic';
+import { lookupBarcodeProduct } from '@/src/services/barcodeProductService';
+import { applyBarcodeScan, promptBarcodeDestination } from '@/src/services/barcodeScanFlow';
+import { useReceiptProcessingQueue } from '@/src/services/receiptProcessingQueue';
 import { scanReceiptFromImage, shouldOpenPreview } from '@/src/services/receiptParsePipeline';
 import { getScanLimitStatus } from '@/src/services/scanLimitService';
 import { useScanStore } from '@/src/store/useScanStore';
@@ -55,19 +61,60 @@ type CameraCaptureProps = {
   onCapture: (uri: string) => Promise<void>;
   onGallery: () => Promise<void>;
   onManualEntry: () => void;
+  onBackgroundCapture: (uri: string) => void;
+  onBarcodeScanned: (code: string) => Promise<void>;
+  scanMode: 'receipt' | 'barcode';
+  onScanModeChange: (mode: 'receipt' | 'barcode') => void;
 };
 
-function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCaptureProps) {
+function CameraCapture({
+  insets,
+  onCapture,
+  onGallery,
+  onManualEntry,
+  onBackgroundCapture,
+  onBarcodeScanned,
+  scanMode,
+  onScanModeChange,
+}: CameraCaptureProps) {
   const { t } = useTranslation();
   const vc = visionCamera!;
   const { hasPermission, requestPermission } = vc.useCameraPermission();
   const device = vc.useCameraDevice('back');
   const photoOutput = vc.usePhotoOutput();
   const [flashOn, setFlashOn] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
+  const lastLiveBarcodeRef = useRef<string | null>(null);
+  const objectOutput = vc.useObjectOutput({
+    types: ['ean-13', 'ean-8', 'upc-e', 'code-128'],
+    onObjectsScanned: (objects) => {
+      if (scanMode !== 'barcode') return;
+      for (const object of objects) {
+        if (!vc.isScannedCode(object)) continue;
+        const value = object.value?.trim();
+        if (!value || value === lastLiveBarcodeRef.current) return;
+        lastLiveBarcodeRef.current = value;
+        void onBarcodeScanned(value);
+        return;
+      }
+    },
+  });
+
+  useEffect(() => {
+    if (scanMode !== 'barcode') {
+      lastLiveBarcodeRef.current = null;
+    }
+  }, [scanMode]);
 
   useEffect(() => {
     requestPermission();
   }, [requestPermission]);
+
+  const submitManualBarcode = () => {
+    const code = manualBarcode.trim();
+    if (!code) return;
+    void onBarcodeScanned(code);
+  };
 
   const capturePhoto = async () => {
     try {
@@ -106,13 +153,47 @@ function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCa
       <vc.Camera
         style={StyleSheet.absoluteFill}
         device={device}
-        outputs={[photoOutput]}
+        outputs={scanMode === 'receipt' ? [photoOutput] : [objectOutput]}
         isActive
       />
-      <CameraOverlay />
+      {scanMode === 'receipt' ? (
+        <CameraOverlay />
+      ) : (
+        <View style={styles.barcodeOverlay} pointerEvents="box-none">
+          <View style={styles.barcodeFrame} />
+          <Text style={styles.barcodeLiveHint}>{t('scan.barcodeLiveHint')}</Text>
+          <Pressable style={styles.manualBarcodeLink} onPress={submitManualBarcode}>
+            <Text style={styles.manualBarcodeLinkText}>{t('scan.barcodeEnterManual')}</Text>
+          </Pressable>
+          <TextInput
+            style={styles.barcodeInputCompact}
+            value={manualBarcode}
+            onChangeText={setManualBarcode}
+            placeholder="012345678905"
+            keyboardType="number-pad"
+            placeholderTextColor="rgba(255,255,255,0.45)"
+          />
+        </View>
+      )}
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         <BackButton showLabel={false} tintColor="#fff" style={styles.topBtn} />
+        <View style={styles.modeToggle}>
+          <Pressable
+            style={[styles.modeChip, scanMode === 'receipt' && styles.modeChipActive]}
+            onPress={() => onScanModeChange('receipt')}>
+            <Text style={[styles.modeChipText, scanMode === 'receipt' && styles.modeChipTextActive]}>
+              {t('scan.receiptMode')}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[styles.modeChip, scanMode === 'barcode' && styles.modeChipActive]}
+            onPress={() => onScanModeChange('barcode')}>
+            <Text style={[styles.modeChipText, scanMode === 'barcode' && styles.modeChipTextActive]}>
+              {t('scan.barcodeMode')}
+            </Text>
+          </Pressable>
+        </View>
         <Pressable style={styles.topBtn} onPress={() => setFlashOn((f) => !f)}>
           <SymbolView
             name={{ ios: flashOn ? 'bolt.fill' : 'bolt.slash', android: 'flash_on', web: 'flash_on' }}
@@ -126,9 +207,29 @@ function CameraCapture({ insets, onCapture, onGallery, onManualEntry }: CameraCa
         <Pressable onPress={onManualEntry}>
           <Text style={styles.retakeText}>{t('common.manual')}</Text>
         </Pressable>
-        <Pressable style={styles.captureBtn} onPress={capturePhoto}>
-          <View style={styles.captureInner} />
-        </Pressable>
+        {scanMode === 'receipt' ? (
+          <Pressable
+            style={styles.captureBtn}
+            onPress={capturePhoto}
+            onLongPress={async () => {
+              try {
+                const photoFile = await photoOutput.capturePhotoToFile({}, {});
+                const uri =
+                  Platform.OS === 'android'
+                    ? `file://${photoFile.filePath}`
+                    : photoFile.filePath;
+                onBackgroundCapture(uri);
+              } catch {
+                showScanError('Could not queue receipt for background processing.');
+              }
+            }}>
+            <View style={styles.captureInner} />
+          </Pressable>
+        ) : (
+          <View style={styles.barcodeHintWrap}>
+            <Text style={styles.barcodeHint}>{t('scan.barcodeMode')}</Text>
+          </View>
+        )}
         <Pressable onPress={() => setFlashOn((f) => !f)}>
           <Text style={styles.flashText}>{flashOn ? t('scan.flashOn') : t('scan.flash')}</Text>
         </Pressable>
@@ -147,8 +248,12 @@ export default function ScanScreen() {
   const insets = useSafeAreaInsets();
   const tier = useSubscriptionStore((s) => s.tier);
   const [processing, setProcessing] = useState(false);
+  const [scanMode, setScanMode] = useState<'receipt' | 'barcode'>('receipt');
   const [scanStage, setScanStage] = useState<ReceiptScanStage>('preparing');
+  const enqueueReceipt = useReceiptProcessingQueue((s) => s.enqueue);
   const [scanRemaining, setScanRemaining] = useState<number | null>(null);
+  const processingUriRef = useRef<string | null>(null);
+  const scanCancelledRef = useRef(false);
   const { setImageUri, setRawOcrText, setDraft, setOcrMeta, setParseWarnings, startManualEntry } =
     useScanStore();
 
@@ -172,12 +277,29 @@ export default function ScanScreen() {
   const processImage = useCallback(
     async (uri: string) => {
       if (!(await ensureCanScan())) return;
+      processingUriRef.current = uri;
+      scanCancelledRef.current = false;
       setProcessing(true);
       setScanStage('preparing');
       try {
         setImageUri(uri);
         const result = await scanReceiptFromImage(uri, { onStage: setScanStage });
+        if (scanCancelledRef.current) return;
         const { draft, parseMethod, ocrResult } = result;
+        const likelihood = assessReceiptLikelihood(ocrResult.text);
+        if (!likelihood.likelyReceipt && draft.items.length === 0) {
+          Alert.alert(t('scan.notReceiptTitle'), t('scan.notReceiptBody'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('scan.addManual'),
+              onPress: () => {
+                startManualEntry();
+                router.push('/receipt/edit');
+              },
+            },
+          ]);
+          return;
+        }
         setOcrMeta({
           source: ocrResult.source,
           confidence: ocrResult.confidence,
@@ -203,10 +325,59 @@ export default function ScanScreen() {
         showScanError(message);
         console.warn('Receipt scan failed:', error);
       } finally {
+        processingUriRef.current = null;
         setProcessing(false);
       }
     },
-    [router, setDraft, setImageUri, setOcrMeta, setParseWarnings, setRawOcrText, ensureCanScan]
+    [router, setDraft, setImageUri, setOcrMeta, setParseWarnings, setRawOcrText, ensureCanScan, t, startManualEntry]
+  );
+
+  const handleManualEntry = useCallback(async () => {
+    if (!(await ensureCanScan())) return;
+    startManualEntry();
+    router.push('/receipt/edit');
+  }, [ensureCanScan, startManualEntry, router]);
+
+  const queueBackgroundScan = useCallback(
+    async (uri: string) => {
+      if (!(await ensureCanScan())) return;
+      enqueueReceipt(uri);
+      Alert.alert(t('receiptQueue.queuedTitle'), t('receiptQueue.queuedBody'));
+      router.replace('/(tabs)');
+    },
+    [enqueueReceipt, ensureCanScan, router, t]
+  );
+
+  const moveScanToBackground = useCallback(async () => {
+    const uri = processingUriRef.current;
+    if (!uri) return;
+    scanCancelledRef.current = true;
+    setProcessing(false);
+    await queueBackgroundScan(uri);
+  }, [queueBackgroundScan]);
+
+  const handleBarcodeScanned = useCallback(
+    async (code: string) => {
+      const lookup = (await lookupBarcodeProduct(code)) ?? {
+        barcode: code.replace(/\D/g, ''),
+        name: code,
+      };
+      promptBarcodeDestination(code, lookup.name, {
+        onList: async () => {
+          const result = await applyBarcodeScan(lookup, 'list');
+          if (result.message) Alert.alert(t('scan.barcodeDetected'), result.message);
+        },
+        onPantry: async () => {
+          const result = await applyBarcodeScan(lookup, 'pantry');
+          if (result.message) Alert.alert(t('scan.barcodeDetected'), result.message);
+        },
+        onTrack: async () => {
+          const result = await applyBarcodeScan(lookup, 'track');
+          if (result.message) Alert.alert(t('scan.barcodeDetected'), result.message);
+        },
+      });
+    },
+    [t]
   );
 
   const pickImage = useCallback(async () => {
@@ -220,17 +391,13 @@ export default function ScanScreen() {
     }
   }, [processImage, ensureCanScan]);
 
-  const handleManualEntry = useCallback(async () => {
-    if (!(await ensureCanScan())) return;
-    startManualEntry();
-    router.push('/receipt/edit');
-  }, [ensureCanScan, startManualEntry, router]);
-
   if (processing) {
     return (
       <ReceiptScanProcessing
         variant="dark"
         stage={scanStage}
+        onBackgroundPress={() => void moveScanToBackground()}
+        backgroundLabel={t('receiptQueue.continueBackground')}
         header={
           <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
             <BackButton showLabel={false} tintColor="#fff" />
@@ -262,14 +429,20 @@ export default function ScanScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <CameraCapture
         insets={insets}
         onCapture={processImage}
         onGallery={pickImage}
         onManualEntry={handleManualEntry}
+        onBackgroundCapture={(uri) => void queueBackgroundScan(uri)}
+        onBarcodeScanned={handleBarcodeScanned}
+        scanMode={scanMode}
+        onScanModeChange={setScanMode}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -303,6 +476,70 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  modeToggle: { flexDirection: 'row', gap: 8 },
+  modeChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  modeChipActive: { backgroundColor: 'rgba(34,197,94,0.85)' },
+  modeChipText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  modeChipTextActive: { color: '#000' },
+  barcodeHintWrap: {
+    width: 76,
+    height: 76,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  barcodeHint: { color: '#fff', fontWeight: '700', fontSize: 12, textAlign: 'center' },
+  barcodeOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  barcodeFrame: {
+    width: '72%',
+    aspectRatio: 1.6,
+    borderWidth: 2,
+    borderColor: 'rgba(34,197,94,0.95)',
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  barcodeLiveHint: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 20,
+    paddingHorizontal: 12,
+  },
+  manualBarcodeLink: { marginTop: 8 },
+  manualBarcodeLinkText: { color: '#86EFAC', fontWeight: '700', fontSize: 13 },
+  barcodeInputCompact: {
+    width: '100%',
+    maxWidth: 280,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: '#fff',
+    fontSize: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  barcodeInput: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#fff',
+    fontSize: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   controls: {
     position: 'absolute',

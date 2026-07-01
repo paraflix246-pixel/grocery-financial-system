@@ -1,5 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 
+import { isEmailConfirmed } from '@/src/services/auth/emailConfirmationLogic';
+
 import {
   buildEmailCard,
   buildEmailCta,
@@ -177,7 +179,5 @@ export async function handleEmailChangedNotificationRequest(
 
 /** True when the account email is confirmed (email signup link clicked or OAuth). */
 export function isUserEmailConfirmed(user: User): boolean {
-  if (user.email_confirmed_at) return true;
-  const providers = (user.identities ?? []).map((identity) => identity.provider);
-  return providers.some((provider) => provider && provider !== 'email');
+  return isEmailConfirmed(user);
 }

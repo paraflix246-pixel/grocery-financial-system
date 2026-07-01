@@ -19,7 +19,22 @@ type BudgetStore = {
   resolveOnboardingState: () => Promise<boolean>;
 };
 
-export const useBudgetStore = create<BudgetStore>((set) => ({
+function buildBudgetSettings(
+  weeklyBudget: number,
+  alertThreshold: number,
+  categoryLimits?: CategoryLimits,
+  previous?: BudgetSettings | null
+): BudgetSettings {
+  return {
+    id: previous?.id ?? 'local',
+    weeklyBudget,
+    alertThreshold,
+    categoryLimits: categoryLimits ?? previous?.categoryLimits,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+export const useBudgetStore = create<BudgetStore>((set, get) => ({
   settings: null,
   onboardingComplete: false,
   onboardingReady: false,
@@ -32,8 +47,21 @@ export const useBudgetStore = create<BudgetStore>((set) => ({
   },
 
   saveSettings: async (weeklyBudget, alertThreshold, categoryLimits) => {
-    const settings = await updateBudgetSettings(weeklyBudget, alertThreshold, categoryLimits);
-    set({ settings });
+    const optimistic = buildBudgetSettings(
+      weeklyBudget,
+      alertThreshold,
+      categoryLimits,
+      get().settings
+    );
+    set({ settings: optimistic });
+    try {
+      const settings = await updateBudgetSettings(weeklyBudget, alertThreshold, categoryLimits);
+      set({ settings });
+    } catch (error) {
+      const settings = await getBudgetSettings();
+      set({ settings });
+      throw error;
+    }
   },
 
   checkOnboarding: async () => {
@@ -52,7 +80,12 @@ export const useBudgetStore = create<BudgetStore>((set) => ({
     await waitForAuthReady();
     const session = await getSession();
     if (session) {
-      await syncUserProfile();
+      const profile = await syncUserProfile({ force: true });
+      if (profile?.onboarding_completed_at) {
+        await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
+        set({ onboardingComplete: true, onboardingReady: true });
+        return true;
+      }
       await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
       set({ onboardingComplete: true, onboardingReady: true });
       return true;

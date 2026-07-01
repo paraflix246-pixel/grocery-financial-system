@@ -7,6 +7,16 @@ export const LAST_ACTIVITY_KEY = '@smartcart_last_activity_at';
 /** Web idle timeout before prompting re-login when remember-me is off. */
 export const WEB_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 
+/** Explicit sign-out always lands on the sign-in screen (not the onboarding carousel). */
+export const POST_LOGOUT_SIGNIN_ROUTE = '/onboarding/signin';
+
+export function buildPostLogoutHref(options?: { returnTo?: string }): string {
+  if (options?.returnTo) {
+    return `/onboarding/signin?returnTo=${encodeURIComponent(options.returnTo)}`;
+  }
+  return POST_LOGOUT_SIGNIN_ROUTE;
+}
+
 export type AuthRoutingContext = {
   onboardingComplete: boolean;
   hasSupabaseSession: boolean;

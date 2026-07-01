@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -12,7 +13,7 @@ type Props = {
   onAdd: (item: RepurchaseCadence) => void;
 };
 
-export function ForgottenItemsCard({ items, onAdd }: Props) {
+export const ForgottenItemsCard = memo(function ForgottenItemsCard({ items, onAdd }: Props) {
   const { t } = useTranslation();
   if (items.length === 0) return null;
 
@@ -42,7 +43,7 @@ export function ForgottenItemsCard({ items, onAdd }: Props) {
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   card: {

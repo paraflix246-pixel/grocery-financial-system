@@ -11,6 +11,8 @@ import type { SubscriptionPlan } from '@/src/store/useSubscriptionStore';
 export type { StripeSubscriptionStatus } from '@/src/services/stripe/stripeSubscriptionMapper';
 export { mapStripeStatusToSubscriptionState } from '@/src/services/stripe/stripeSubscriptionMapper';
 
+export const SUBSCRIPTION_AUTH_REQUIRED_ERROR = 'Sign in to manage your subscription.';
+
 function resolveStripeApiUrl(path: string): string | null {
   if (Platform.OS !== 'web') return null;
   return resolveAppApiUrl(path);
@@ -20,7 +22,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   const session = await getSession();
   const token = session?.access_token;
   if (!token) {
-    throw new Error('Sign in to manage your subscription.');
+    throw new Error(SUBSCRIPTION_AUTH_REQUIRED_ERROR);
   }
   return {
     Authorization: `Bearer ${token}`,

@@ -1,8 +1,8 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import type { ComponentProps } from 'react';
 
 import { LinearGradient } from 'expo-linear-gradient';
@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 
+import { HorizontalScrollRow } from '@/src/components/HorizontalScrollRow';
 import { ScreenHeader } from '@/src/components/ScreenHeader';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { LegalFooter } from '@/src/components/legal/LegalFooter';
@@ -45,12 +46,28 @@ import { getSubscriptionBillingMode } from '@/src/services/subscriptionService';
 import { redirectToStripeCheckout } from '@/src/services/stripeSubscriptionService';
 
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
+import {
+  buildPaywallHref,
+  PAYWALL_PLAN_SCROLL_INDEX,
+  parseInitialPaywallPlan,
+  type PaywallPlanId,
+} from '@/src/utils/paywallRoutes';
+import {
+  hasActiveCheckoutSession,
+  isSubscriptionAuthError,
+  promptPaywallSignIn,
+  type CheckoutProduct,
+} from '@/src/utils/paywallCheckoutAuth';
+import { startDevFamilyWorkspacePreview } from '@/src/services/devFamilyWorkspacePreview';
+import { promptDevFamilyPreviewSignIn } from '@/src/utils/devFamilyPreviewAuth';
+import { useDevFamilyPreview } from '@/src/hooks/useDevFamilyPreview';
+import { FamilyWorkspaceTheme } from '@/src/theme/familyWorkspaceTheme';
 
 const BG = '#0F0F0F';
 
 const GREEN = '#22C55E';
 
-const PURPLE = '#7C3AED';
+const FAMILY = FamilyWorkspaceTheme;
 
 const TEXT_PRIMARY = '#FFFFFF';
 
@@ -67,8 +84,6 @@ const COMPACT_LAYOUT_MAX_WIDTH = 600;
 const PLAN_CARD_GAP = 16;
 
 const MOBILE_CARD_WIDTH_RATIO = 0.86;
-
-type PlanId = 'free' | 'pro' | 'family';
 
 type PaywallT = (key: string, opts?: Record<string, string | number>) => string;
 
@@ -206,7 +221,7 @@ function FamilyBadge({ label }: { label: string }) {
     <View style={styles.familyBadgePill}>
       <SymbolView
         name={{ ios: 'person.3.fill', android: 'groups', web: 'groups' }}
-        tintColor={PURPLE}
+        tintColor={FAMILY.accent}
         size={12}
       />
       <Text style={styles.familyBadgePillText}>{label}</Text>
@@ -272,12 +287,16 @@ function PlanCardShell({
   return (
     <Pressable
       onPress={onSelect}
-      style={[
+      unstable_pressDelay={compact ? 80 : undefined}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      style={({ pressed }) => [
         styles.planCard,
         compact && styles.planCardCompact,
         cardStyle,
         selected && selectedStyle,
         width != null ? { width } : styles.planCardFlex,
+        Platform.OS === 'web' && pressed && !selected ? styles.planCardPressed : null,
       ]}>
       {children}
     </Pressable>
@@ -432,11 +451,11 @@ function FamilyPlanCard({
       ) : null}
       <View style={styles.featureList}>
         {bullets.map((text) => (
-          <FeatureBullet key={text} text={text} accent={PURPLE} compact={compact} />
+          <FeatureBullet key={text} text={text} accent={FAMILY.accent} compact={compact} />
         ))}
       </View>
       <View style={styles.cardFooter}>
-        <SelectIndicator selected={selected} accent={PURPLE} t={t} />
+        <SelectIndicator selected={selected} accent={FAMILY.accent} t={t} />
       </View>
     </PlanCardShell>
   );
@@ -445,25 +464,91 @@ function FamilyPlanCard({
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { family, plan } = useLocalSearchParams<{ family?: string; plan?: string }>();
   useAdminPaywallBypass();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const isCompact = width < COMPACT_LAYOUT_MAX_WIDTH;
   const mobileCardWidth = Math.min(width * MOBILE_CARD_WIDTH_RATIO, 320);
   const snapInterval = mobileCardWidth + PLAN_CARD_GAP;
+  const plansScrollRef = useRef<ScrollView>(null);
+  const didScrollToPlanRef = useRef(false);
+
+  const initialPlan = useMemo(
+    () => parseInitialPaywallPlan({ family, plan }),
+    [family, plan]
+  );
 
   const upgradeToPro = useSubscriptionStore((s) => s.upgradeToPro);
   const startProTrial = useSubscriptionStore((s) => s.startProTrial);
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly');
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro');
+  const [selectedPlan, setSelectedPlan] = useState<PaywallPlanId>(initialPlan);
   const [upgrading, setUpgrading] = useState(false);
   const [upgradingFamily, setUpgradingFamily] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const billingMode = getSubscriptionBillingMode();
+  const { active: devPreviewActive } = useDevFamilyPreview();
+  const [devPreviewBusy, setDevPreviewBusy] = useState(false);
 
   const freeBullets = getFreeBullets(t);
   const proBullets = getProBullets(t);
   const familyBullets = getFamilyBullets(t);
+
+  useEffect(() => {
+    setSelectedPlan(initialPlan);
+  }, [initialPlan]);
+
+  useEffect(() => {
+    if (!isCompact || didScrollToPlanRef.current) return;
+    const scrollIndex = PAYWALL_PLAN_SCROLL_INDEX[initialPlan];
+    if (scrollIndex === 0) return;
+    didScrollToPlanRef.current = true;
+    const timer = setTimeout(() => {
+      plansScrollRef.current?.scrollTo({ x: scrollIndex * snapInterval, animated: false });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [initialPlan, isCompact, snapInterval]);
+
+  const promptSignInForCheckout = useCallback(
+    (product: CheckoutProduct) => {
+      promptPaywallSignIn(
+        product,
+        {
+          title: t('paywall.signInRequiredTitle'),
+          message:
+            product === 'family'
+              ? t('paywall.signInForFamilySubscribe')
+              : t('paywall.signInForProSubscribe'),
+          cancel: t('common.cancel'),
+          signIn: t('common.signIn'),
+        },
+        (href) => router.push(href as never)
+      );
+    },
+    [router, t]
+  );
+
+  const ensureCheckoutAuth = useCallback(
+    async (product: CheckoutProduct): Promise<boolean> => {
+      if (await hasActiveCheckoutSession()) return true;
+      promptSignInForCheckout(product);
+      return false;
+    },
+    [promptSignInForCheckout]
+  );
+
+  const handleCheckoutError = useCallback(
+    (error: unknown, product: CheckoutProduct) => {
+      if (isSubscriptionAuthError(error)) {
+        promptSignInForCheckout(product);
+        return;
+      }
+      const message =
+        error instanceof Error ? error.message : t('paywall.checkoutFailedMessage');
+      Alert.alert(t('paywall.checkoutFailedTitle'), message);
+    },
+    [promptSignInForCheckout, t]
+  );
 
   const handleStartTrial = async () => {
     setStartingTrial(true);
@@ -478,17 +563,48 @@ export default function PaywallScreen() {
     }
   };
 
+  const handleDevFamilyPreview = async () => {
+    setDevPreviewBusy(true);
+    try {
+      const ready = await startDevFamilyWorkspacePreview(router, 'home');
+      if (!ready) {
+        promptDevFamilyPreviewSignIn(
+          buildPaywallHref('family'),
+          {
+            title: t('devFamilyPreview.routeTitle'),
+            message: t('devFamilyPreview.signInRequired'),
+            cancel: t('common.cancel'),
+            signIn: t('common.signIn'),
+          },
+          (href) => router.push(href as never)
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        t('devFamilyPreview.routeTitle'),
+        error instanceof Error ? error.message : t('devFamilyPreview.enableFailed')
+      );
+    } finally {
+      setDevPreviewBusy(false);
+    }
+  };
+
   const handleFamilyUpgrade = async () => {
+    if (__DEV__ && devPreviewActive) {
+      router.push('/family_plans' as never);
+      return;
+    }
+
     setUpgradingFamily(true);
     try {
       if (Platform.OS === 'web' && billingMode === 'stripe') {
+        if (!(await ensureCheckoutAuth('family'))) return;
         await redirectToStripeCheckout(billing, 'family');
         return;
       }
       router.push('/family_plans' as never);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Purchase failed. Please try again.';
-      console.warn('[paywall] family upgrade failed:', message);
+      handleCheckoutError(error, 'family');
     } finally {
       setUpgradingFamily(false);
     }
@@ -498,14 +614,14 @@ export default function PaywallScreen() {
     setUpgrading(true);
     try {
       if (Platform.OS === 'web' && billingMode === 'stripe') {
+        if (!(await ensureCheckoutAuth('pro'))) return;
         await redirectToStripeCheckout(billing);
         return;
       }
       await upgradeToPro(billing);
       router.replace('/subscriptions' as never);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Purchase failed. Please try again.';
-      console.warn('[paywall] upgrade failed:', message);
+      handleCheckoutError(error, 'pro');
     } finally {
       setUpgrading(false);
     }
@@ -523,7 +639,7 @@ export default function PaywallScreen() {
     void handleProUpgrade();
   };
 
-  const isBusy = upgrading || upgradingFamily || startingTrial;
+  const isBusy = upgrading || upgradingFamily || startingTrial || devPreviewBusy;
 
   const planCards = (
     <>
@@ -573,6 +689,34 @@ export default function PaywallScreen() {
           <Text style={styles.heroSub}>{t('paywall.subhead')}</Text>
         </View>
 
+        {__DEV__ ? (
+          <View style={styles.devPreviewBanner}>
+            <View style={styles.devPreviewBannerText}>
+              <Text style={styles.devPreviewBannerTitle}>{t('paywall.devPreviewBannerTitle')}</Text>
+              <Text style={styles.devPreviewBannerBody}>{t('paywall.devPreviewBannerBody')}</Text>
+            </View>
+            <Pressable
+              style={[styles.devPreviewBtn, (isBusy || devPreviewActive) && styles.btnDisabled]}
+              disabled={isBusy || devPreviewActive}
+              onPress={() => void handleDevFamilyPreview()}
+              accessibilityRole="button"
+              accessibilityLabel={t('paywall.devPreviewButton')}>
+              <SymbolView
+                name={{ ios: 'person.3.fill', android: 'groups', web: 'groups' }}
+                tintColor="#FFF"
+                size={16}
+              />
+              <Text style={styles.devPreviewBtnText}>
+                {devPreviewActive
+                  ? t('paywall.devPreviewActive')
+                  : devPreviewBusy
+                    ? t('common.processing')
+                    : t('paywall.devPreviewButton')}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={styles.billingToggle}>
           <Pressable
             style={[styles.billingBtn, billing === 'monthly' && styles.billingBtnActive]}
@@ -592,15 +736,13 @@ export default function PaywallScreen() {
 
         <View style={styles.plansContainer}>
           {isCompact ? (
-            <ScrollView
-              horizontal
+            <HorizontalScrollRow
+              ref={plansScrollRef}
               showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
               snapToInterval={snapInterval}
-              snapToAlignment="start"
               contentContainerStyle={styles.plansScrollContent}>
               {planCards}
-            </ScrollView>
+            </HorizontalScrollRow>
           ) : (
             <View style={styles.plansRow}>{planCards}</View>
           )}
@@ -670,7 +812,7 @@ export default function PaywallScreen() {
 
           <Text style={styles.disclaimer}>{getBillingDisclaimer(billingMode, t)}</Text>
 
-          <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor={PURPLE} style={styles.legalFooter} />
+          <LegalFooter mutedColor="rgba(255,255,255,0.35)" linkColor={FAMILY.accentLight} style={styles.legalFooter} />
         </View>
       </ScrollView>
     </View>
@@ -699,6 +841,39 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     maxWidth: 400,
   },
+  devPreviewBanner: {
+    marginBottom: 20,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: FAMILY.devPreviewBannerBorder,
+    backgroundColor: FAMILY.devPreviewBannerBg,
+    gap: 12,
+  },
+  devPreviewBannerText: { gap: 4 },
+  devPreviewBannerTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: FAMILY.accent,
+    textAlign: 'center',
+  },
+  devPreviewBannerBody: {
+    fontSize: 12,
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  devPreviewBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: FAMILY.accent,
+    borderRadius: 999,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  devPreviewBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
   billingToggle: {
     flexDirection: 'row',
     backgroundColor: CARD_BG,
@@ -748,6 +923,9 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 18,
   },
+  planCardPressed: {
+    opacity: 0.92,
+  },
   freeCardSelected: {
     borderColor: 'rgba(255,255,255,0.35)',
     borderWidth: 2,
@@ -766,11 +944,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   familyCard: {
-    backgroundColor: 'rgba(124,58,237,0.08)',
-    borderColor: 'rgba(124,58,237,0.32)',
+    backgroundColor: FAMILY.paywallCardBg,
+    borderColor: FAMILY.paywallCardBorder,
   },
   familyCardSelected: {
-    borderColor: PURPLE,
+    borderColor: FAMILY.accent,
     borderWidth: 2,
   },
   planBadgeRow: { marginBottom: 10 },
@@ -798,14 +976,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(124,58,237,0.18)',
+    backgroundColor: FAMILY.paywallBadgeBg,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.35)',
+    borderColor: FAMILY.paywallBadgeBorder,
   },
   familyBadgePillText: {
     fontSize: 11,
     fontWeight: '800',
-    color: PURPLE,
+    color: FAMILY.accentLight,
     letterSpacing: 0.2,
   },
   planName: { fontSize: 20, fontWeight: '800', color: TEXT_PRIMARY, letterSpacing: -0.3 },
@@ -822,7 +1000,7 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   proTagline: { color: 'rgba(74,222,128,0.85)' },
-  familyTagline: { color: 'rgba(196,181,253,0.9)' },
+  familyTagline: { color: FAMILY.paywallTagline },
   familySubtitle: {
     fontSize: 12,
     color: TEXT_MUTED,
@@ -837,7 +1015,7 @@ const styles = StyleSheet.create({
   planPrice: { fontSize: 32, fontWeight: '800', color: TEXT_PRIMARY, letterSpacing: -0.5 },
   planPriceCompact: { fontSize: 26 },
   proPrice: { color: GREEN },
-  familyPrice: { color: PURPLE },
+  familyPrice: { color: FAMILY.accentLight },
   planPeriod: { fontSize: 14, color: TEXT_MUTED },
   planPeriodCompact: { fontSize: 12 },
   yearlyNote: { fontSize: 12, color: TEXT_MUTED, marginTop: 3 },
@@ -894,7 +1072,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   familyPrimaryBtn: {
-    backgroundColor: PURPLE,
+    backgroundColor: FAMILY.accent,
   },
   freePrimaryBtn: {
     backgroundColor: 'rgba(255,255,255,0.12)',
@@ -927,7 +1105,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   familyLink: { alignItems: 'center', paddingVertical: 2 },
-  familyLinkText: { fontSize: 13, fontWeight: '600', color: PURPLE },
+  familyLinkText: { fontSize: 13, fontWeight: '600', color: FAMILY.accentLight },
   freeLink: { alignItems: 'center', paddingVertical: 4 },
   freeLinkText: { fontSize: 14, fontWeight: '600', color: TEXT_MUTED },
   disclaimer: {

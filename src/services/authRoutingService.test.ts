@@ -3,8 +3,10 @@ import { describe, it } from 'node:test';
 
 import {
   WEB_IDLE_TIMEOUT_MS,
+  buildPostLogoutHref,
   isIdleTimedOut,
   needsReauthentication,
+  POST_LOGOUT_SIGNIN_ROUTE,
   resolveInitialRoute,
   shouldPromptLogin,
   type AuthRoutingContext,
@@ -23,6 +25,20 @@ function ctx(partial: Partial<AuthRoutingContext>): AuthRoutingContext {
     ...partial,
   };
 }
+
+describe('buildPostLogoutHref', () => {
+  it('routes explicit logout to sign-in without return path', () => {
+    assert.equal(buildPostLogoutHref(), POST_LOGOUT_SIGNIN_ROUTE);
+    assert.equal(POST_LOGOUT_SIGNIN_ROUTE, '/onboarding/signin');
+  });
+
+  it('includes returnTo when session recovery should restore the app', () => {
+    assert.equal(
+      buildPostLogoutHref({ returnTo: '/(tabs)' }),
+      '/onboarding/signin?returnTo=%2F(tabs)'
+    );
+  });
+});
 
 describe('resolveInitialRoute', () => {
   it('sends first-time visitors to onboarding', () => {

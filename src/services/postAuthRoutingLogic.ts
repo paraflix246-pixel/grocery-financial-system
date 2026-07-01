@@ -1,8 +1,10 @@
+import type { OAuthIntent } from '@/src/services/onboardingFlowState';
+
 export type PostAuthPlatform = 'web' | 'native';
 
 export type PostOAuthRouteResult = {
   href: string;
-  reason: 'admin' | 'upgrade';
+  reason: 'admin' | 'join_household' | 'upgrade';
 };
 
 /** Where OAuth should land after provider sign-in (before role-specific routing). */
@@ -18,13 +20,17 @@ export function isPaywallPath(pathname: string): boolean {
 
 export function resolvePostOAuthRoute(
   isAdmin: boolean,
-  platform: PostAuthPlatform
+  platform: PostAuthPlatform,
+  oauthIntent: OAuthIntent | null = null
 ): PostOAuthRouteResult {
   if (isAdmin) {
     return {
       href: platform === 'web' ? '/admin' : '/(tabs)',
       reason: 'admin',
     };
+  }
+  if (oauthIntent === 'signup') {
+    return { href: '/onboarding/join-household', reason: 'join_household' };
   }
   return { href: '/onboarding/upgrade', reason: 'upgrade' };
 }

@@ -2,15 +2,27 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 import { Platform } from 'react-native';
 
+import {
+  buildSignupVerificationRedirectUrl,
+  isEmailConfirmed,
+  needsEmailVerificationAfterSignUp,
+} from '@/src/services/auth/emailConfirmationLogic';
+import {
+  buildEmailChangeRedirectUrl,
+  ChangeEmailError,
+  mapChangeEmailSupabaseError,
+} from '@/src/services/auth/changeEmailLogic';
 import { generateId } from '@/src/utils/id';
 import { getAuthRedirectUrl, resolveAppApiUrl } from '@/src/utils/appOrigin';
 import { clearCachedProfileRole, syncUserProfile } from '@/src/services/admin/adminApiService';
 import { OAUTH_CALLBACK_PATH } from '@/src/services/postAuthRoutingLogic';
 import { getAppSettings, updateAppSettings } from '@/src/services/storageService';
 import { supabase } from '@/src/services/supabaseClient';
+import { handlePersonalReceiptsAfterAccountSwitch } from '@/src/services/personalReceiptScope';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 
 export { getAuthRedirectUrl } from '@/src/utils/appOrigin';
+export { ChangeEmailError } from '@/src/services/auth/changeEmailLogic';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -25,7 +37,12 @@ export type AuthUser = {
 
 function mapSupabaseError(message: string): string {
   const msg = message.toLowerCase();
-  if (msg.includes('email already registered') || msg.includes('user already registered')) {
+  if (
+    msg.includes('already been registered') ||
+    msg.includes('email already registered') ||
+    msg.includes('user already registered') ||
+    msg.includes('email address is already')
+  ) {
     return 'An account with this email already exists. Try signing in instead.';
   }
   if (msg.includes('invalid login credentials') || msg.includes('invalid credentials')) {
@@ -87,32 +104,52 @@ export async function syncProfileDisplayNameFromAuth(): Promise<void> {
   await syncLocalDisplayName(extractAuthDisplayName(authUser.user_metadata));
 }
 
+export type EmailSignUpResult = {
+  user: AuthUser;
+  needsEmailVerification: boolean;
+};
+
 export async function signUpWithEmail(
   email: string,
   password: string,
   displayName?: string
-): Promise<AuthUser> {
+): Promise<EmailSignUpResult> {
   if (!supabase) throw new Error('Auth service not available. Please try again later.');
   const trimmedName = displayName?.trim() ?? '';
+  const emailRedirectTo = buildSignupVerificationRedirectUrl(
+    getAuthRedirectUrl,
+    OAUTH_CALLBACK_PATH
+  );
   const { data, error } = await supabase.auth.signUp({
     email: email.trim().toLowerCase(),
     password,
-    options: trimmedName
-      ? { data: { display_name: trimmedName, full_name: trimmedName } }
-      : undefined,
+    options: {
+      emailRedirectTo,
+      ...(trimmedName
+        ? { data: { display_name: trimmedName, full_name: trimmedName } }
+        : {}),
+    },
   });
   if (error) throw new Error(mapSupabaseError(error.message));
   if (!data.user) throw new Error('Something went wrong. Please try again.');
+  const needsEmailVerification = needsEmailVerificationAfterSignUp(data.session, data.user);
   const user: AuthUser = {
     id: data.user.id,
     email: data.user.email ?? email.trim().toLowerCase(),
     isGuest: false,
   };
-  await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
-  if (trimmedName) {
-    await syncLocalDisplayName(trimmedName);
+
+  if (!needsEmailVerification) {
+    const previousUser = await getStoredUser();
+    await handlePersonalReceiptsAfterAccountSwitch(previousUser, user.id);
+    await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    if (trimmedName) {
+      await syncLocalDisplayName(trimmedName);
+    }
+    await syncAuthUserFromSession();
   }
-  return user;
+
+  return { user, needsEmailVerification };
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<AuthUser> {
@@ -123,11 +160,13 @@ export async function signInWithEmail(email: string, password: string): Promise<
   });
   if (error) throw new Error(mapSupabaseError(error.message));
   if (!data.user) throw new Error('Could not sign in. Please try again.');
+  const previousUser = await getStoredUser();
   const user: AuthUser = {
     id: data.user.id,
     email: data.user.email ?? email.trim().toLowerCase(),
     isGuest: false,
   };
+  await handlePersonalReceiptsAfterAccountSwitch(previousUser, user.id);
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
   await syncProfileDisplayNameFromAuth();
   return user;
@@ -221,15 +260,6 @@ type TransactionalEmailApiResponse = WelcomeEmailApiResponse;
 
 let welcomeEmailInFlight = false;
 let passwordChangedNotificationInFlight = false;
-
-function isEmailConfirmed(user: {
-  email_confirmed_at?: string | null;
-  identities?: { provider?: string }[];
-}): boolean {
-  if (user.email_confirmed_at) return true;
-  const providers = (user.identities ?? []).map((identity) => identity.provider);
-  return providers.some((provider) => provider && provider !== 'email');
-}
 
 function logWelcomeSkip(reason: string): void {
   if (__DEV__) {
@@ -359,25 +389,31 @@ export type ChangeEmailResult = {
 
 /** Requests an email change; Supabase sends confirmation to the new address. */
 export async function changeAccountEmail(newEmail: string): Promise<ChangeEmailResult> {
-  if (!supabase) throw new Error('Auth service not available. Please try again later.');
+  if (!supabase) throw new ChangeEmailError('auth_unavailable');
 
   const normalizedNewEmail = newEmail.trim().toLowerCase();
   const { data: userData } = await supabase.auth.getUser();
   const user = userData.user;
   if (!user?.email) {
-    throw new Error('Sign in required to change your email.');
+    throw new ChangeEmailError('sign_in_required');
   }
 
   const oldEmail = user.email.trim().toLowerCase();
   if (oldEmail === normalizedNewEmail) {
-    throw new Error('Enter a different email address.');
+    throw new ChangeEmailError('same_email');
   }
 
+  const emailRedirectTo = buildEmailChangeRedirectUrl(getAuthRedirectUrl, OAUTH_CALLBACK_PATH);
   const { error } = await supabase.auth.updateUser(
     { email: normalizedNewEmail },
-    { emailRedirectTo: getAuthRedirectUrl('/settings') }
+    { emailRedirectTo }
   );
-  if (error) throw new Error(mapSupabaseError(error.message));
+  if (error) {
+    if (__DEV__) {
+      console.warn('[auth] changeAccountEmail failed:', error.code ?? 'unknown', error.message);
+    }
+    throw new ChangeEmailError(mapChangeEmailSupabaseError(error), error.message);
+  }
 
   void postTransactionalAuthApi('/api/auth/email-changed-notification', {
     oldEmail,
@@ -392,11 +428,14 @@ export async function syncAuthUserFromSession(): Promise<void> {
   const { data } = await supabase.auth.getSession();
   const authUser = data.session?.user;
   if (!authUser) return;
+
+  const previousUser = await getStoredUser();
   const user: AuthUser = {
     id: authUser.id,
     email: authUser.email ?? undefined,
     isGuest: false,
   };
+  await handlePersonalReceiptsAfterAccountSwitch(previousUser, user.id);
   await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
   await syncProfileDisplayNameFromAuth();
   void maybeSendWelcomeEmail();
@@ -494,6 +533,10 @@ export async function signOut(): Promise<void> {
   }
   clearCachedProfileRole();
   await AsyncStorage.removeItem(AUTH_USER_KEY);
+  const { invalidateAllScopedReceiptsCache } = await import('@/src/services/scopedReceiptService');
+  invalidateAllScopedReceiptsCache();
+  const { useWorkspaceStore } = await import('@/src/store/useWorkspaceStore');
+  await useWorkspaceStore.getState().resetForSignOut();
 }
 
 export async function getSession() {

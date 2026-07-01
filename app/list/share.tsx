@@ -7,8 +7,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
+import { BackButton } from '@/src/components/BackButton';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
 import { buildFamilyInviteUrl, getOrCreateFamilyCode } from '@/src/services/familyCodeService';
 import { getListById, getListItems } from '@/src/services/storageService';
@@ -33,6 +35,7 @@ const CARD_BORDER = 'rgba(255,255,255,0.1)';
 
 export default function ListShareScreen() {
   const { listId } = useLocalSearchParams<{ listId?: string }>();
+  const insets = useSafeAreaInsets();
   const { unlocked, requestAccess } = useFeatureGate('family_plans');
   const { unlocked: syncUnlocked } = useFeatureGate('multi_user_sync');
   const [familyCode, setFamilyCode] = useState('');
@@ -160,13 +163,17 @@ export default function ListShareScreen() {
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          headerStyle: { backgroundColor: BG },
-          contentStyle: { backgroundColor: BG },
+          headerShown: false,
+          contentStyle: { backgroundColor: BG, overflow: 'visible' },
         }}
       />
 
-      <View style={styles.pageHeader}>
-        <Text style={styles.pageTitle}>Share with family</Text>
+      <View style={[styles.pageHeader, { paddingTop: insets.top + 8 }]}>
+        <BackButton showLabel={false} tintColor={TEXT_PRIMARY} />
+        <View style={styles.pageTitleWrap}>
+          <Text style={styles.pageTitle}>Share with family</Text>
+        </View>
+        <View style={styles.pageHeaderSpacer} />
       </View>
 
       <ScrollView
@@ -254,8 +261,16 @@ export default function ListShareScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
-  pageHeader: { paddingHorizontal: 16, paddingBottom: 4, alignItems: 'center' },
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  pageTitleWrap: { flex: 1, alignItems: 'center' },
   pageTitle: { fontSize: 18, fontWeight: '700', color: TEXT_PRIMARY, textAlign: 'center' },
+  pageHeaderSpacer: { width: 40 },
   content: { padding: 16, paddingBottom: 40, gap: 16 },
   lead: { fontSize: 14, color: TEXT_MUTED, lineHeight: 20 },
   previewCard: {

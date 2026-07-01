@@ -1,10 +1,16 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/Themed';
 import { ReceiptDraftLinesList, formatReceiptLineCountSummary } from '@/src/components/ReceiptDraftLinesList';
 import { ReceiptSaveReviewHint } from '@/src/components/ReceiptSaveReviewHint';
+import {
+  ReceiptStorageChoicePanel,
+  useReceiptStorageValidation,
+} from '@/src/components/receipt/ReceiptStorageChoicePanel';
+import { ReceiptImageViewer } from '@/src/components/receipt/ReceiptImageViewer';
 import { ReceiptScanWarnings } from '@/src/components/ReceiptScanWarnings';
 import { StoreBrandAvatar } from '@/src/components/StoreBrandAvatar';
 import { StoreLocationSection } from '@/src/components/StoreLocationSection';
@@ -12,6 +18,13 @@ import { LocationBackfillBanner } from '@/src/components/LocationBackfillBanner'
 import { useAutoBackfillStoreRegion } from '@/src/hooks/useAutoBackfillStoreRegion';
 import { useUnscannedRescanPrompt } from '@/src/hooks/useUnscannedRescanPrompt';
 import { useScanStore } from '@/src/store/useScanStore';
+import { useSettingsStore } from '@/src/store/useSettingsStore';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
+import {
+  resolveSavedReceiptStorageChoice,
+  shouldAskReceiptStorageChoice,
+  toPersistedReceiptImagePreference,
+} from '@/src/services/privacyPreferencesService';
 import { SmartCartColors, SmartCartRadius } from '@/src/theme/smartCart';
 import { formatDisplayDate } from '@/src/utils/dateParser';
 import { formatCurrency } from '@/src/utils/priceParser';
@@ -21,6 +34,7 @@ import { formatItemsSubtotalGapDetail } from '@/src/utils/receiptItemLabels';
 import { validateParsedReceipt, getReceiptBannerWarnings, shouldShowInlineSubtotalGap } from '@/src/utils/receiptValidation';
 
 export default function ReceiptPreviewScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const {
     draft,
@@ -31,7 +45,23 @@ export default function ReceiptPreviewScreen() {
     parseMethod,
     locationNeedsReview,
     setLocationNeedsReview,
+    receiptStorageChoice,
+    rememberStorageChoice,
+    setReceiptStorageChoice,
+    setRememberStorageChoice,
+    imageUri,
   } = useScanStore();
+  const { settings, loadSettings, saveSettings } = useSettingsStore();
+  const validateStorageChoice = useReceiptStorageValidation();
+  const [storageChoiceError, setStorageChoiceError] = useState<string | null>(null);
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
+  const hasWorkspaceMembership = useWorkspaceStore((s) => s.isCurrentMember && Boolean(s.currentWorkspaceId));
+  const hasActiveWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
+  const isFamilySaveScope =
+    hasWorkspaceMembership && hasActiveWorkspaceSub && activeScope === 'workspace';
+  const reviewSaveLabel = isFamilySaveScope
+    ? t('workspace.reviewAndSaveToFamily')
+    : t('workspace.reviewAndSaveToPersonal');
 
   const handleLocationBackfill = useCallback(
     (partial: Parameters<typeof updateDraft>[0]) => {
@@ -50,6 +80,18 @@ export default function ReceiptPreviewScreen() {
   );
 
   const renormLocationRef = useRef(false);
+
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
+
+  useEffect(() => {
+    if (!settings || receiptStorageChoice) return;
+    const saved = resolveSavedReceiptStorageChoice(settings);
+    if (saved) setReceiptStorageChoice(saved);
+  }, [settings, receiptStorageChoice, setReceiptStorageChoice]);
+
+  const showStorageChoice = Boolean(imageUri) && (settings ? shouldAskReceiptStorageChoice(settings) : true);
 
   useEffect(() => {
     if (!draft || draft.storeRegion?.trim() || renormLocationRef.current) return;
@@ -104,6 +146,29 @@ export default function ReceiptPreviewScreen() {
 
   const goToEdit = () => router.push('/receipt/edit');
 
+  const handleContinueToSave = async () => {
+    if (showStorageChoice) {
+      const error = validateStorageChoice(receiptStorageChoice);
+      if (error) {
+        setStorageChoiceError(error);
+        if (Platform.OS === 'web') {
+          window.alert(error);
+        } else {
+          Alert.alert(t('privacy.receiptStorage.title'), error);
+        }
+        return;
+      }
+      setStorageChoiceError(null);
+      if (rememberStorageChoice && receiptStorageChoice && settings) {
+        await saveSettings({
+          rememberReceiptImageChoice: true,
+          receiptImageStorage: toPersistedReceiptImagePreference(receiptStorageChoice),
+        });
+      }
+    }
+    goToEdit();
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -117,17 +182,20 @@ export default function ReceiptPreviewScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <ReceiptScanWarnings warnings={bannerWarnings} draft={draft} onEdit={goToEdit} />
         <View style={styles.storeRow}>
-          <StoreBrandAvatar store={draft.storeName} size={44} />
-          <View style={styles.storeInfo}>
-            <Text style={styles.storeName}>{draft.storeName}</Text>
-            {draft.storeNumber ? (
-              <Text style={styles.storeMeta}>Store #{draft.storeNumber}</Text>
-            ) : null}
-            <Pressable onPress={goToEdit}>
-              <Text style={styles.storeEditHint}>Tap Edit to fix store or date</Text>
-            </Pressable>
-            <Text style={styles.storeDate}>{displayDate}</Text>
+          <View style={styles.storeLeft}>
+            <StoreBrandAvatar store={draft.storeName} size={44} />
+            <View style={styles.storeInfo}>
+              <Text style={styles.storeName}>{draft.storeName}</Text>
+              {draft.storeNumber ? (
+                <Text style={styles.storeMeta}>Store #{draft.storeNumber}</Text>
+              ) : null}
+              <Pressable onPress={goToEdit}>
+                <Text style={styles.storeEditHint}>Tap Edit to fix store or date</Text>
+              </Pressable>
+              <Text style={styles.storeDate}>{displayDate}</Text>
+            </View>
           </View>
+          {imageUri ? <ReceiptImageViewer imageUri={imageUri} /> : null}
         </View>
 
         <StoreLocationSection location={draft} editable={false} onChange={() => goToEdit()} />
@@ -161,7 +229,7 @@ export default function ReceiptPreviewScreen() {
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalAmount}>{formatCurrency(draft.total)}</Text>
           <Text style={styles.itemCount}>{formatReceiptLineCountSummary(draft.items)}</Text>
-          {draft.subtotal != null && draft.tax != null && (
+          {draft.subtotal != null && draft.tax != null && draft.tax > 0 && (
             <Text style={styles.breakdownHint}>
               Subtotal {formatCurrency(draft.subtotal)} · Tax {formatCurrency(draft.tax)}
             </Text>
@@ -203,8 +271,25 @@ export default function ReceiptPreviewScreen() {
 
         <ReceiptSaveReviewHint visible={bannerWarnings.length === 0} />
 
-        <Pressable style={styles.saveBtn} onPress={goToEdit}>
-          <Text style={styles.saveBtnText}>Review & Save</Text>
+        {showStorageChoice ? (
+          <>
+            <ReceiptStorageChoicePanel
+              choice={receiptStorageChoice}
+              onChoiceChange={(choice) => {
+                setReceiptStorageChoice(choice);
+                setStorageChoiceError(null);
+              }}
+              rememberChoice={rememberStorageChoice}
+              onRememberChange={setRememberStorageChoice}
+            />
+            {storageChoiceError ? (
+              <Text style={styles.storageError}>{storageChoiceError}</Text>
+            ) : null}
+          </>
+        ) : null}
+
+        <Pressable style={styles.saveBtn} onPress={() => void handleContinueToSave()}>
+          <Text style={styles.saveBtnText}>{reviewSaveLabel}</Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -238,7 +323,8 @@ const styles = StyleSheet.create({
   },
   refiningText: { flex: 1, fontSize: 13, color: SmartCartColors.text, fontWeight: '600' },
   reviewHint: { fontSize: 13, color: SmartCartColors.textSecondary, marginBottom: 12, lineHeight: 18 },
-  storeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 20 },
+  storeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  storeLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, flex: 1 },
   storeInfo: { flex: 1 },
   storeName: { fontSize: 20, fontWeight: '800', color: SmartCartColors.text },
   storeMeta: { fontSize: 13, color: SmartCartColors.textSecondary, marginTop: 2 },
@@ -294,4 +380,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 17 },
+  storageError: {
+    fontSize: 13,
+    color: SmartCartColors.accentOrange,
+    marginBottom: 12,
+    lineHeight: 18,
+  },
 });

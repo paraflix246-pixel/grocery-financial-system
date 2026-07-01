@@ -63,6 +63,8 @@ export type Receipt = {
   imageUri: string;
   linkedListId?: string;
   userCorrected: boolean;
+  /** Personal-scope owner; omitted for household workspace receipts from Supabase. */
+  ownerUserId?: string;
   createdAt: string;
   updatedAt: string;
   items?: ReceiptItem[];
@@ -118,13 +120,40 @@ export type BudgetSettings = {
   updatedAt: string;
 };
 
+/** How receipt images are stored after OCR when the user has saved a preference. */
+export type ReceiptImageStoragePreference = 'ask_each_time' | 'image_and_data' | 'data_only';
+
 export type AppSettings = {
   id: string;
   displayName: string;
+  /** Master switch for phone push notifications when the app is in the background. */
+  pushNotificationsEnabled: boolean;
   notifyPriceAlerts: boolean;
+  /** Push when a tracked item's price changes (not only drops). */
+  notifyPriceChangeAlerts: boolean;
+  /** Push when items on your watchlist go on sale. */
+  notifySaleAlerts: boolean;
+  /** Push when a tracked item is cheaper at another store you compare. */
+  notifyCheaperStoreAlerts: boolean;
   notifyBudgetAlerts: boolean;
+  /** Optional weekly grocery spending recap (Sunday evening). */
+  notifyWeeklySummaryAlerts: boolean;
+  /** Push when a shared household shopping list is updated. */
+  notifyFamilyListAlerts: boolean;
+  /** Push when pantry staples drop below your low-stock threshold. */
+  notifyPantryLowAlerts: boolean;
+  /** Push when another member saves a receipt to the household workspace. */
+  notifyHouseholdReceiptAlerts: boolean;
   enhancedCloudOcr: boolean;
   aiReceiptCleanup: boolean;
+  /** Opt-in: contribute anonymized line-item prices to the community price database. */
+  communityPriceSharing: boolean;
+  /** Saved receipt image storage preference (when rememberReceiptImageChoice is true). */
+  receiptImageStorage: ReceiptImageStoragePreference;
+  /** When true, receiptImageStorage is applied automatically after OCR. */
+  rememberReceiptImageChoice: boolean;
+  /** When false, hide Live Price Estimates on Home and related entry points. */
+  showLivePriceEstimates: boolean;
   updatedAt: string;
 };
 

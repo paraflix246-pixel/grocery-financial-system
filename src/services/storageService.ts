@@ -24,6 +24,13 @@ import type { StoreDefinition } from '@/src/data/stores';
 import { generateId } from '@/src/utils/id';
 import { defaultCategoryLimits } from '@/src/utils/budgetDefaults';
 import {
+  getPersonalReceiptOwnerId,
+  readLegacyReceiptOwnerId,
+  resolveLegacyReceiptClaim,
+  transferLegacyReceiptOwnerId,
+  writeLegacyReceiptOwnerId,
+} from '@/src/services/personalReceiptScope';
+import {
   isDuplicateReceiptTotal,
   normalizeStoreForDuplicate,
 } from '@/src/utils/duplicateReceipt';
@@ -480,6 +487,101 @@ async function migrateSchema(db: SQLite.SQLiteDatabase, fromVersion: number): Pr
       await db.runAsync('ALTER TABLE grocery_lists ADD COLUMN completed_at TEXT');
     }
   }
+
+  if (fromVersion < 20) {
+    const receiptColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(receipts)');
+    const hasOwnerUserId = receiptColumns.some((column) => column.name === 'owner_user_id');
+    if (!hasOwnerUserId) {
+      await db.execAsync('ALTER TABLE receipts ADD COLUMN owner_user_id TEXT');
+      await db.execAsync(
+        'CREATE INDEX IF NOT EXISTS idx_receipts_owner_user_id ON receipts(owner_user_id)'
+      );
+    }
+  }
+
+  if (fromVersion < 21) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(app_settings)');
+    const addColumn = async (name: string, sql: string) => {
+      if (!columns.some((column) => column.name === name)) {
+        await db.execAsync(sql);
+      }
+    };
+    await addColumn(
+      'community_price_sharing',
+      'ALTER TABLE app_settings ADD COLUMN community_price_sharing INTEGER NOT NULL DEFAULT 0'
+    );
+    await addColumn(
+      'receipt_image_storage',
+      "ALTER TABLE app_settings ADD COLUMN receipt_image_storage TEXT NOT NULL DEFAULT 'ask_each_time'"
+    );
+    await addColumn(
+      'remember_receipt_image_choice',
+      'ALTER TABLE app_settings ADD COLUMN remember_receipt_image_choice INTEGER NOT NULL DEFAULT 0'
+    );
+  }
+
+  if (fromVersion < 22) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(app_settings)');
+    const addColumn = async (name: string, sql: string) => {
+      if (!columns.some((column) => column.name === name)) {
+        await db.execAsync(sql);
+      }
+    };
+    await addColumn(
+      'push_notifications_enabled',
+      'ALTER TABLE app_settings ADD COLUMN push_notifications_enabled INTEGER NOT NULL DEFAULT 1'
+    );
+    await addColumn(
+      'notify_price_change_alerts',
+      'ALTER TABLE app_settings ADD COLUMN notify_price_change_alerts INTEGER NOT NULL DEFAULT 1'
+    );
+    await addColumn(
+      'notify_sale_alerts',
+      'ALTER TABLE app_settings ADD COLUMN notify_sale_alerts INTEGER NOT NULL DEFAULT 1'
+    );
+  }
+
+  if (fromVersion < 23) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(app_settings)');
+    const addColumn = async (name: string, sql: string) => {
+      if (!columns.some((column) => column.name === name)) {
+        await db.execAsync(sql);
+      }
+    };
+    await addColumn(
+      'notify_cheaper_store_alerts',
+      'ALTER TABLE app_settings ADD COLUMN notify_cheaper_store_alerts INTEGER NOT NULL DEFAULT 1'
+    );
+    await addColumn(
+      'notify_weekly_summary_alerts',
+      'ALTER TABLE app_settings ADD COLUMN notify_weekly_summary_alerts INTEGER NOT NULL DEFAULT 0'
+    );
+    await addColumn(
+      'notify_family_list_alerts',
+      'ALTER TABLE app_settings ADD COLUMN notify_family_list_alerts INTEGER NOT NULL DEFAULT 1'
+    );
+    await addColumn(
+      'notify_pantry_low_alerts',
+      'ALTER TABLE app_settings ADD COLUMN notify_pantry_low_alerts INTEGER NOT NULL DEFAULT 0'
+    );
+    await addColumn(
+      'notify_household_receipt_alerts',
+      'ALTER TABLE app_settings ADD COLUMN notify_household_receipt_alerts INTEGER NOT NULL DEFAULT 0'
+    );
+  }
+
+  if (fromVersion < 24) {
+    const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(app_settings)');
+    const addColumn = async (name: string, sql: string) => {
+      if (!columns.some((column) => column.name === name)) {
+        await db.execAsync(sql);
+      }
+    };
+    await addColumn(
+      'show_live_price_estimates',
+      'ALTER TABLE app_settings ADD COLUMN show_live_price_estimates INTEGER NOT NULL DEFAULT 1'
+    );
+  }
 }
 
 function parseCategoryLimits(raw: unknown, weeklyBudget: number): CategoryLimits | undefined {
@@ -531,6 +633,7 @@ function mapReceipt(row: Record<string, unknown>): Receipt {
     imageUri: row.image_uri as string,
     linkedListId: (row.linked_list_id as string) || undefined,
     userCorrected: Boolean(row.user_corrected),
+    ownerUserId: (row.owner_user_id as string) || undefined,
     storeAddress: (row.store_address as string) || undefined,
     storeCity: (row.store_city as string) || undefined,
     storeRegion: (row.store_region as string) || undefined,
@@ -914,6 +1017,60 @@ async function getItemsGroupedByReceiptId(
   return grouped;
 }
 
+async function ensurePersonalReceiptOwnership(db: SQLite.SQLiteDatabase): Promise<string | null> {
+  const ownerId = await getPersonalReceiptOwnerId();
+  if (!ownerId) return null;
+
+  const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(receipts)');
+  if (!columns.some((column) => column.name === 'owner_user_id')) return ownerId;
+
+  const unowned = await db.getFirstAsync<{ c: number }>(
+    'SELECT COUNT(*) as c FROM receipts WHERE owner_user_id IS NULL'
+  );
+  const unownedCount = unowned?.c ?? 0;
+  if (unownedCount <= 0) return ownerId;
+
+  const legacyOwnerId = await readLegacyReceiptOwnerId();
+  const claim = resolveLegacyReceiptClaim(ownerId, legacyOwnerId, unownedCount);
+  if (claim.action === 'assign') {
+    if (!legacyOwnerId) {
+      await writeLegacyReceiptOwnerId(claim.ownerId);
+    }
+    await db.runAsync('UPDATE receipts SET owner_user_id = ? WHERE owner_user_id IS NULL', [
+      claim.ownerId,
+    ]);
+  }
+
+  return ownerId;
+}
+
+async function getScopedPersonalReceiptOwnerId(
+  db: SQLite.SQLiteDatabase
+): Promise<string | null> {
+  return ensurePersonalReceiptOwnership(db);
+}
+
+/** Reassign personal receipts when a guest upgrades to a signed-in account on this device. */
+export async function transferPersonalReceiptsOnSignIn(
+  fromOwnerId: string,
+  toOwnerId: string
+): Promise<void> {
+  if (!fromOwnerId || !toOwnerId || fromOwnerId === toOwnerId) return;
+  await ensureStorageReady();
+  if (storageMode === 'async') {
+    await asyncBackend.transferPersonalReceiptsOnSignIn(fromOwnerId, toOwnerId);
+    await transferLegacyReceiptOwnerId(fromOwnerId, toOwnerId);
+    return;
+  }
+
+  const db = await getDatabase();
+  await db.runAsync('UPDATE receipts SET owner_user_id = ? WHERE owner_user_id = ?', [
+    toOwnerId,
+    fromOwnerId,
+  ]);
+  await transferLegacyReceiptOwnerId(fromOwnerId, toOwnerId);
+}
+
 async function migrateReceiptTotals(db: SQLite.SQLiteDatabase): Promise<void> {
   const rows = await db.getAllAsync<{ id: string; tax: number | null; total: number | null }>(
     'SELECT id, tax, total FROM receipts WHERE total IS NULL OR total <= 0'
@@ -943,8 +1100,11 @@ export async function getReceipts(filters?: ReceiptFilters): Promise<Receipt[]> 
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
-  let query = 'SELECT * FROM receipts WHERE 1=1';
-  const params: (string | number)[] = [];
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return [];
+
+  let query = 'SELECT * FROM receipts WHERE owner_user_id = ?';
+  const params: (string | number)[] = [ownerId];
   if (filters?.storeName) {
     query += ' AND store_name LIKE ?';
     params.push(`%${filters.storeName}%`);
@@ -980,7 +1140,13 @@ export async function getReceiptById(id: string): Promise<Receipt | null> {
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
-  const row = await db.getFirstAsync('SELECT * FROM receipts WHERE id = ?', [id]);
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return null;
+
+  const row = await db.getFirstAsync('SELECT * FROM receipts WHERE id = ? AND owner_user_id = ?', [
+    id,
+    ownerId,
+  ]);
   if (!row) return null;
   const receipt = mapReceipt(row as Record<string, unknown>);
   const items = await getReceiptItems(id);
@@ -1009,9 +1175,15 @@ export async function findDuplicateReceipt(
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return null;
+
   const normalizedStore = normalizeStoreForDuplicate(storeName);
   const normalizedRegion = storeRegion?.trim().toUpperCase();
-  const rows = await db.getAllAsync('SELECT * FROM receipts WHERE date = ?', [date]);
+  const rows = await db.getAllAsync('SELECT * FROM receipts WHERE date = ? AND owner_user_id = ?', [
+    date,
+    ownerId,
+  ]);
   for (const row of rows) {
     const receipt = mapReceipt(row as Record<string, unknown>);
     if (excludeId && receipt.id === excludeId) continue;
@@ -1040,12 +1212,15 @@ export async function saveReceipt(
   await assertCanTrackStore(receipt.storeName);
 
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) throw new Error('Sign in to save personal receipts.');
+
   const now = new Date().toISOString();
   const id = receipt.id || generateId();
   await db.runAsync(
     `INSERT INTO receipts (id, store_name, date, subtotal, tax, total, image_uri, linked_list_id, user_corrected,
-     store_address, store_city, store_region, store_postal_code, store_country, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     store_address, store_city, store_region, store_postal_code, store_country, owner_user_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       receipt.storeName,
@@ -1061,6 +1236,7 @@ export async function saveReceipt(
       receipt.storeRegion ?? null,
       receipt.storePostalCode ?? null,
       receipt.storeCountry ?? null,
+      ownerId,
       now,
       now,
     ]
@@ -1089,6 +1265,8 @@ export async function saveReceipt(
   await contributeFromReceipt(saved);
   const { syncPantryFromReceipt } = await import('@/src/services/pantryService');
   await syncPantryFromReceipt(saved, { quantityMode: 'increment' });
+  const { invalidateScopedReceiptsCache } = await import('@/src/services/scopedReceiptService');
+  invalidateScopedReceiptsCache('personal');
   return saved;
 }
 
@@ -1100,6 +1278,9 @@ export async function updateReceipt(
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return;
+
   const now = new Date().toISOString();
   const existing = await getReceiptById(id);
   if (!existing) return;
@@ -1114,7 +1295,7 @@ export async function updateReceipt(
     `UPDATE receipts SET store_name = ?, date = ?, subtotal = ?, tax = ?, total = ?,
      image_uri = ?, linked_list_id = ?, user_corrected = ?,
      store_address = ?, store_city = ?, store_region = ?, store_postal_code = ?, store_country = ?,
-     updated_at = ? WHERE id = ?`,
+     updated_at = ? WHERE id = ? AND owner_user_id = ?`,
     [
       receipt.storeName ?? existing.storeName,
       receipt.date ?? existing.date,
@@ -1133,6 +1314,7 @@ export async function updateReceipt(
       receipt.storeCountry !== undefined ? receipt.storeCountry ?? null : existing.storeCountry ?? null,
       now,
       id,
+      ownerId,
     ]
   );
 
@@ -1168,9 +1350,12 @@ export async function deleteReceipt(id: string): Promise<void> {
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return;
+
   await db.runAsync('DELETE FROM comparisons WHERE receipt_id = ?', [id]);
   await db.runAsync('DELETE FROM receipt_items WHERE receipt_id = ?', [id]);
-  await db.runAsync('DELETE FROM receipts WHERE id = ?', [id]);
+  await db.runAsync('DELETE FROM receipts WHERE id = ? AND owner_user_id = ?', [id, ownerId]);
 }
 
 export async function deleteReceipts(ids: string[]): Promise<void> {
@@ -1179,10 +1364,44 @@ export async function deleteReceipts(ids: string[]): Promise<void> {
 
   if (ids.length === 0) return;
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return;
+
   const placeholders = ids.map(() => '?').join(',');
   await db.runAsync(`DELETE FROM comparisons WHERE receipt_id IN (${placeholders})`, ids);
   await db.runAsync(`DELETE FROM receipt_items WHERE receipt_id IN (${placeholders})`, ids);
-  await db.runAsync(`DELETE FROM receipts WHERE id IN (${placeholders})`, ids);
+  await db.runAsync(
+    `DELETE FROM receipts WHERE id IN (${placeholders}) AND owner_user_id = ?`,
+    [...ids, ownerId]
+  );
+}
+
+/** Deletes all personal receipt history for the signed-in user. Returns count deleted. */
+export async function deleteAllReceipts(): Promise<number> {
+  const __async = await routeToAsync('deleteAllReceipts');
+  if (__async !== undefined) return __async as number;
+
+  const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return 0;
+
+  const countRow = await db.getFirstAsync<{ c: number }>(
+    'SELECT COUNT(*) as c FROM receipts WHERE owner_user_id = ?',
+    [ownerId]
+  );
+  const count = countRow?.c ?? 0;
+  if (count === 0) return 0;
+
+  await db.runAsync(
+    'DELETE FROM comparisons WHERE receipt_id IN (SELECT id FROM receipts WHERE owner_user_id = ?)',
+    [ownerId]
+  );
+  await db.runAsync(
+    'DELETE FROM receipt_items WHERE receipt_id IN (SELECT id FROM receipts WHERE owner_user_id = ?)',
+    [ownerId]
+  );
+  await db.runAsync('DELETE FROM receipts WHERE owner_user_id = ?', [ownerId]);
+  return count;
 }
 
 export async function linkReceiptToList(receiptId: string, listId: string): Promise<void> {
@@ -1190,11 +1409,13 @@ export async function linkReceiptToList(receiptId: string, listId: string): Prom
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
-  await db.runAsync('UPDATE receipts SET linked_list_id = ?, updated_at = ? WHERE id = ?', [
-    listId,
-    new Date().toISOString(),
-    receiptId,
-  ]);
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return;
+
+  await db.runAsync(
+    'UPDATE receipts SET linked_list_id = ?, updated_at = ? WHERE id = ? AND owner_user_id = ?',
+    [listId, new Date().toISOString(), receiptId, ownerId]
+  );
 }
 
 // --- Comparisons ---
@@ -1345,11 +1566,34 @@ function mapAppSettings(row: Record<string, unknown>): AppSettings {
   return {
     id: row.id as string,
     displayName: row.display_name as string,
+    pushNotificationsEnabled:
+      row.push_notifications_enabled == null ? true : Boolean(row.push_notifications_enabled),
     notifyPriceAlerts: Boolean(row.notify_price_alerts),
+    notifyPriceChangeAlerts:
+      row.notify_price_change_alerts == null ? true : Boolean(row.notify_price_change_alerts),
+    notifySaleAlerts: row.notify_sale_alerts == null ? true : Boolean(row.notify_sale_alerts),
+    notifyCheaperStoreAlerts:
+      row.notify_cheaper_store_alerts == null ? true : Boolean(row.notify_cheaper_store_alerts),
     notifyBudgetAlerts: Boolean(row.notify_budget_alerts),
+    notifyWeeklySummaryAlerts:
+      row.notify_weekly_summary_alerts == null ? false : Boolean(row.notify_weekly_summary_alerts),
+    notifyFamilyListAlerts:
+      row.notify_family_list_alerts == null ? true : Boolean(row.notify_family_list_alerts),
+    notifyPantryLowAlerts:
+      row.notify_pantry_low_alerts == null ? false : Boolean(row.notify_pantry_low_alerts),
+    notifyHouseholdReceiptAlerts:
+      row.notify_household_receipt_alerts == null
+        ? false
+        : Boolean(row.notify_household_receipt_alerts),
     enhancedCloudOcr: Boolean(row.enhanced_cloud_ocr),
     aiReceiptCleanup:
       row.ai_receipt_cleanup == null ? true : Boolean(row.ai_receipt_cleanup),
+    communityPriceSharing: Boolean(row.community_price_sharing),
+    receiptImageStorage:
+      (row.receipt_image_storage as AppSettings['receiptImageStorage']) ?? 'ask_each_time',
+    rememberReceiptImageChoice: Boolean(row.remember_receipt_image_choice),
+    showLivePriceEstimates:
+      row.show_live_price_estimates == null ? true : Boolean(row.show_live_price_estimates),
     updatedAt: row.updated_at as string,
   };
 }
@@ -1380,20 +1624,56 @@ export async function updateAppSettings(
   const next: AppSettings = {
     ...existing,
     displayName: partial.displayName ?? existing.displayName,
+    pushNotificationsEnabled:
+      partial.pushNotificationsEnabled ?? existing.pushNotificationsEnabled,
     notifyPriceAlerts: partial.notifyPriceAlerts ?? existing.notifyPriceAlerts,
+    notifyPriceChangeAlerts:
+      partial.notifyPriceChangeAlerts ?? existing.notifyPriceChangeAlerts,
+    notifySaleAlerts: partial.notifySaleAlerts ?? existing.notifySaleAlerts,
+    notifyCheaperStoreAlerts: partial.notifyCheaperStoreAlerts ?? existing.notifyCheaperStoreAlerts,
     notifyBudgetAlerts: partial.notifyBudgetAlerts ?? existing.notifyBudgetAlerts,
+    notifyWeeklySummaryAlerts:
+      partial.notifyWeeklySummaryAlerts ?? existing.notifyWeeklySummaryAlerts,
+    notifyFamilyListAlerts: partial.notifyFamilyListAlerts ?? existing.notifyFamilyListAlerts,
+    notifyPantryLowAlerts: partial.notifyPantryLowAlerts ?? existing.notifyPantryLowAlerts,
+    notifyHouseholdReceiptAlerts:
+      partial.notifyHouseholdReceiptAlerts ?? existing.notifyHouseholdReceiptAlerts,
     enhancedCloudOcr: partial.enhancedCloudOcr ?? existing.enhancedCloudOcr,
     aiReceiptCleanup: partial.aiReceiptCleanup ?? existing.aiReceiptCleanup,
+    communityPriceSharing: partial.communityPriceSharing ?? existing.communityPriceSharing,
+    receiptImageStorage: partial.receiptImageStorage ?? existing.receiptImageStorage,
+    rememberReceiptImageChoice:
+      partial.rememberReceiptImageChoice ?? existing.rememberReceiptImageChoice,
+    showLivePriceEstimates:
+      partial.showLivePriceEstimates ?? existing.showLivePriceEstimates,
     updatedAt: now,
   };
   await db.runAsync(
-    'UPDATE app_settings SET display_name = ?, notify_price_alerts = ?, notify_budget_alerts = ?, enhanced_cloud_ocr = ?, ai_receipt_cleanup = ?, updated_at = ? WHERE id = ?',
+    `UPDATE app_settings SET display_name = ?, push_notifications_enabled = ?, notify_price_alerts = ?,
+     notify_price_change_alerts = ?, notify_sale_alerts = ?, notify_cheaper_store_alerts = ?,
+     notify_budget_alerts = ?, notify_weekly_summary_alerts = ?, notify_family_list_alerts = ?,
+     notify_pantry_low_alerts = ?, notify_household_receipt_alerts = ?,
+     enhanced_cloud_ocr = ?, ai_receipt_cleanup = ?, community_price_sharing = ?,
+     receipt_image_storage = ?, remember_receipt_image_choice = ?, show_live_price_estimates = ?,
+     updated_at = ? WHERE id = ?`,
     [
       next.displayName,
+      next.pushNotificationsEnabled ? 1 : 0,
       next.notifyPriceAlerts ? 1 : 0,
+      next.notifyPriceChangeAlerts ? 1 : 0,
+      next.notifySaleAlerts ? 1 : 0,
+      next.notifyCheaperStoreAlerts ? 1 : 0,
       next.notifyBudgetAlerts ? 1 : 0,
+      next.notifyWeeklySummaryAlerts ? 1 : 0,
+      next.notifyFamilyListAlerts ? 1 : 0,
+      next.notifyPantryLowAlerts ? 1 : 0,
+      next.notifyHouseholdReceiptAlerts ? 1 : 0,
       next.enhancedCloudOcr ? 1 : 0,
       next.aiReceiptCleanup ? 1 : 0,
+      next.communityPriceSharing ? 1 : 0,
+      next.receiptImageStorage,
+      next.rememberReceiptImageChoice ? 1 : 0,
+      next.showLivePriceEstimates ? 1 : 0,
       now,
       existing.id,
     ]
@@ -1421,13 +1701,18 @@ export async function getReceiptItemsWithStore(): Promise<ReceiptItemWithStore[]
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return [];
+
   const rows = await db.getAllAsync(
     `SELECT ri.id, ri.receipt_id, ri.name, ri.price, ri.quantity, ri.unit_price, ri.unit,
             r.store_name, r.date AS receipt_date,
             r.store_region, r.store_postal_code, r.store_country
      FROM receipt_items ri
      INNER JOIN receipts r ON r.id = ri.receipt_id
-     ORDER BY r.date DESC`
+     WHERE r.owner_user_id = ?
+     ORDER BY r.date DESC`,
+    [ownerId]
   );
   return rows.map((row) => {
     const r = row as Record<string, unknown>;
@@ -1453,8 +1738,12 @@ export async function getDistinctStores(): Promise<string[]> {
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return [];
+
   const rows = await db.getAllAsync<{ store_name: string }>(
-    'SELECT DISTINCT store_name FROM receipts ORDER BY store_name ASC'
+    'SELECT DISTINCT store_name FROM receipts WHERE owner_user_id = ? ORDER BY store_name ASC',
+    [ownerId]
   );
   return rows.map((r) => r.store_name);
 }
@@ -1464,10 +1753,14 @@ export async function getDistinctRegions(): Promise<string[]> {
   if (__async !== undefined) return __async as never;
 
   const db = await getDatabase();
+  const ownerId = await getScopedPersonalReceiptOwnerId(db);
+  if (!ownerId) return [];
+
   const rows = await db.getAllAsync<{ store_region: string }>(
     `SELECT DISTINCT store_region FROM receipts
-     WHERE store_region IS NOT NULL AND TRIM(store_region) != ''
-     ORDER BY store_region ASC`
+     WHERE owner_user_id = ? AND store_region IS NOT NULL AND TRIM(store_region) != ''
+     ORDER BY store_region ASC`,
+    [ownerId]
   );
   return rows.map((r) => r.store_region);
 }
@@ -1814,6 +2107,9 @@ export async function updatePantryItem(
       now,
       id,
     ]
+  );
+  void import('@/src/services/notificationService').then(({ maybeNotifyPantryLowStock }) =>
+    maybeNotifyPantryLowStock(current, next)
   );
   return next;
 }

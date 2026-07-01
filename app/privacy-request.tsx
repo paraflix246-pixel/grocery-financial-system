@@ -21,6 +21,13 @@ export default function PrivacyRequestScreen() {
         requests for Penny Pantry.
       </LegalSection>
 
+      <LegalSection heading="In-app controls">
+        Settings → Privacy &amp; Data lets you opt in or out of Community Price Sharing, choose
+        whether receipt images are saved locally, delete all receipt history, and open legal
+        documents. Settings → Delete account permanently removes your cloud account and clears local
+        app data.
+      </LegalSection>
+
       <LegalSection heading="In-app account deletion">
         If you are signed in, you can delete your cloud account directly in the app: Settings →
         Delete account at the bottom of the Settings screen. This permanently deletes your Supabase

@@ -1,14 +1,13 @@
 /**
  * Community pricing service — Supabase-backed.
  * All calls are fire-and-forget or gracefully return [] when Supabase is not configured.
- * No user PII is ever stored.
+ * No user PII is ever stored — contributions pass through communityPricePiiStripper.
  */
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-import { generateId } from '@/src/utils/id';
 import { supabase } from '@/src/services/supabaseClient';
 import type { ExternalPriceSource } from '@/src/services/externalPriceService';
 import type { PriceQuote } from '@/src/services/priceRecommendationLogic';
+import { normalizeCommunityStoreName } from '@/src/services/communityPricePiiStripper';
+import { contributeCommunityPricesIfEnabled } from '@/src/services/receiptCommunityContributionService';
 
 export type PriceTrendPoint = {
   date: string;
@@ -24,59 +23,15 @@ export type StorePriceSummary = {
   state?: string;
 };
 
-const USER_ID_KEY = '@smartcart_community_user_id_v1';
-
-const STORE_NAME_NORMALIZATIONS: Array<[RegExp, string]> = [
-  [/^WAL-?MART(\s+SUPERCENTER)?(\s+#\d+)?$/i, 'Walmart'],
-  [/^TARGET(\s+STORE)?(\s+#\d+)?$/i, 'Target'],
-  [/^WHOLE\s+FOODS(\s+MARKET)?$/i, 'Whole Foods'],
-  [/^KROGER(\s+STORE)?(\s+#\d+)?$/i, 'Kroger'],
-  [/^SAFEWAY(\s+STORE)?(\s+#\d+)?$/i, 'Safeway'],
-  [/^PUBLIX(\s+SUPER\s+MARKETS?)?$/i, 'Publix'],
-  [/^TRADER\s+JOE['']?S?$/i, "Trader Joe's"],
-  [/^COSTCO(\s+WHOLESALE)?$/i, 'Costco'],
-  [/^ALDI(\s+STORE)?(\s+#\d+)?$/i, 'ALDI'],
-  [/^H[-\s]E[-\s]B(\s+GROCERY)?$/i, 'H-E-B'],
-  [/^MEIJER(\s+STORE)?(\s+#\d+)?$/i, 'Meijer'],
-  [/^FOOD\s+LION$/i, 'Food Lion'],
-  [/^GIANT\s+FOOD$/i, 'Giant Food'],
-  [/^STOP\s*&?\s*SHOP$/i, 'Stop & Shop'],
-  [/^WINN[-\s]DIXIE$/i, 'Winn-Dixie'],
-  [/^WEGMANS(\s+FOOD\s+MARKETS?)?$/i, 'Wegmans'],
-  [/^HARRIS\s+TEETER$/i, 'Harris Teeter'],
-  [/^SPROUTS(\s+FARMERS?\s+MARKET)?$/i, 'Sprouts'],
-];
-
-function normalizeStoreName(name: string): string {
-  const trimmed = name.trim();
-  for (const [pattern, replacement] of STORE_NAME_NORMALIZATIONS) {
-    if (pattern.test(trimmed)) return replacement;
-  }
-  return trimmed;
-}
-
 function normalizeItemName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-async function getOrCreateUserId(): Promise<string> {
-  try {
-    const existing = await AsyncStorage.getItem(USER_ID_KEY);
-    if (existing) return existing;
-    const newId = generateId();
-    await AsyncStorage.setItem(USER_ID_KEY, newId);
-    return newId;
-  } catch {
-    return generateId();
-  }
-}
-
 /**
- * Contribute price observations to Supabase after a receipt is saved.
- * Fire-and-forget — never blocks UI, silently swallows errors.
+ * @deprecated Prefer contributeCommunityPricesIfEnabled — respects privacy opt-in and PII stripping.
  */
 export async function savePriceRecords(
-  items: Array<{ name: string; price: number }>,
+  items: Array<{ name: string; price: number; quantity?: number }>,
   storeInfo: {
     storeName: string;
     address?: string;
@@ -86,42 +41,11 @@ export async function savePriceRecords(
   },
   receiptDate: string
 ): Promise<void> {
-  if (!supabase) return;
-
-  try {
-    const userId = await getOrCreateUserId();
-    const storeName = normalizeStoreName(storeInfo.storeName);
-    const scanDate = new Date().toISOString().split('T')[0];
-
-    const rows = items
-      .filter((item) => {
-        const trimmedName = (item.name ?? '').trim();
-        return trimmedName.length >= 3 && item.price > 0 && item.price <= 500;
-      })
-      .map((item) => ({
-        item_name: normalizeItemName(item.name),
-        price: item.price,
-        store_name: storeName,
-        store_address: storeInfo.address ?? null,
-        store_city: storeInfo.city ?? null,
-        store_state: storeInfo.state ?? null,
-        store_zip: storeInfo.zip ?? null,
-        scan_date: scanDate,
-        receipt_date: receiptDate || null,
-        user_id: userId,
-      }));
-
-    if (rows.length === 0) return;
-
-    await supabase.from('price_records').insert(rows);
-  } catch {
-    // Never surface errors to the user
-  }
+  await contributeCommunityPricesIfEnabled(items, storeInfo, receiptDate);
 }
 
 /**
- * Find the cheapest stores for an item name across all community price records.
- * Groups by store, returns the most recent price per store, sorted by price ascending.
+ * Find the cheapest stores for an item name across aggregated community price records.
  */
 export async function searchCheapestStore(itemName: string): Promise<StorePriceSummary[]> {
   if (!supabase) return [];
@@ -150,7 +74,7 @@ export async function searchCheapestStore(itemName: string): Promise<StorePriceS
       const date = (row.receipt_date ?? row.scan_date) as string;
       if (!existing || date > existing.lastSeen) {
         byStore.set(key, {
-          storeName: row.store_name as string,
+          storeName: normalizeCommunityStoreName(row.store_name as string),
           price: row.price as number,
           lastSeen: date,
           city: (row.store_city as string | null) ?? undefined,
@@ -199,7 +123,6 @@ export async function getPriceTrend(
       const d = new Date(rawDate);
       if (isNaN(d.getTime())) continue;
 
-      // Get the Monday of the week
       const dayOfWeek = d.getDay();
       const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
       const monday = new Date(d);
@@ -224,10 +147,6 @@ export async function getPriceTrend(
   }
 }
 
-/**
- * ExternalPriceSource adapter — registers Supabase community prices into the
- * existing price comparison pipeline as a 'community' source.
- */
 export function createSupabaseCommunityPriceProvider(): ExternalPriceSource {
   return {
     id: 'supabase-community',

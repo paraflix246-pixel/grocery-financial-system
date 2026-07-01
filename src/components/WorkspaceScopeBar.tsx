@@ -26,6 +26,7 @@ export function WorkspaceScopeBar() {
       scope={activeScope}
       workspaceName={currentWorkspace?.name ?? t('workspace.defaultName')}
       hasWorkspace={hasWorkspace}
+      showBranding
       onScopeChange={(scope) => void setActiveScope(scope)}
       onManageHousehold={() => router.push('/family_plans' as never)}
     />

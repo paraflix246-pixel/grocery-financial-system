@@ -31,11 +31,13 @@ import { useFocusReload } from '@/src/hooks/useFocusReload';
 import { useUndoDelete } from '@/src/hooks/useUndoDelete';
 import { UndoSnackbar } from '@/src/components/UndoSnackbar';
 import { WorkspaceScopeBar } from '@/src/components/WorkspaceScopeBar';
+import { FamilyWorkspaceScopeAccent } from '@/src/components/FamilyWorkspaceScopeAccent';
+import { FamilyWorkspaceShell } from '@/src/components/FamilyWorkspaceShell';
 import { invalidateScopedReceiptsCache, loadReceiptsForScope } from '@/src/services/scopedReceiptService';
 import { deleteReceipts, saveReceipt } from '@/src/services/storageService';
-import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
-
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import type { Receipt } from '@/src/models/types';
+import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 
@@ -94,6 +96,7 @@ export default function ReceiptsScreen() {
   const activeScope = useWorkspaceStore((s) => s.activeScope);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const isWorkspaceView = activeScope === 'workspace';
+  const fw = useFamilyWorkspaceScreenTheme();
 
   const load = useCallback(async () => {
     try {
@@ -231,18 +234,23 @@ export default function ReceiptsScreen() {
 
   if (blocking) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={SmartCartColors.primary} />
-      </View>
+      <FamilyWorkspaceShell>
+        <View style={[styles.center, fw.screen]}>
+          <ActivityIndicator size="large" color={fw.activityColor} />
+        </View>
+      </FamilyWorkspaceShell>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <FamilyWorkspaceShell>
+    <View style={[styles.screen, fw.screen]}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
         <AppHeader />
+
+        <FamilyWorkspaceScopeAccent />
 
         <WorkspaceScopeBar />
 
@@ -250,9 +258,9 @@ export default function ReceiptsScreen() {
           <MockupScreenTitle title={t('receipts.title')} subtitle={t('receipts.subtitle')} />
           {filteredReceipts.length > 0 && !isWorkspaceView ? (
             <Pressable
-              style={styles.selectBtn}
+              style={[styles.selectBtn, fw.selectBtn]}
               onPress={() => (selectMode ? exitSelectMode() : enterSelectMode())}>
-              <Text style={styles.selectBtnText}>{selectMode ? t('common.cancel') : t('common.select')}</Text>
+              <Text style={[styles.selectBtnText, fw.primaryText]}>{selectMode ? t('common.cancel') : t('common.select')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -268,46 +276,46 @@ export default function ReceiptsScreen() {
         {!selectMode ? (
           <View style={styles.actionsRow}>
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+              style={({ pressed }) => [styles.actionBtn, fw.cardSurface, pressed && [styles.actionBtnPressed, fw.actionBtnPressed]]}
               onPress={() => router.push('/receipt/manual')}>
               <SymbolView
                 name={{ ios: 'square.and.pencil', android: 'edit_note', web: 'edit_note' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={16}
               />
-              <Text style={styles.actionBtnText}>{t('common.manual')}</Text>
+              <Text style={[styles.actionBtnText, fw.primaryText]}>{t('common.manual')}</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+              style={({ pressed }) => [styles.actionBtn, fw.cardSurface, pressed && [styles.actionBtnPressed, fw.actionBtnPressed]]}
               onPress={() => {
                 if (!exportUnlocked && !requestExportAccess()) return;
                 void shareReceiptExport('json');
               }}>
               <SymbolView
                 name={{ ios: 'square.and.arrow.up', android: 'upload', web: 'upload' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={16}
               />
-              <Text style={styles.actionBtnText}>{t('receipts.exportJson')}</Text>
+              <Text style={[styles.actionBtnText, fw.primaryText]}>{t('receipts.exportJson')}</Text>
             </Pressable>
             <Pressable
-              style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
+              style={({ pressed }) => [styles.actionBtn, fw.cardSurface, pressed && [styles.actionBtnPressed, fw.actionBtnPressed]]}
               onPress={() => {
                 if (!exportUnlocked && !requestExportAccess()) return;
                 void shareReceiptExport('csv');
               }}>
               <SymbolView
                 name={{ ios: 'tablecells', android: 'grid_on', web: 'grid_on' }}
-                tintColor={SmartCartColors.primary}
+                tintColor={fw.primary}
                 size={16}
               />
-              <Text style={styles.actionBtnText}>{t('receipts.exportCsv')}</Text>
+              <Text style={[styles.actionBtnText, fw.primaryText]}>{t('receipts.exportCsv')}</Text>
             </Pressable>
           </View>
         ) : null}
 
         {grouped.length === 0 ? (
-          <View style={styles.emptyCard}>
+          <View style={[styles.emptyCard, fw.emptyCard]}>
             <Text style={styles.emptyTitle}>{t('receipts.emptyTitle')}</Text>
             <Text style={styles.emptyBody}>{t('receipts.emptyBody')}</Text>
           </View>
@@ -315,7 +323,7 @@ export default function ReceiptsScreen() {
           grouped.map((group) => (
             <View key={group.label} style={styles.monthSection}>
               <MockupSectionLabel>{group.label}</MockupSectionLabel>
-              <View style={styles.listCard}>
+              <View style={[styles.listCard, fw.cardSurface]}>
                 {group.items.map((item, i) => (
                   <ReceiptRow
                     key={item.id}
@@ -352,23 +360,22 @@ export default function ReceiptsScreen() {
 
       <UndoSnackbar pending={undoPending} onUndo={() => void undo()} bottomInset={getTabBarHeight(insets.bottom) + 16} />
     </View>
+    </FamilyWorkspaceShell>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: SmartCartColors.background },
+  screen: { flex: 1 },
   container: { flex: 1 },
   content: { paddingHorizontal: 16, paddingBottom: 32 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: SmartCartColors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   selectBtn: {
     marginTop: 4,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: SmartCartRadius.pill,
-    backgroundColor: SmartCartColors.card,
     borderWidth: 1,
-    borderColor: SmartCartColors.border,
   },
   selectBtnText: { fontSize: 14, fontWeight: '700', color: SmartCartColors.primaryDark },
   actionsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
@@ -378,33 +385,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.pill,
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderWidth: 1,
-    borderColor: SmartCartColors.border,
     ...SmartCartShadow.cardSoft,
   },
   actionBtnPressed: { backgroundColor: SmartCartColors.badge },
   actionBtnText: { fontSize: 11, fontWeight: '700', color: SmartCartColors.primaryDark },
   monthSection: { marginBottom: 8 },
   listCard: {
-    backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.lg,
     paddingHorizontal: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: SmartCartColors.border,
     ...SmartCartShadow.card,
   },
   emptyCard: {
-    backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.lg,
     padding: 32,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: SmartCartColors.border,
     ...SmartCartShadow.card,
   },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: SmartCartColors.text },

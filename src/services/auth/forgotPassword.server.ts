@@ -1,19 +1,15 @@
 import type { User } from '@supabase/supabase-js';
 
-import { getAppUrl } from '@/src/utils/appOrigin';
+import {
+  extractAuthProviders,
+  isOAuthOnlyAccount,
+  primaryOAuthProvider,
+} from '@/src/services/auth/authIdentityLogic';
+import { getAuthRedirectUrl } from '@/src/utils/appOrigin';
 import {
   getSupabaseAdmin,
   isSupabaseAdminConfigured,
 } from '@/src/services/stripe/stripeSupabase.server';
-const OAUTH_PROVIDERS = new Set([
-  'google',
-  'apple',
-  'facebook',
-  'github',
-  'azure',
-  'twitter',
-  'discord',
-]);
 
 export type ForgotPasswordStatus = 'sent' | 'oauth_only' | 'generic_success';
 
@@ -38,36 +34,10 @@ function isValidEmail(email: string): boolean {
 }
 
 export function getPasswordResetRedirectUrl(): string {
-  return getAppUrl('/onboarding/reset-password');
+  return getAuthRedirectUrl('/onboarding/reset-password');
 }
 
-/** Providers linked to the Supabase auth user (identities + app_metadata). */
-export function extractAuthProviders(user: User): string[] {
-  const fromIdentities = (user.identities ?? [])
-    .map((identity) => identity.provider)
-    .filter((provider): provider is string => Boolean(provider));
-  const fromMeta = Array.isArray(user.app_metadata?.providers)
-    ? user.app_metadata.providers.map(String)
-    : typeof user.app_metadata?.provider === 'string' && user.app_metadata.provider.trim()
-      ? [user.app_metadata.provider.trim()]
-      : [];
-  return [...new Set([...fromIdentities, ...fromMeta])];
-}
-
-/** True when the account can only sign in via OAuth (no email/password identity). */
-export function isOAuthOnlyAccount(providers: string[]): boolean {
-  if (providers.length === 0) return false;
-  const hasEmailPassword = providers.includes('email');
-  const hasOAuth = providers.some((provider) => OAUTH_PROVIDERS.has(provider));
-  return hasOAuth && !hasEmailPassword;
-}
-
-export function primaryOAuthProvider(providers: string[]): string | null {
-  for (const candidate of ['google', 'apple']) {
-    if (providers.includes(candidate)) return candidate;
-  }
-  return providers.find((provider) => OAUTH_PROVIDERS.has(provider)) ?? null;
-}
+export { extractAuthProviders, isOAuthOnlyAccount, primaryOAuthProvider } from '@/src/services/auth/authIdentityLogic';
 
 async function findAuthUserByEmail(email: string): Promise<User | null> {
   const admin = getSupabaseAdmin();

@@ -97,7 +97,7 @@ export function buildTrackedItems(
   return tracked;
 }
 
-/** Items from the user's most recent receipt, deduped by canonical name. */
+/** Items from recent receipts, newest first, deduped by canonical name. */
 export function buildRecentReceiptTrackedEntries(
   receiptItems: readonly ReceiptItemRow[],
   hiddenKeys: ReadonlySet<string>,
@@ -106,16 +106,11 @@ export function buildRecentReceiptTrackedEntries(
 ): TrackedItemEntry[] {
   if (receiptItems.length === 0) return [];
 
-  const latestDate = receiptItems.reduce(
-    (max, item) => (item.receiptDate > max ? item.receiptDate : max),
-    receiptItems[0]!.receiptDate
-  );
-
+  const sortedReceipt = [...receiptItems].sort((a, b) => b.receiptDate.localeCompare(a.receiptDate));
   const seen = new Set<string>();
   const entries: TrackedItemEntry[] = [];
 
-  for (const item of receiptItems) {
-    if (item.receiptDate !== latestDate) continue;
+  for (const item of sortedReceipt) {
     if (entries.length >= maxItems) break;
 
     const name = resolveCanonical(item.name) ?? item.name.trim();

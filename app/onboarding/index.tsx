@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StatusBar,
@@ -21,6 +22,9 @@ import {
 import { OnboardingSignupSlide } from '@/src/components/onboarding/OnboardingSignupSlide';
 import { LanguagePicker } from '@/src/components/settings/AppearanceSettings';
 import { signInWithApple, signInWithGoogle } from '@/src/services/authService';
+import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
+import { setOAuthIntent } from '@/src/services/onboardingFlowState';
+import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { OnboardingColors, OnboardingSlideAccents } from '@/src/theme/onboardingTheme';
 import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
@@ -30,6 +34,7 @@ export default function OnboardingScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
   const { width: screenWidth } = useWindowDimensions();
   const scrollRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -100,9 +105,14 @@ export default function OnboardingScreen() {
     setAuthError(null);
     setAuthLoading(true);
     try {
+      await setOAuthIntent('signup');
       await signInWithGoogle();
+      if (Platform.OS !== 'web') {
+        await completeOAuthAndRoute(router, completeOnboarding);
+      }
     } catch (e) {
       setAuthError(e instanceof Error ? e.message : 'Google sign-in failed. Please try again.');
+    } finally {
       setAuthLoading(false);
     }
   }
@@ -111,9 +121,14 @@ export default function OnboardingScreen() {
     setAuthError(null);
     setAuthLoading(true);
     try {
+      await setOAuthIntent('signup');
       await signInWithApple();
+      if (Platform.OS !== 'web') {
+        await completeOAuthAndRoute(router, completeOnboarding);
+      }
     } catch (e) {
       setAuthError(e instanceof Error ? e.message : 'Apple sign-in failed. Please try again.');
+    } finally {
       setAuthLoading(false);
     }
   }

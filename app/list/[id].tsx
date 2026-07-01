@@ -6,6 +6,8 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -93,7 +95,7 @@ export default function ListDetailScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { unlocked: familyShareUnlocked, requestAccess: requestFamilyShare } = useFeatureGate('family_plans');
-  const { refreshItems, itemsByList } = useListStore();
+  const { refreshItems, itemsByList, patchListItem } = useListStore();
   const [listName, setListName] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -348,6 +350,19 @@ export default function ListDetailScreen() {
   const canSaveItem = newItemNameTrimmed.length > 0;
   const itemModalBusy = addingItem || savingItem;
 
+  async function adjustItemQuantity(item: ListItem, delta: number) {
+    const nextQty = Math.max(0.25, Math.round((item.quantity + delta) * 100) / 100);
+    patchListItem(listId, item.id, { quantity: nextQty });
+    try {
+      await updateListItem(item.id, { quantity: nextQty });
+      scheduleFamilyListPush(listId);
+    } catch (error) {
+      patchListItem(listId, item.id, { quantity: item.quantity });
+      const message = error instanceof Error ? error.message : 'Could not update quantity.';
+      showInfoAlert('Could not update quantity', message);
+    }
+  }
+
   async function handleSaveItem() {
     const itemName = resolveAddItemName(newItemName, pickerSelection);
     if (!itemName || !listId || itemModalBusy) return;
@@ -363,6 +378,13 @@ export default function ListDetailScreen() {
 
     if (itemModalMode === 'edit' && editingItemId) {
       setSavingItem(true);
+      const previous = items.find((entry) => entry.id === editingItemId);
+      patchListItem(listId, editingItemId, {
+        name: itemName,
+        expectedPrice,
+        quantity,
+        category,
+      });
       try {
         await registerCustomGroceryItem(itemName, category).then((entry) => {
           setCustomCatalogByKey((prev) => new Map(prev).set(entry.itemKey, entry));
@@ -374,8 +396,16 @@ export default function ListDetailScreen() {
           category,
         });
         closeItemModal();
-        await refreshAndSync();
+        scheduleFamilyListPush(listId);
       } catch (error) {
+        if (previous) {
+          patchListItem(listId, editingItemId, {
+            name: previous.name,
+            expectedPrice: previous.expectedPrice,
+            quantity: previous.quantity,
+            category: previous.category,
+          });
+        }
         const message = error instanceof Error ? error.message : 'Could not save item. Please try again.';
         showInfoAlert('Could not save item', message);
       } finally {
@@ -659,6 +689,10 @@ export default function ListDetailScreen() {
   }
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}>
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerSpacer} />
@@ -804,9 +838,27 @@ export default function ListDetailScreen() {
                     )}
                     <View style={styles.itemInfo}>
                       <Text style={[styles.itemName, checked && !selectMode && styles.itemChecked]}>{item.name}</Text>
-                      <Text style={[styles.itemQty, checked && !selectMode && styles.itemChecked]}>
-                        {getQuantityLabel(item.name, item.quantity)}
-                      </Text>
+                      <View style={styles.qtyRow}>
+                        {!selectMode ? (
+                          <Pressable
+                            style={styles.qtyBtn}
+                            onPress={() => void adjustItemQuantity(item, -1)}
+                            accessibilityLabel={`Decrease quantity of ${item.name}`}>
+                            <Text style={styles.qtyBtnText}>−</Text>
+                          </Pressable>
+                        ) : null}
+                        <Text style={[styles.itemQty, checked && !selectMode && styles.itemChecked]}>
+                          {getQuantityLabel(item.name, item.quantity)}
+                        </Text>
+                        {!selectMode ? (
+                          <Pressable
+                            style={styles.qtyBtn}
+                            onPress={() => void adjustItemQuantity(item, 1)}
+                            accessibilityLabel={`Increase quantity of ${item.name}`}>
+                            <Text style={styles.qtyBtnText}>+</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     </View>
                     <Text style={[styles.itemPrice, checked && !selectMode && styles.itemChecked]}>
                       {formatCurrency(item.expectedPrice * item.quantity)}
@@ -1030,6 +1082,7 @@ export default function ListDetailScreen() {
             />
       </AppBottomSheetModal>
     </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1195,7 +1248,19 @@ const styles = StyleSheet.create({
     textDecorationColor: SmartCartColors.danger,
     color: SmartCartColors.danger,
   },
-  itemQty: { fontSize: 12, color: SmartCartColors.textSecondary, marginTop: 2 },
+  itemQty: { fontSize: 12, color: SmartCartColors.textSecondary },
+  qtyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  qtyBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: SmartCartColors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: SmartCartColors.card,
+  },
+  qtyBtnText: { fontSize: 16, fontWeight: '800', color: SmartCartColors.primaryDark, lineHeight: 18 },
   itemPrice: { fontSize: 13, fontWeight: '800', color: SmartCartColors.text },
   emptyCard: {
     backgroundColor: SmartCartColors.card,

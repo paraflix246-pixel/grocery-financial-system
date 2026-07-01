@@ -12,6 +12,8 @@ import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackgroun
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
+import { FamilyWorkspaceTheme } from '@/src/theme/familyWorkspaceTheme';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 
@@ -79,6 +81,7 @@ export default function MoreScreen() {
   const tier = useSubscriptionStore((s) => s.tier);
   const { isAdmin } = useAdminStatus();
   const sections = useMenuSections();
+  const fw = useFamilyWorkspaceScreenTheme();
 
   return (
     <PremiumScreenBackground>
@@ -152,12 +155,20 @@ export default function MoreScreen() {
               return (
               <Pressable
                 key={item.labelKey}
-                style={({ pressed }) => [styles.menuItem, pressed && styles.menuItemPressed]}
+                style={({ pressed }) => [
+                  styles.menuItem,
+                  fw.cardSurface,
+                  fw.menuCard,
+                  pressed && [
+                    styles.menuItemPressed,
+                    fw.isFamilyScope && { borderColor: FamilyWorkspaceTheme.chipSelectedBorder, backgroundColor: FamilyWorkspaceTheme.badgeBg },
+                  ],
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel={label}
                 onPress={() => router.push(item.route as never)}>
                 <View style={styles.menuIcon}>
-                  <SymbolView name={item.icon} tintColor={SmartCartColors.primary} size={22} />
+                  <SymbolView name={item.icon} tintColor={fw.primary} size={22} />
                 </View>
                 <View style={styles.menuText}>
                   <View style={styles.labelRow}>
@@ -223,12 +234,10 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: SmartCartColors.card,
     borderRadius: SmartCartRadius.md,
     padding: 16,
     gap: 14,
     borderWidth: 1,
-    borderColor: SmartCartColors.border,
     ...SmartCartShadow.card,
   },
   menuItemPressed: {

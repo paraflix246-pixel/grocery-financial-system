@@ -28,6 +28,7 @@ type ListStore = {
   activateList: (id: string) => Promise<void>;
   completeList: (id: string) => Promise<boolean>;
   refreshItems: (listId: string) => Promise<void>;
+  patchListItem: (listId: string, itemId: string, patch: Partial<Omit<ListItem, 'id' | 'listId'>>) => void;
 };
 
 function listsEqual(a: GroceryList[], b: GroceryList[]): boolean {
@@ -156,5 +157,16 @@ export const useListStore = create<ListStore>((set, get) => ({
 
   refreshItems: async (listId) => {
     await get().loadListItems(listId);
+  },
+
+  patchListItem: (listId, itemId, patch) => {
+    set((state) => {
+      const items = state.itemsByList[listId];
+      if (!items) return state;
+      const nextItems = items.map((item) =>
+        item.id === itemId ? { ...item, ...patch } : item
+      );
+      return { itemsByList: { ...state.itemsByList, [listId]: nextItems } };
+    });
   },
 }));

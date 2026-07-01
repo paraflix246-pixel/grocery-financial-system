@@ -21,6 +21,8 @@ type Props = {
   variant?: 'default' | 'compact';
   /** Single-line copy for compact variant (e.g. home screen). */
   message?: string;
+  /** Show banner for admin accounts (DEV free-tier cart preview). */
+  ignoreAdminBypass?: boolean;
 };
 
 export function ProUpgradeBanner({
@@ -28,6 +30,7 @@ export function ProUpgradeBanner({
   hook,
   variant = 'default',
   message,
+  ignoreAdminBypass = false,
 }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -36,7 +39,7 @@ export function ProUpgradeBanner({
   const planName = t('common.pro');
   const isCompact = variant === 'compact';
 
-  if (isAdmin) return null;
+  if (isAdmin && !ignoreAdminBypass) return null;
 
   const compactStyles = useMemo(
     () => ({

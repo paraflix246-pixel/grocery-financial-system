@@ -7,11 +7,26 @@ import {
   isWorkspaceGatedFeature,
   type GatedFeature,
 } from '@/src/services/featureGateLogic';
+import {
+  getDevFamilyRoleOverrideSync,
+} from '@/src/services/devFamilyRolePreview';
+import {
+  hasProInCurrentScope,
+  hasWorkspaceFeatureInCurrentScope,
+  isWorkspaceOwner,
+  type ProScopeContext,
+} from '@/src/services/featureGateScopeLogic';
 import { useSubscriptionStore, type SubscriptionTier } from '@/src/store/useSubscriptionStore';
 import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
 export type { GatedFeature } from '@/src/services/featureGateLogic';
 export { isWorkspaceGatedFeature } from '@/src/services/featureGateLogic';
+export {
+  hasProInCurrentScope,
+  hasWorkspaceFeatureInCurrentScope,
+  isWorkspaceOwner,
+  type ProScopeContext,
+} from '@/src/services/featureGateScopeLogic';
 
 const FEATURE_LABELS: Record<GatedFeature, string> = PRO_FEATURE_LABELS;
 
@@ -23,14 +38,45 @@ export function getRequiredTier(feature: GatedFeature): Exclude<SubscriptionTier
   return isWorkspaceGatedFeature(feature) ? 'family' : 'pro';
 }
 
-/** Personal Pro or trial — excludes family/workspace features. */
-export function canAccessPersonalProFeature(feature: GatedFeature): boolean {
-  if (isWorkspaceGatedFeature(feature)) return false;
-  const effectiveTier = useSubscriptionStore.getState().getEffectiveTier();
-  return tierAllowsFeature(feature, getTierLimits(effectiveTier));
+/** Build scope context from current Zustand stores (sync). */
+export function getProScopeContext(): ProScopeContext {
+  const workspaceStore = useWorkspaceStore.getState();
+  const { currentWorkspace, members, currentUserId, activeScope, isCurrentMember, hasActiveWorkspaceSub } =
+    workspaceStore;
+
+  let isOwner = isWorkspaceOwner(currentUserId, currentWorkspace, members);
+  if (__DEV__) {
+    const roleOverride = getDevFamilyRoleOverrideSync();
+    if (roleOverride === 'member') isOwner = false;
+    if (roleOverride === 'owner') isOwner = true;
+  }
+
+  return {
+    activeScope,
+    isWorkspaceOwner: isOwner,
+    isCurrentMember,
+    hasActiveWorkspaceSub,
+    hasPersonalPro: useSubscriptionStore.getState().isPro(),
+  };
 }
 
-/** Family/shared features — active workspace subscription AND membership. */
+/** Whether Pro perks apply in the current Personal | Family workspace scope. */
+export function hasProInCurrentScopeFromStores(): boolean {
+  return hasProInCurrentScope(getProScopeContext());
+}
+
+/** Personal Pro or trial — scope-aware; excludes workspace-only features. */
+export function canAccessPersonalProFeature(feature: GatedFeature): boolean {
+  if (isWorkspaceGatedFeature(feature)) return false;
+
+  if (!hasProInCurrentScopeFromStores()) {
+    return false;
+  }
+
+  return tierAllowsFeature(feature, getTierLimits('pro'));
+}
+
+/** Family/shared features — active workspace subscription, membership, and scope rules. */
 export function canAccessWorkspaceFeature(workspaceId?: string | null): boolean {
   const store = useWorkspaceStore.getState();
   const id = workspaceId ?? store.currentWorkspaceId;
@@ -38,7 +84,7 @@ export function canAccessWorkspaceFeature(workspaceId?: string | null): boolean 
   if (workspaceId && workspaceId !== store.currentWorkspaceId) {
     return false;
   }
-  return store.hasActiveWorkspaceSub && store.isCurrentMember;
+  return hasWorkspaceFeatureInCurrentScope(getProScopeContext());
 }
 
 /** Check whether the current subscription unlocks a feature. */
@@ -48,6 +94,11 @@ export function canAccessFeature(feature: GatedFeature): boolean {
     return canAccessWorkspaceFeature();
   }
   return canAccessPersonalProFeature(feature);
+}
+
+/** Whether the current scope unlocks full cart comparison rotation (all list items). */
+export function hasFullCartComparisonAccess(): boolean {
+  return canAccessFeature('cheapest_basket');
 }
 
 export function getSubscriptionTier(): SubscriptionTier {
