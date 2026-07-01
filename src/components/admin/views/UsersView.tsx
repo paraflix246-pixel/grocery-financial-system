@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,13 +11,45 @@ import {
   View,
 } from 'react-native';
 
-import { formatDate, MOBILE_BREAKPOINT, TOUCH_TARGET } from '@/src/components/admin/utils';
+import { formatDate, MOBILE_BREAKPOINT, TOUCH_TARGET, type LocaleFilter } from '@/src/components/admin/utils';
 import { fetchAdminUsers, type AdminProfile } from '@/src/services/admin/adminApiService';
 import { AdminColors, AdminRadius } from '@/src/theme/adminTheme';
 
 type UsersViewProps = {
   onSelectUser: (userId: string) => void;
+  localeFilter?: LocaleFilter;
 };
+
+type TierFilter = 'all' | 'free' | 'pro' | 'family' | 'premium';
+type RoleFilter = 'all' | 'admin' | 'user';
+type BannedFilter = 'all' | 'banned' | 'active';
+type SortBy = 'created_at' | 'last_seen_at' | 'email';
+
+const TIER_OPTIONS: Array<{ key: TierFilter; label: string }> = [
+  { key: 'all', label: 'All tiers' },
+  { key: 'premium', label: 'Premium' },
+  { key: 'pro', label: 'Pro' },
+  { key: 'family', label: 'Family' },
+  { key: 'free', label: 'Free' },
+];
+
+const ROLE_OPTIONS: Array<{ key: RoleFilter; label: string }> = [
+  { key: 'all', label: 'All roles' },
+  { key: 'admin', label: 'Admin' },
+  { key: 'user', label: 'User' },
+];
+
+const BANNED_OPTIONS: Array<{ key: BannedFilter; label: string }> = [
+  { key: 'all', label: 'All status' },
+  { key: 'active', label: 'Active' },
+  { key: 'banned', label: 'Banned' },
+];
+
+const SORT_OPTIONS: Array<{ key: SortBy; label: string }> = [
+  { key: 'created_at', label: 'Joined' },
+  { key: 'last_seen_at', label: 'Last seen' },
+  { key: 'email', label: 'Email' },
+];
 
 function StatusBadge({ profile }: { profile: AdminProfile }) {
   if (profile.is_banned) {
@@ -31,7 +64,14 @@ function StatusBadge({ profile }: { profile: AdminProfile }) {
   return <Text style={[styles.badge, styles.badgeMuted]}>Free</Text>;
 }
 
-export function UsersView({ onSelectUser }: UsersViewProps) {
+function HealthBadge({ score }: { score?: number }) {
+  const value = score ?? 0;
+  const tone =
+    value >= 70 ? styles.healthGood : value >= 40 ? styles.healthMid : styles.healthLow;
+  return <Text style={[styles.healthBadge, tone]}>{value}</Text>;
+}
+
+export function UsersView({ onSelectUser, localeFilter = 'all' }: UsersViewProps) {
   const { width } = useWindowDimensions();
   const isMobile = width < MOBILE_BREAKPOINT;
 
@@ -40,6 +80,11 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [tier, setTier] = useState<TierFilter>('all');
+  const [role, setRole] = useState<RoleFilter>('all');
+  const [banned, setBanned] = useState<BannedFilter>('all');
+  const [sortBy, setSortBy] = useState<SortBy>('created_at');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +95,17 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
     setLoading(true);
     setError(null);
     try {
-      const result = await fetchAdminUsers({ search, page, limit });
+      const result = await fetchAdminUsers({
+        search,
+        page,
+        limit,
+        tier,
+        role,
+        banned,
+        sortBy,
+        sortDir,
+        locale: localeFilter,
+      });
       setUsers(result.users);
       setTotal(result.total);
     } catch (err) {
@@ -58,11 +113,20 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, tier, role, banned, sortBy, sortDir, localeFilter]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [localeFilter]);
+
+  const runSearch = () => {
+    setPage(1);
+    setSearch(searchInput.trim());
+  };
 
   return (
     <View style={styles.wrap}>
@@ -88,20 +152,79 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
               style={[styles.searchInput, isMobile && styles.searchInputMobile]}
               autoCapitalize="none"
               autoCorrect={false}
-              onSubmitEditing={() => {
-                setPage(1);
-                setSearch(searchInput.trim());
-              }}
+              onSubmitEditing={runSearch}
             />
             <Pressable
               style={[styles.searchButton, isMobile && styles.searchButtonMobile]}
-              onPress={() => {
-                setPage(1);
-                setSearch(searchInput.trim());
-              }}>
+              onPress={runSearch}>
               <Text style={styles.searchButtonText}>Search</Text>
             </Pressable>
           </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+            <View style={styles.filterRow}>
+              {TIER_OPTIONS.map((opt) => (
+                <FilterChip
+                  key={opt.key}
+                  label={opt.label}
+                  active={tier === opt.key}
+                  onPress={() => {
+                    setPage(1);
+                    setTier(opt.key);
+                  }}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+            <View style={styles.filterRow}>
+              {ROLE_OPTIONS.map((opt) => (
+                <FilterChip
+                  key={opt.key}
+                  label={opt.label}
+                  active={role === opt.key}
+                  onPress={() => {
+                    setPage(1);
+                    setRole(opt.key);
+                  }}
+                />
+              ))}
+              {BANNED_OPTIONS.map((opt) => (
+                <FilterChip
+                  key={opt.key}
+                  label={opt.label}
+                  active={banned === opt.key}
+                  onPress={() => {
+                    setPage(1);
+                    setBanned(opt.key);
+                  }}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+            <View style={styles.filterRow}>
+              {SORT_OPTIONS.map((opt) => (
+                <FilterChip
+                  key={opt.key}
+                  label={`Sort · ${opt.label}`}
+                  active={sortBy === opt.key}
+                  onPress={() => {
+                    setPage(1);
+                    if (sortBy === opt.key) {
+                      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'));
+                    } else {
+                      setSortBy(opt.key);
+                      setSortDir('desc');
+                    }
+                  }}
+                />
+              ))}
+              <Text style={styles.sortDirLabel}>{sortDir === 'asc' ? '↑ Asc' : '↓ Desc'}</Text>
+            </View>
+          </ScrollView>
         </View>
 
         {loading ? (
@@ -116,8 +239,14 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
                   <Text style={styles.userCardEmail} numberOfLines={2}>
                     {user.email ?? '(no email)'}
                   </Text>
-                  <StatusBadge profile={user} />
+                  <View style={styles.userCardBadges}>
+                    <HealthBadge score={user.healthScore} />
+                    <StatusBadge profile={user} />
+                  </View>
                 </View>
+                <Text style={styles.userCardMeta}>
+                  Health {user.healthScore ?? 0} · {user.receiptCount ?? 0} receipts
+                </Text>
                 <Text style={styles.userCardMeta}>Joined · {formatDate(user.created_at)}</Text>
                 <Text style={styles.userCardMeta}>Last seen · {formatDate(user.last_seen_at)}</Text>
               </Pressable>
@@ -128,6 +257,7 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
           <View>
             <View style={[styles.tableRow, styles.tableHead]}>
               <Text style={[styles.cell, styles.cellEmail, styles.headText]}>Email</Text>
+              <Text style={[styles.cell, styles.headText]}>Health</Text>
               <Text style={[styles.cell, styles.headText]}>Joined</Text>
               <Text style={[styles.cell, styles.headText]}>Last seen</Text>
               <Text style={[styles.cell, styles.headText]}>Status</Text>
@@ -137,6 +267,9 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
                 <Text style={[styles.cell, styles.cellEmail]} numberOfLines={1}>
                   {user.email ?? '(no email)'}
                 </Text>
+                <View style={styles.cell}>
+                  <HealthBadge score={user.healthScore} />
+                </View>
                 <Text style={styles.cell}>{formatDate(user.created_at)}</Text>
                 <Text style={styles.cell}>{formatDate(user.last_seen_at)}</Text>
                 <View style={styles.cell}>
@@ -170,6 +303,22 @@ export function UsersView({ onSelectUser }: UsersViewProps) {
   );
 }
 
+function FilterChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={[styles.filterChip, active && styles.filterChipActive]} onPress={onPress}>
+      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: { gap: 16 },
   header: { gap: 4 },
@@ -190,10 +339,27 @@ const styles = StyleSheet.create({
     borderColor: AdminColors.border,
     overflow: 'hidden',
   },
-  panelHeader: { padding: 16, borderBottomWidth: 1, borderBottomColor: AdminColors.border },
+  panelHeader: { padding: 16, borderBottomWidth: 1, borderBottomColor: AdminColors.border, gap: 12 },
   panelHeaderMobile: { padding: 14 },
   searchRow: { flexDirection: 'row', gap: 8 },
   searchRowMobile: { flexDirection: 'column' },
+  filterScroll: { flexGrow: 0 },
+  filterRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  filterChip: {
+    borderWidth: 1,
+    borderColor: AdminColors.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: AdminColors.surface,
+  },
+  filterChipActive: {
+    backgroundColor: AdminColors.primary,
+    borderColor: AdminColors.primary,
+  },
+  filterChipText: { fontSize: 12, fontWeight: '600', color: AdminColors.textSecondary },
+  filterChipTextActive: { color: AdminColors.primaryText },
+  sortDirLabel: { fontSize: 12, color: AdminColors.textMuted, fontWeight: '600' },
   searchInput: {
     flex: 1,
     borderWidth: 1,
@@ -225,6 +391,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   userCardHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
+  userCardBadges: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   userCardEmail: { flex: 1, fontSize: 15, fontWeight: '700', color: AdminColors.text },
   userCardMeta: { fontSize: 13, color: AdminColors.textSecondary },
   tableRow: {
@@ -254,6 +421,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     overflow: 'hidden',
   },
+  healthBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 12,
+    fontWeight: '800',
+    overflow: 'hidden',
+  },
+  healthGood: { backgroundColor: AdminColors.successBg, color: AdminColors.success },
+  healthMid: { backgroundColor: AdminColors.warningBg, color: AdminColors.warning },
+  healthLow: { backgroundColor: AdminColors.dangerBg, color: AdminColors.danger },
   badgePro: { backgroundColor: AdminColors.successBg, color: AdminColors.success },
   badgeAdmin: { backgroundColor: '#EFF6FF', color: AdminColors.primaryDark },
   badgeDanger: { backgroundColor: AdminColors.dangerBg, color: AdminColors.danger },

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { HealthStatusDot } from '@/src/components/admin/HealthStatusDot';
 import { formatDate } from '@/src/components/admin/utils';
@@ -10,9 +10,9 @@ export function HealthView() {
   const [report, setReport] = useState<AdminHealthReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
 
   const load = useCallback(async () => {
-    setLoading(true);
     setError(null);
     try {
       setReport(await fetchAdminHealth());
@@ -26,6 +26,12 @@ export function HealthView() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const timer = setInterval(() => void load(), 15_000);
+    return () => clearInterval(timer);
+  }, [autoRefresh, load]);
 
   if (loading && !report) {
     return (
@@ -43,6 +49,15 @@ export function HealthView() {
         <Pressable style={styles.refreshBtn} onPress={() => void load()}>
           <Text style={styles.refreshBtnText}>Refresh</Text>
         </Pressable>
+        <View style={styles.autoRow}>
+          <Text style={styles.autoLabel}>Auto-refresh (15s)</Text>
+          <Switch
+            value={autoRefresh}
+            onValueChange={setAutoRefresh}
+            trackColor={{ false: AdminColors.border, true: AdminColors.primary }}
+            thumbColor={Platform.OS === 'android' ? AdminColors.surface : undefined}
+          />
+        </View>
       </View>
 
       {error ? (
@@ -108,6 +123,8 @@ const styles = StyleSheet.create({
     backgroundColor: AdminColors.surface,
   },
   refreshBtnText: { fontSize: 13, fontWeight: '700', color: AdminColors.text },
+  autoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
+  autoLabel: { fontSize: 13, color: AdminColors.textSecondary, fontWeight: '600' },
   errorBanner: {
     backgroundColor: AdminColors.dangerBg,
     borderWidth: 1,

@@ -61,6 +61,8 @@ export function PaymentsView() {
     [isMobile]
   );
 
+  const pastDueRows = useMemo(() => rows.filter((row) => row.status === 'past_due'), [rows]);
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>Payments & Subscriptions</Text>
@@ -88,6 +90,25 @@ export function PaymentsView() {
             value={summary.trialConversions30d}
             style={statStyle}
           />
+        </View>
+      ) : null}
+
+      {pastDueRows.length > 0 ? (
+        <View style={styles.attentionPanel}>
+          <Text style={styles.attentionTitle}>Needs attention</Text>
+          <Text style={styles.attentionSub}>
+            {pastDueRows.length} subscription{pastDueRows.length === 1 ? '' : 's'} past due
+          </Text>
+          {pastDueRows.map((row) => (
+            <View key={`past-due-${row.product}-${row.id}`} style={styles.attentionRow}>
+              <Text style={styles.rowTitle}>
+                {row.product === 'family' ? 'Family' : 'Pro'} · {row.email ?? row.userId ?? '—'}
+              </Text>
+              <Text style={styles.rowMeta}>
+                {formatCurrency(row.amountMonthly)}/mo est. · Created {formatDate(row.createdAt)}
+              </Text>
+            </View>
+          ))}
         </View>
       ) : null}
 
@@ -148,6 +169,22 @@ const styles = StyleSheet.create({
   },
   errorText: { color: AdminColors.danger, fontWeight: '600' },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  attentionPanel: {
+    backgroundColor: AdminColors.warningBg,
+    borderRadius: AdminRadius.lg,
+    borderWidth: 1,
+    borderColor: AdminColors.border,
+    padding: 16,
+    gap: 8,
+  },
+  attentionTitle: { fontSize: 16, fontWeight: '800', color: AdminColors.text },
+  attentionSub: { fontSize: 13, color: AdminColors.textSecondary, marginBottom: 4 },
+  attentionRow: {
+    borderTopWidth: 1,
+    borderTopColor: AdminColors.border,
+    paddingTop: 10,
+    gap: 4,
+  },
   panel: {
     backgroundColor: AdminColors.surface,
     borderRadius: AdminRadius.lg,

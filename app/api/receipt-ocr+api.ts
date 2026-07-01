@@ -1,4 +1,9 @@
+import {
+  assertReceiptScanningAllowed,
+  logReceiptParseEvent,
+} from '@/src/services/admin/admin.server';
 import { fetchPaddleOcrOverlay } from '@/src/services/ocr/paddleOcrServer';
+import { getUserFromAuthHeader } from '@/src/services/stripe/stripeSupabase.server';
 import {
   buildReceiptDraftFromOcrOverlay,
   type PaddleScanResult,
@@ -7,6 +12,15 @@ import {
 import { resolveProductionSafeUrl } from '@/src/utils/productionEnvGuard';
 
 export async function POST(request: Request): Promise<Response> {
+  try {
+    await assertReceiptScanningAllowed();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Receipt scanning is paused.';
+    return Response.json({ error: message }, { status: 503 });
+  }
+
+  const actor = await getUserFromAuthHeader(request);
+
   const paddleUrl = resolveProductionSafeUrl(process.env.PADDLEOCR_API_URL, 'PADDLEOCR_API_URL');
   if (!paddleUrl) {
     return Response.json(
@@ -33,6 +47,12 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const overlay = await fetchPaddleOcrOverlay(imageBase64, paddleUrl);
     if (!overlay) {
+      void logReceiptParseEvent({
+        actorId: actor?.id ?? null,
+        success: false,
+        provider: 'paddleocr',
+        metadata: { reason: 'empty_overlay' },
+      });
       return Response.json(
         {
           error:
@@ -47,6 +67,13 @@ export async function POST(request: Request): Promise<Response> {
       rawText: overlay.rawText,
     };
 
+    void logReceiptParseEvent({
+      actorId: actor?.id ?? null,
+      success: true,
+      provider: 'paddleocr',
+      metadata: { lineCount: overlay.lines.length },
+    });
+
     return Response.json({
       draft: result.draft,
       rawText: result.rawText,
@@ -54,6 +81,12 @@ export async function POST(request: Request): Promise<Response> {
     });
   } catch (error) {
     console.warn('Paddle receipt OCR failed:', error);
+    void logReceiptParseEvent({
+      actorId: actor?.id ?? null,
+      success: false,
+      provider: 'paddleocr',
+      metadata: { message: error instanceof Error ? error.message : 'unknown' },
+    });
     return Response.json({ error: 'PaddleOCR scan failed' }, { status: 500 });
   }
 }

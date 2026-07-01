@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, Text, View } from 'react-native';
 
 import { verifyAdminAccess, syncUserProfile } from '@/src/services/admin/adminApiService';
-import { getSession } from '@/src/services/authService';
+import { getSession, waitForAuthReady } from '@/src/services/authService';
 import { AdminColors } from '@/src/theme/adminTheme';
 
 export default function AdminLayout() {
@@ -19,30 +19,31 @@ export default function AdminLayout() {
     }
 
     void (async () => {
+      await waitForAuthReady();
       const session = await getSession();
-      if (!session) {
+      if (!session?.access_token) {
         setMessage('Sign in with an admin account to continue.');
         setGate('blocked');
         return;
       }
 
-      await syncUserProfile();
+      await syncUserProfile({ force: true });
       const result = await verifyAdminAccess();
       if (result.status === 'ok') {
         setGate('ok');
         return;
       }
-      if (result.status === 'unauthorized') {
-        setMessage('Sign in with an admin account to continue.');
-      } else if (result.status === 'unavailable') {
-        setMessage(result.message ?? 'Admin system is not configured on the server.');
-      } else if (result.status === 'server_error') {
-        setMessage(
-          result.message ?? 'Admin dashboard is temporarily unavailable. Try again in a moment.'
-        );
-      } else {
-        setMessage('You do not have permission to access the admin dashboard.');
-      }
+
+      setMessage(
+        result.message ??
+          (result.status === 'unauthorized'
+            ? 'Sign in with an admin account to continue.'
+            : result.status === 'unavailable'
+              ? 'Admin system is not configured on the server.'
+              : result.status === 'server_error'
+                ? 'Admin dashboard is temporarily unavailable. Try again in a moment.'
+                : 'You do not have permission to access the admin dashboard.')
+      );
       setGate('blocked');
     })();
   }, []);

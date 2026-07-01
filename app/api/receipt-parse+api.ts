@@ -1,5 +1,10 @@
 import type { ParsedReceiptDraft } from '@/src/models/types';
 
+import {
+  assertReceiptScanningAllowed,
+  logReceiptParseEvent,
+} from '@/src/services/admin/admin.server';
+import { getUserFromAuthHeader } from '@/src/services/stripe/stripeSupabase.server';
 import { parseReceiptText } from '@/src/services/receiptParser';
 import { resolveProductionSafeUrl } from '@/src/utils/productionEnvGuard';
 
@@ -715,6 +720,15 @@ async function processReceiptScan(options: {
 
 export async function POST(request: Request): Promise<Response> {
 
+  try {
+    await assertReceiptScanningAllowed();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Receipt scanning is paused.';
+    return Response.json({ error: message }, { status: 503 });
+  }
+
+  const actor = await getUserFromAuthHeader(request);
+
   const openaiKey = process.env.OPENAI_API_KEY?.trim();
 
   const deepseekKey = process.env.DEEPSEEK_API_KEY?.trim();
@@ -819,6 +833,17 @@ export async function POST(request: Request): Promise<Response> {
 
     if (result.draft) {
 
+      void logReceiptParseEvent({
+        actorId: actor?.id ?? null,
+        success: true,
+        provider: result.provider,
+        metadata: {
+          deepseekAudited: result.deepseekAudited,
+          finalized: result.finalized,
+          textOnly: body.textOnly === true,
+        },
+      });
+
       return Response.json({
 
         draft: result.draft,
@@ -835,11 +860,25 @@ export async function POST(request: Request): Promise<Response> {
 
 
 
+    void logReceiptParseEvent({
+      actorId: actor?.id ?? null,
+      success: false,
+      provider: 'none',
+      metadata: { reason: 'empty_draft' },
+    });
+
     return Response.json({ error: 'Could not parse receipt' }, { status: 422 });
 
   } catch (error) {
 
     console.warn('Receipt parse API failed:', error);
+
+    void logReceiptParseEvent({
+      actorId: actor?.id ?? null,
+      success: false,
+      provider: 'error',
+      metadata: { message: error instanceof Error ? error.message : 'unknown' },
+    });
 
     return Response.json({ error: 'Receipt cleanup failed' }, { status: 500 });
 

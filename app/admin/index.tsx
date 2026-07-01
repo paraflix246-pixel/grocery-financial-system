@@ -53,7 +53,7 @@ export default function AdminDashboardScreen() {
       case 'analytics':
         return <AnalyticsView key={refreshKey} onSelectUser={setSelectedUserId} />;
       case 'users':
-        return <UsersView key={refreshKey} onSelectUser={setSelectedUserId} />;
+        return <UsersView key={refreshKey} onSelectUser={setSelectedUserId} localeFilter={localeFilter} />;
       case 'activity':
         return <ActivityView key={refreshKey} />;
       case 'health':
@@ -83,13 +83,6 @@ export default function AdminDashboardScreen() {
         localeFilter={localeFilter}
         onLocaleFilterChange={setLocaleFilter}
         badges={badges}>
-        {localeFilter !== 'all' ? (
-          <View style={styles.localeNote}>
-            <Text style={styles.localeNoteText}>
-              Locale filter ({localeFilter.toUpperCase()}) is active — user locale is not yet stored on profiles; showing all data.
-            </Text>
-          </View>
-        ) : null}
         {content}
       </AdminShell>
 
@@ -114,16 +107,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: AdminColors.textSecondary,
     textAlign: 'center',
-  },
-  localeNote: {
-    backgroundColor: AdminColors.warningBg,
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: AdminColors.border,
-  },
-  localeNoteText: {
-    fontSize: 13,
-    color: AdminColors.textSecondary,
   },
 });

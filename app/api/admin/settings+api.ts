@@ -47,6 +47,16 @@ export async function PATCH(request: Request): Promise<Response> {
       maintenanceMode?: boolean;
       maintenanceMessage?: string;
       featureFlags?: Record<string, unknown>;
+      alertSettings?: {
+        email?: string;
+        slackWebhook?: string;
+        thresholds?: {
+          errorRatePercent?: number;
+          pastDueCount?: number;
+          churnRiskCount?: number;
+        };
+      };
+      disableLogins?: boolean;
     } | null;
 
     const settings = await updatePlatformSettings({
@@ -54,6 +64,8 @@ export async function PATCH(request: Request): Promise<Response> {
       maintenanceMode: body?.maintenanceMode,
       maintenanceMessage: body?.maintenanceMessage,
       featureFlags: body?.featureFlags,
+      alertSettings: body?.alertSettings,
+      disableLogins: body?.disableLogins,
     });
 
     return Response.json(settings);

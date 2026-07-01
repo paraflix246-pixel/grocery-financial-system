@@ -19,6 +19,8 @@ const FILTER_OPTIONS = [
   { key: 'user.banned', label: 'Bans' },
   { key: 'user.unbanned', label: 'Unbans' },
   { key: 'user.deleted', label: 'Deletes' },
+  { key: 'receipt.parse.success', label: 'Receipt parse OK' },
+  { key: 'receipt.parse.failed', label: 'Receipt parse fail' },
   { key: 'admin.re_engagement_email', label: 'Emails' },
   { key: 'user.feedback_submitted', label: 'Feedback' },
   { key: 'admin.settings_updated', label: 'Settings' },

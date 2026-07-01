@@ -6,6 +6,10 @@ export async function GET(): Promise<Response> {
     return Response.json({
       maintenanceMode: false,
       maintenanceMessage: '',
+      disableLogins: false,
+      newSignupsPaused: false,
+      receiptScanningPaused: false,
+      priceComparePaused: false,
       activeMessages: [],
     });
   }
@@ -18,6 +22,10 @@ export async function GET(): Promise<Response> {
     return Response.json({
       maintenanceMode: false,
       maintenanceMessage: '',
+      disableLogins: false,
+      newSignupsPaused: false,
+      receiptScanningPaused: false,
+      priceComparePaused: false,
       activeMessages: [],
     });
   }

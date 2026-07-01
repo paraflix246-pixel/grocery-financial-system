@@ -226,6 +226,7 @@ async function loadStore(): Promise<void> {
       communityPriceSharing: false,
       receiptImageStorage: 'ask_each_time',
       rememberReceiptImageChoice: false,
+      showLivePriceEstimates: DEFAULT_LIVE_PRICE_ESTIMATES_ENABLED,
       updatedAt: now,
     },
     customStores: [],

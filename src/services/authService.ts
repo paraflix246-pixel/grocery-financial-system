@@ -14,7 +14,7 @@ import {
 } from '@/src/services/auth/changeEmailLogic';
 import { generateId } from '@/src/utils/id';
 import { getAuthRedirectUrl, resolveAppApiUrl } from '@/src/utils/appOrigin';
-import { clearCachedProfileRole, syncUserProfile } from '@/src/services/admin/adminApiService';
+import { clearCachedProfileRole, fetchPlatformStatus, syncUserProfile } from '@/src/services/admin/adminApiService';
 import { OAUTH_CALLBACK_PATH } from '@/src/services/postAuthRoutingLogic';
 import { getAppSettings, updateAppSettings } from '@/src/services/storageService';
 import { supabase } from '@/src/services/supabaseClient';
@@ -115,6 +115,7 @@ export async function signUpWithEmail(
   displayName?: string
 ): Promise<EmailSignUpResult> {
   if (!supabase) throw new Error('Auth service not available. Please try again later.');
+  await assertAuthPlatformAllowsSignUp();
   const trimmedName = displayName?.trim() ?? '';
   const emailRedirectTo = buildSignupVerificationRedirectUrl(
     getAuthRedirectUrl,
@@ -154,8 +155,10 @@ export async function signUpWithEmail(
 
 export async function signInWithEmail(email: string, password: string): Promise<AuthUser> {
   if (!supabase) throw new Error('Auth service not available. Please try again later.');
+  const normalizedEmail = email.trim().toLowerCase();
+  await assertAuthPlatformAllowsSignIn(normalizedEmail);
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: email.trim().toLowerCase(),
+    email: normalizedEmail,
     password,
   });
   if (error) throw new Error(mapSupabaseError(error.message));
@@ -246,6 +249,31 @@ export async function checkSignInHint(email: string): Promise<SignInHintResult> 
 
 function resolveAuthApiUrl(path: string): string | null {
   return resolveAppApiUrl(path);
+}
+
+async function assertAuthPlatformAllowsSignUp(): Promise<void> {
+  const status = await fetchPlatformStatus();
+  if (status.newSignupsPaused) {
+    throw new Error('New signups are temporarily paused. Please try again later.');
+  }
+}
+
+async function assertAuthPlatformAllowsSignIn(email: string): Promise<void> {
+  const status = await fetchPlatformStatus();
+  if (!status.disableLogins) return;
+
+  const allowlistRaw = process.env.EXPO_PUBLIC_ADMIN_EMAILS?.trim() ?? '';
+  if (!allowlistRaw) return;
+
+  const allowlist = new Set(
+    allowlistRaw
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean)
+  );
+  if (allowlist.has(email.trim().toLowerCase())) return;
+
+  throw new Error('Logins are temporarily disabled. Please try again later.');
 }
 
 type WelcomeEmailApiResponse = {

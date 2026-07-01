@@ -1,6 +1,8 @@
 import {
   adminNotConfiguredResponse,
   adminUnauthorizedResponse,
+  assertLoginsAllowed,
+  profilesSchemaErrorResponse,
   upsertProfileFromAuthUser,
 } from '@/src/services/admin/admin.server';
 import {
@@ -19,7 +21,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const profile = await upsertProfileFromAuthUser(user);
+    await assertLoginsAllowed(user);
+
+    const body = (await request.json().catch(() => null)) as { locale?: 'en' | 'es' } | null;
+    const locale = body?.locale === 'es' || body?.locale === 'en' ? body.locale : undefined;
+
+    const profile = await upsertProfileFromAuthUser(user, { locale });
     return Response.json({
       success: true,
       profile: {
@@ -31,6 +38,9 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     console.warn('[profile/sync] failed:', error);
     const message = error instanceof Error ? error.message : 'Could not sync profile.';
-    return Response.json({ error: message }, { status: 502 });
+    if (message.includes('Logins are temporarily disabled')) {
+      return Response.json({ error: message }, { status: 403 });
+    }
+    return profilesSchemaErrorResponse(message);
   }
 }

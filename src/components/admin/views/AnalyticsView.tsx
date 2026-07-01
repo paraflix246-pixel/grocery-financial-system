@@ -39,6 +39,7 @@ export function AnalyticsView({ onSelectUser }: AnalyticsViewProps) {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [emailSending, setEmailSending] = useState<string | null>(null);
   const [connected, setConnected] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -46,6 +47,7 @@ export function AnalyticsView({ onSelectUser }: AnalyticsViewProps) {
       const data = await fetchAdminStats();
       setStats(data);
       setConnected(true);
+      setLastUpdated(new Date());
     } catch (err) {
       setConnected(false);
       setError(err instanceof Error ? err.message : 'Could not load analytics.');
@@ -60,7 +62,7 @@ export function AnalyticsView({ onSelectUser }: AnalyticsViewProps) {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const timer = setInterval(() => void load(), 60_000);
+    const timer = setInterval(() => void load(), 10_000);
     return () => clearInterval(timer);
   }, [autoRefresh, load]);
 
@@ -105,6 +107,9 @@ export function AnalyticsView({ onSelectUser }: AnalyticsViewProps) {
           </View>
           <View style={[styles.monitorControls, isMobile && styles.monitorControlsMobile]}>
             <Text style={styles.connected}>{connected ? '🟢 Connected' : '🔴 Disconnected'}</Text>
+            {lastUpdated ? (
+              <Text style={styles.lastUpdated}>Updated · {formatDate(lastUpdated.toISOString())}</Text>
+            ) : null}
             <Pressable style={styles.refreshBtn} onPress={() => void load()}>
               <Text style={styles.refreshBtnText}>Refresh</Text>
             </Pressable>
@@ -131,6 +136,12 @@ export function AnalyticsView({ onSelectUser }: AnalyticsViewProps) {
           />
           <StatCard label="Payments Today" value={stats?.paymentsToday ?? 0} style={statStyle} />
           <StatCard
+            label="Past Due"
+            value={stats?.pastDueCount ?? 0}
+            accent={AdminColors.warning}
+            style={statStyle}
+          />
+          <StatCard
             label="Premium Users"
             value={stats?.premiumUsers ?? 0}
             accent={AdminColors.success}
@@ -155,6 +166,39 @@ export function AnalyticsView({ onSelectUser }: AnalyticsViewProps) {
           style={statStyle}
         />
         <StatCard label="Support Tickets" value={stats?.supportTickets ?? 0} style={statStyle} />
+      </View>
+
+      <View style={[styles.panelRow, isMobile && styles.panelRowMobile]}>
+        <View style={[styles.panel, styles.panelHalf]}>
+          <Text style={styles.panelTitle}>Recent Activity</Text>
+          <Text style={styles.panelSub}>Latest audit events</Text>
+          {stats?.recentActivity.length ? (
+            stats.recentActivity.slice(0, 8).map((event) => (
+              <View key={event.id} style={styles.activityRow}>
+                <Text style={styles.activityType}>{event.event_type}</Text>
+                <Text style={styles.activityMeta}>{formatDate(event.created_at)}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.empty}>No recent activity.</Text>
+          )}
+        </View>
+
+        <View style={[styles.panel, styles.panelHalf]}>
+          <Text style={styles.panelTitle}>Abuse & Fraud Signals</Text>
+          <Text style={styles.panelSub}>Heuristic counts — review manually</Text>
+          <View style={styles.metricList}>
+            <MetricRow label="Banned accounts" value={stats?.abuseHeuristics.bannedAccounts ?? 0} />
+            <MetricRow label="Past-due subscriptions" value={stats?.abuseHeuristics.pastDueSubscriptions ?? 0} />
+            <MetricRow label="Signups (24h)" value={stats?.abuseHeuristics.signupsLast24h ?? 0} />
+            <MetricRow label="Signups (1h)" value={stats?.abuseHeuristics.signupsLastHour ?? 0} />
+            <MetricRow label="Open feedback" value={stats?.abuseHeuristics.openFeedback ?? 0} />
+            <MetricRow
+              label="High-volume email domains"
+              value={stats?.abuseHeuristics.highVolumeEmailDomains ?? 0}
+            />
+          </View>
+        </View>
       </View>
 
       <View style={[styles.panelRow, isMobile && styles.panelRowMobile]}>
@@ -337,6 +381,7 @@ const styles = StyleSheet.create({
   monitorControls: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   monitorControlsMobile: { flexWrap: 'wrap' },
   connected: { fontSize: 13, fontWeight: '600', color: AdminColors.textSecondary },
+  lastUpdated: { fontSize: 12, color: AdminColors.textMuted },
   refreshBtn: {
     borderWidth: 1,
     borderColor: AdminColors.border,
@@ -378,6 +423,16 @@ const styles = StyleSheet.create({
   metricRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   metricLabel: { fontSize: 14, color: AdminColors.textSecondary },
   metricValue: { fontSize: 14, fontWeight: '700', color: AdminColors.text },
+  activityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: AdminColors.border,
+    paddingVertical: 8,
+  },
+  activityType: { flex: 1, fontSize: 13, fontWeight: '600', color: AdminColors.text },
+  activityMeta: { fontSize: 12, color: AdminColors.textSecondary },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',

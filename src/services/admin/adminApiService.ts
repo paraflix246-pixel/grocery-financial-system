@@ -1,5 +1,11 @@
+import {
+  classifyAdminAccessError,
+  type AdminAccessVerification,
+} from '@/src/services/admin/adminAccessLogic';
 import { getSession } from '@/src/services/authService';
 import { resolveAppApiUrl } from '@/src/utils/appOrigin';
+
+export type { AdminAccessVerification } from '@/src/services/admin/adminAccessLogic';
 
 function resolveApiUrl(path: string): string | null {
   return resolveAppApiUrl(path);
@@ -8,13 +14,19 @@ function resolveApiUrl(path: string): string | null {
 async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const apiUrl = resolveApiUrl(path);
   if (!apiUrl) {
-    throw new Error('Admin API is only available when the app server is configured.');
+    const err = new Error(
+      'Admin API is only available when the app server is configured. Use npx expo start --web locally or deploy to Vercel.'
+    ) as Error & { status?: number };
+    err.status = 503;
+    throw err;
   }
 
   const session = await getSession();
   const token = session?.access_token;
   if (!token) {
-    throw new Error('Sign in required.');
+    const err = new Error('Sign in required.') as Error & { status?: number };
+    err.status = 401;
+    throw err;
   }
 
   const response = await fetch(apiUrl, {
@@ -111,6 +123,15 @@ export type AdminStats = {
   topUsers: AdminTopUser[];
   churnRisk: AdminChurnUser[];
   recentActivity: AdminAuditEvent[];
+  pastDueCount: number;
+  abuseHeuristics: {
+    bannedAccounts: number;
+    pastDueSubscriptions: number;
+    signupsLast24h: number;
+    signupsLastHour: number;
+    openFeedback: number;
+    highVolumeEmailDomains: number;
+  };
   stripeConfigured: boolean;
   resendConfigured: boolean;
 };
@@ -130,6 +151,9 @@ export type AdminProfile = {
   banned_reason: string | null;
   signup_source: string | null;
   onboarding_completed_at: string | null;
+  locale: string | null;
+  healthScore?: number;
+  receiptCount?: number;
 };
 
 export type AdminUserListResponse = {
@@ -162,11 +186,23 @@ export async function fetchAdminUsers(input: {
   search?: string;
   page?: number;
   limit?: number;
+  tier?: 'all' | 'free' | 'pro' | 'family' | 'premium';
+  role?: 'all' | 'admin' | 'user';
+  banned?: 'all' | 'banned' | 'active';
+  sortBy?: 'created_at' | 'last_seen_at' | 'email';
+  sortDir?: 'asc' | 'desc';
+  locale?: 'all' | 'en' | 'es';
 }): Promise<AdminUserListResponse> {
   const params = new URLSearchParams();
   if (input.search?.trim()) params.set('search', input.search.trim());
   if (input.page) params.set('page', String(input.page));
   if (input.limit) params.set('limit', String(input.limit));
+  if (input.tier && input.tier !== 'all') params.set('tier', input.tier);
+  if (input.role && input.role !== 'all') params.set('role', input.role);
+  if (input.banned && input.banned !== 'all') params.set('banned', input.banned);
+  if (input.sortBy) params.set('sortBy', input.sortBy);
+  if (input.sortDir) params.set('sortDir', input.sortDir);
+  if (input.locale && input.locale !== 'all') params.set('locale', input.locale);
   const qs = params.toString();
   return adminFetch<AdminUserListResponse>(`/api/admin/users${qs ? `?${qs}` : ''}`);
 }
@@ -285,12 +321,25 @@ export type PlatformSettings = {
   maintenanceMode: boolean;
   maintenanceMessage: string;
   featureFlags: Record<string, unknown>;
+  alertSettings: {
+    email?: string;
+    slackWebhook?: string;
+    thresholds?: {
+      errorRatePercent?: number;
+      pastDueCount?: number;
+      churnRiskCount?: number;
+    };
+  };
+  disableLogins: boolean;
   adminEmails: string[];
   adminEmailsMasked: string[];
   stripeConfigured: boolean;
+  stripeMode: 'test' | 'live' | 'unknown';
   resendConfigured: boolean;
   updatedAt: string | null;
 };
+
+export type AdminExportType = 'users' | 'subscriptions' | 'feedback' | 'receipts';
 
 export type AdminNavBadgeCounts = {
   messages: number;
@@ -300,6 +349,10 @@ export type AdminNavBadgeCounts = {
 export type PlatformStatus = {
   maintenanceMode: boolean;
   maintenanceMessage: string;
+  disableLogins: boolean;
+  newSignupsPaused: boolean;
+  receiptScanningPaused: boolean;
+  priceComparePaused: boolean;
   activeMessages: Array<{ id: string; title: string; body: string; created_at: string }>;
 };
 
@@ -377,11 +430,39 @@ export async function updateAdminSettings(input: {
   maintenanceMode?: boolean;
   maintenanceMessage?: string;
   featureFlags?: Record<string, unknown>;
+  alertSettings?: PlatformSettings['alertSettings'];
+  disableLogins?: boolean;
 }): Promise<PlatformSettings> {
   return adminFetch<PlatformSettings>('/api/admin/settings', {
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+}
+
+export async function downloadAdminExport(type: AdminExportType): Promise<void> {
+  const apiUrl = resolveApiUrl(`/api/admin/export?type=${encodeURIComponent(type)}`);
+  if (!apiUrl) throw new Error('Export API is not available.');
+
+  const session = await getSession();
+  const token = session?.access_token;
+  if (!token) throw new Error('Sign in required.');
+
+  const response = await fetch(apiUrl, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? `Export failed (${response.status})`);
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `penny-pantry-${type}.csv`;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export async function fetchAdminBadges(): Promise<AdminNavBadgeCounts> {
@@ -391,11 +472,27 @@ export async function fetchAdminBadges(): Promise<AdminNavBadgeCounts> {
 export async function fetchPlatformStatus(): Promise<PlatformStatus> {
   const apiUrl = resolveApiUrl('/api/platform/status');
   if (!apiUrl) {
-    return { maintenanceMode: false, maintenanceMessage: '', activeMessages: [] };
+    return {
+      maintenanceMode: false,
+      maintenanceMessage: '',
+      disableLogins: false,
+      newSignupsPaused: false,
+      receiptScanningPaused: false,
+      priceComparePaused: false,
+      activeMessages: [],
+    };
   }
   const response = await fetch(apiUrl);
   if (!response.ok) {
-    return { maintenanceMode: false, maintenanceMessage: '', activeMessages: [] };
+    return {
+      maintenanceMode: false,
+      maintenanceMessage: '',
+      disableLogins: false,
+      newSignupsPaused: false,
+      receiptScanningPaused: false,
+      priceComparePaused: false,
+      activeMessages: [],
+    };
   }
   return (await response.json()) as PlatformStatus;
 }
@@ -472,7 +569,7 @@ export function clearCachedProfileRole(): void {
   profileSyncInFlight = null;
 }
 
-async function fetchUserProfileSync(): Promise<SyncedProfile | null> {
+async function fetchUserProfileSync(locale?: 'en' | 'es'): Promise<SyncedProfile | null> {
   const apiUrl = resolveApiUrl('/api/profile/sync');
   if (!apiUrl) return null;
 
@@ -491,6 +588,7 @@ async function fetchUserProfileSync(): Promise<SyncedProfile | null> {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify(locale ? { locale } : {}),
     });
 
     const payload = (await response.json().catch(() => null)) as
@@ -526,7 +624,10 @@ async function fetchUserProfileSync(): Promise<SyncedProfile | null> {
 }
 
 /** Sync profile role from server; dedupes parallel calls and skips within TTL unless forced. */
-export async function syncUserProfile(options?: { force?: boolean }): Promise<SyncedProfile | null> {
+export async function syncUserProfile(options?: {
+  force?: boolean;
+  locale?: 'en' | 'es';
+}): Promise<SyncedProfile | null> {
   const force = options?.force ?? false;
   const now = Date.now();
 
@@ -538,7 +639,7 @@ export async function syncUserProfile(options?: { force?: boolean }): Promise<Sy
     return profileSyncInFlight;
   }
 
-  profileSyncInFlight = fetchUserProfileSync()
+  profileSyncInFlight = fetchUserProfileSync(options?.locale)
     .then((profile) => {
       lastProfileSyncAt = Date.now();
       return profile;
@@ -550,38 +651,11 @@ export async function syncUserProfile(options?: { force?: boolean }): Promise<Sy
   return profileSyncInFlight;
 }
 
-export type AdminAccessVerification = {
-  status: 'ok' | 'unauthorized' | 'forbidden' | 'unavailable' | 'server_error';
-  message?: string;
-};
-
-function formatAdminUnavailableMessage(error: Error & { missingEnv?: string[]; hint?: string }): string {
-  const missing = error.missingEnv?.filter(Boolean) ?? [];
-  if (missing.length === 0) {
-    return 'Admin system is not configured on the server.';
-  }
-  const hint = error.hint?.trim();
-  return `Admin system is not configured. Missing: ${missing.join(', ')}.${hint ? ` ${hint}` : ''}`;
-}
-
 export async function verifyAdminAccess(): Promise<AdminAccessVerification> {
   try {
     await fetchAdminStats();
     return { status: 'ok' };
   } catch (error) {
-    const err = error as Error & { status?: number; missingEnv?: string[]; hint?: string };
-    const status = err.status;
-    if (status === 401) return { status: 'unauthorized' };
-    if (status === 403) return { status: 'forbidden' };
-    if (status === 503) {
-      return { status: 'unavailable', message: formatAdminUnavailableMessage(err) };
-    }
-    if (status === 502) {
-      return {
-        status: 'server_error',
-        message: 'Admin dashboard is temporarily unavailable. Try again in a moment.',
-      };
-    }
-    return { status: 'forbidden' };
+    return classifyAdminAccessError(error);
   }
 }

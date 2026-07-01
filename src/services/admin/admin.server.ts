@@ -1,6 +1,16 @@
 import type { User } from '@supabase/supabase-js';
 
 import {
+  computeAbuseHeuristics,
+  computeUserHealthScore,
+  isFeatureFlagEnabled,
+  normalizeAlertSettings,
+  resolveStripeMode,
+  rowsToCsv,
+  type AbuseHeuristicCounts,
+  type AlertSettings,
+} from '@/src/services/admin/adminLogic';
+import {
   getSupabaseAdmin,
   getMissingSupabaseAdminEnvVars,
   getUserFromAuthHeader,
@@ -22,6 +32,24 @@ export type ProfileRow = {
   banned_reason: string | null;
   signup_source: string | null;
   onboarding_completed_at: string | null;
+  locale: string | null;
+};
+
+export type AdminProfileListItem = ProfileRow & {
+  healthScore: number;
+  receiptCount: number;
+};
+
+export type AdminUserListFilters = {
+  search?: string;
+  page?: number;
+  limit?: number;
+  tier?: 'all' | 'free' | 'pro' | 'family' | 'premium';
+  role?: 'all' | 'admin' | 'user';
+  banned?: 'all' | 'banned' | 'active';
+  sortBy?: 'created_at' | 'last_seen_at' | 'email';
+  sortDir?: 'asc' | 'desc';
+  locale?: 'all' | 'en' | 'es';
 };
 
 export type AuditEventRow = {
@@ -118,14 +146,14 @@ export async function requireAdmin(request: Request): Promise<AdminContext | nul
 }
 
 export async function logAuditEvent(input: {
-  actorId: string;
+  actorId?: string | null;
   targetUserId?: string | null;
   eventType: string;
   metadata?: Record<string, unknown>;
 }): Promise<void> {
   const admin = getSupabaseAdmin();
   const { error } = await admin.from('audit_events').insert({
-    actor_id: input.actorId,
+    actor_id: input.actorId ?? null,
     target_user_id: input.targetUserId ?? null,
     event_type: input.eventType,
     metadata: input.metadata ?? {},
@@ -146,35 +174,103 @@ function extractSignupProvider(user: User): string | null {
   return null;
 }
 
-export async function upsertProfileFromAuthUser(user: User): Promise<ProfileRow> {
+let profilesOnboardingColumnAvailable: boolean | undefined;
+
+async function profilesHasOnboardingColumn(
+  admin: ReturnType<typeof getSupabaseAdmin>
+): Promise<boolean> {
+  if (profilesOnboardingColumnAvailable !== undefined) {
+    return profilesOnboardingColumnAvailable;
+  }
+
+  const { error } = await admin.from('profiles').select('onboarding_completed_at').limit(0);
+  if (!error) {
+    profilesOnboardingColumnAvailable = true;
+    return true;
+  }
+
+  if (/onboarding_completed_at|schema cache/i.test(error.message)) {
+    profilesOnboardingColumnAvailable = false;
+    return false;
+  }
+
+  profilesOnboardingColumnAvailable = false;
+  return false;
+}
+
+export function isProfilesSchemaError(message: string): boolean {
+  return /profiles/i.test(message) && /(does not exist|schema cache|relation)/i.test(message);
+}
+
+export function profilesSchemaErrorResponse(message: string): Response {
+  if (/onboarding_completed_at/i.test(message)) {
+    return Response.json(
+      {
+        error:
+          'Profiles schema is outdated. Apply supabase/migrations/011_onboarding_completed.sql in the Supabase SQL editor.',
+      },
+      { status: 503 }
+    );
+  }
+
+  if (isProfilesSchemaError(message)) {
+    return Response.json(
+      {
+        error:
+          'Admin profiles database is not ready. Apply supabase/migrations/007_admin_profiles.sql.',
+      },
+      { status: 503 }
+    );
+  }
+
+  return Response.json({ error: message }, { status: 502 });
+}
+
+export async function upsertProfileFromAuthUser(
+  user: User,
+  options?: { locale?: 'en' | 'es' | null }
+): Promise<ProfileRow> {
   const admin = getSupabaseAdmin();
   const email = resolveAuthUserEmail(user);
   const role = resolveProfileRole(email);
   const now = new Date().toISOString();
+  const hasOnboardingColumn = await profilesHasOnboardingColumn(admin);
 
   const { data: existing } = await admin
     .from('profiles')
-    .select('role, onboarding_completed_at')
+    .select(hasOnboardingColumn ? 'role, onboarding_completed_at' : 'role')
     .eq('id', user.id)
     .maybeSingle();
 
+  const existingProfile = existing as {
+    role?: string;
+    onboarding_completed_at?: string | null;
+  } | null;
+
   const effectiveRole =
-    existing?.role === 'admin' || role === 'admin' ? 'admin' : 'user';
+    existingProfile?.role === 'admin' || role === 'admin' ? 'admin' : 'user';
+
+  const upsertRow: Record<string, unknown> = {
+    id: user.id,
+    email,
+    role: effectiveRole,
+    last_seen_at: now,
+    signup_provider: extractSignupProvider(user),
+    updated_at: now,
+  };
+
+  if (hasOnboardingColumn) {
+    const existingWithOnboarding = existingProfile;
+    upsertRow.onboarding_completed_at = existingWithOnboarding?.onboarding_completed_at ?? now;
+  }
+
+  if (options?.locale === 'en' || options?.locale === 'es') {
+    upsertRow.locale = options.locale;
+  }
 
   const { data, error } = await admin
     .from('profiles')
-    .upsert(
-      {
-        id: user.id,
-        email,
-        role: effectiveRole,
-        last_seen_at: now,
-        signup_provider: extractSignupProvider(user),
-        onboarding_completed_at: existing?.onboarding_completed_at ?? now,
-        updated_at: now,
-      },
-      { onConflict: 'id' }
-    )
+    .upsert(upsertRow, { onConflict: 'id' })
     .select('*')
     .single();
 
@@ -257,9 +353,13 @@ export type AdminAnalytics = {
   topUsers: AdminTopUser[];
   churnRisk: AdminChurnUser[];
   recentActivity: AuditEventRow[];
+  pastDueCount: number;
+  abuseHeuristics: AbuseHeuristicCounts;
   stripeConfigured: boolean;
   resendConfigured: boolean;
 };
+
+export { computeUserHealthScore, resolveStripeMode };
 
 const PRO_MONTHLY_MRR = 3.99;
 const PRO_YEARLY_MRR = 39.99 / 12;
@@ -346,7 +446,7 @@ function computeRiskScore(daysInactive: number, planTier: string): number {
   return Math.min(100, score);
 }
 
-function computeActivityScore(
+export function computeActivityScore(
   profile: Pick<ProfileRow, 'created_at' | 'last_seen_at' | 'subscription_status'>
 ): number {
   const lastSeen = profile.last_seen_at ? new Date(profile.last_seen_at).getTime() : 0;
@@ -399,6 +499,13 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     auditRes,
     stripeSubsRes,
     familySubsRes,
+    pastDueProRes,
+    pastDueFamilyRes,
+    parseSuccessRes,
+    parseFailedRes,
+    signups24hRes,
+    signups1hRes,
+    profilesForDomainsRes,
   ] = await Promise.all([
     admin.from('profiles').select('id', { count: 'exact', head: true }).gte('last_seen_at', onlineCutoff),
     admin
@@ -443,6 +550,31 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
       .from('workspaces')
       .select('subscription_plan, subscription_status')
       .in('subscription_status', ['active', 'trialing']),
+    admin
+      .from('stripe_subscriptions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'past_due'),
+    admin
+      .from('workspaces')
+      .select('id', { count: 'exact', head: true })
+      .eq('subscription_status', 'past_due'),
+    admin
+      .from('audit_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_type', 'receipt.parse.success'),
+    admin
+      .from('audit_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_type', 'receipt.parse.failed'),
+    admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+    admin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()),
+    admin.from('profiles').select('email').not('email', 'is', null).limit(5000),
   ]);
 
   const familyActive = familyActiveRes.error ? 0 : (familyActiveRes.count ?? 0);
@@ -473,9 +605,33 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
   const totalMrr = proMrr + familyMrr;
 
   const totalReceiptScans = totalReceiptsRes ?? 0;
-  const completedParses = totalReceiptScans;
+  const parseSuccessCount = parseSuccessRes.error ? 0 : (parseSuccessRes.count ?? 0);
+  const parseFailedCount = parseFailedRes.error ? 0 : (parseFailedRes.count ?? 0);
+  const parseAttempts = parseSuccessCount + parseFailedCount;
+  const completedParses = parseAttempts > 0 ? parseSuccessCount : totalReceiptScans;
   const completionRate =
-    totalReceiptScans > 0 ? Math.min(100, Math.round((completedParses / totalReceiptScans) * 100)) : 0;
+    parseAttempts > 0
+      ? Math.round((parseSuccessCount / parseAttempts) * 100)
+      : totalReceiptScans > 0
+        ? Math.min(100, Math.round((completedParses / totalReceiptScans) * 100))
+        : 0;
+
+  const pastDueCount =
+    (pastDueProRes.error ? 0 : (pastDueProRes.count ?? 0)) +
+    (pastDueFamilyRes.error ? 0 : (pastDueFamilyRes.count ?? 0));
+
+  const domainCounts = new Map<string, number>();
+  for (const row of profilesForDomainsRes.data ?? []) {
+    const email = typeof row.email === 'string' ? row.email.trim().toLowerCase() : '';
+    const at = email.indexOf('@');
+    if (at <= 0) continue;
+    const domain = email.slice(at + 1);
+    domainCounts.set(domain, (domainCounts.get(domain) ?? 0) + 1);
+  }
+  let highVolumeEmailDomains = 0;
+  for (const count of domainCounts.values()) {
+    if (count >= 3) highVolumeEmailDomains += 1;
+  }
 
   const topUsers: AdminTopUser[] = ((topProfilesRes.data ?? []) as ProfileRow[]).map((profile) => ({
     id: profile.id,
@@ -507,6 +663,15 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
   const hasStripeTable = !stripeSubsRes.error;
   const revenue30Day = hasStripeTable ? Math.round(totalMrr * 100) / 100 : 0;
   const supportTickets = await countOpenSupportTickets();
+
+  const abuseHeuristics = computeAbuseHeuristics({
+    bannedCount: baseStats.bannedCount,
+    pastDueCount,
+    signupsLast24h: signups24hRes.error ? 0 : (signups24hRes.count ?? 0),
+    signupsLastHour: signups1hRes.error ? 0 : (signups1hRes.count ?? 0),
+    openFeedback: supportTickets,
+    highVolumeEmailDomains,
+  });
 
   let systemHealth: AdminAnalytics['systemHealth'] = 'healthy';
   if (!isSupabaseAdminConfigured()) {
@@ -544,6 +709,8 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     topUsers,
     churnRisk,
     recentActivity: (auditRes.data ?? []) as AuditEventRow[],
+    pastDueCount,
+    abuseHeuristics,
     stripeConfigured: hasStripeTable,
     resendConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
   };
@@ -627,31 +794,132 @@ export async function getAdminStats(): Promise<{
   };
 }
 
-export async function listProfiles(input: {
-  search?: string;
-  page?: number;
-  limit?: number;
-}): Promise<{ users: ProfileRow[]; total: number; page: number; limit: number }> {
+export async function listProfiles(
+  input: AdminUserListFilters
+): Promise<{ users: AdminProfileListItem[]; total: number; page: number; limit: number }> {
   const admin = getSupabaseAdmin();
   const page = Math.max(1, input.page ?? 1);
   const limit = Math.min(100, Math.max(1, input.limit ?? 25));
   const from = (page - 1) * limit;
   const to = from + limit - 1;
   const search = input.search?.trim().toLowerCase();
+  const sortBy = input.sortBy ?? 'created_at';
+  const sortDir = input.sortDir === 'asc';
 
-  let query = admin.from('profiles').select('*', { count: 'exact' }).order('created_at', { ascending: false });
+  let familyOwnerIds: Set<string> | null = null;
+  if (input.tier === 'family' || input.tier === 'premium') {
+    const { data: familyOwners } = await admin
+      .from('workspaces')
+      .select('owner_user_id')
+      .in('subscription_status', ['active', 'trialing', 'past_due']);
+    familyOwnerIds = new Set((familyOwners ?? []).map((row) => String(row.owner_user_id)));
+  }
+
+  let query = admin.from('profiles').select('*', { count: 'exact' });
 
   if (search) {
     query = query.ilike('email', `%${search}%`);
   }
 
+  if (input.locale && input.locale !== 'all') {
+    query = query.eq('locale', input.locale);
+  }
+
+  if (input.role === 'admin') {
+    query = query.eq('role', 'admin');
+  } else if (input.role === 'user') {
+    query = query.eq('role', 'user');
+  }
+
+  if (input.banned === 'banned') {
+    query = query.eq('is_banned', true);
+  } else if (input.banned === 'active') {
+    query = query.eq('is_banned', false);
+  }
+
+  if (input.tier === 'pro') {
+    query = query.in('subscription_status', ['active', 'trialing']);
+  } else if (input.tier === 'free') {
+    query = query.or('subscription_status.is.null,subscription_status.eq.inactive,subscription_status.eq.canceled');
+  }
+
+  query = query.order(sortBy, { ascending: sortDir, nullsFirst: sortBy === 'last_seen_at' && sortDir });
+
   const { data, error, count } = await query.range(from, to);
 
   if (error) throw new Error(error.message);
 
+  let profiles = (data ?? []) as ProfileRow[];
+
+  if (input.tier === 'family' && familyOwnerIds) {
+    profiles = profiles.filter((profile) => familyOwnerIds!.has(profile.id));
+  } else if (input.tier === 'premium' && familyOwnerIds) {
+    profiles = profiles.filter(
+      (profile) =>
+        profile.subscription_status === 'active' ||
+        profile.subscription_status === 'trialing' ||
+        familyOwnerIds!.has(profile.id)
+    );
+  } else if (input.tier === 'free' && familyOwnerIds) {
+    profiles = profiles.filter(
+      (profile) =>
+        !familyOwnerIds!.has(profile.id) &&
+        profile.subscription_status !== 'active' &&
+        profile.subscription_status !== 'trialing'
+    );
+  }
+
+  const userIds = profiles.map((profile) => profile.id);
+  const receiptCountByUser = new Map<string, number>();
+
+  if (userIds.length > 0) {
+    const { data: workspaces } = await admin
+      .from('workspaces')
+      .select('id, owner_user_id')
+      .in('owner_user_id', userIds);
+
+    const workspaceIds = (workspaces ?? []).map((ws) => ws.id as string);
+    const ownerByWorkspace = new Map<string, string>();
+    for (const ws of workspaces ?? []) {
+      ownerByWorkspace.set(ws.id as string, ws.owner_user_id as string);
+    }
+
+    if (workspaceIds.length > 0) {
+      const { data: receipts } = await admin
+        .from('workspace_receipts')
+        .select('workspace_id')
+        .in('workspace_id', workspaceIds);
+
+      for (const receipt of receipts ?? []) {
+        const ownerId = ownerByWorkspace.get(receipt.workspace_id as string);
+        if (!ownerId) continue;
+        receiptCountByUser.set(ownerId, (receiptCountByUser.get(ownerId) ?? 0) + 1);
+      }
+    }
+  }
+
+  const users: AdminProfileListItem[] = profiles.map((profile) => {
+    const activityScore = computeActivityScore(profile);
+    const receiptCount = receiptCountByUser.get(profile.id) ?? 0;
+    return {
+      ...profile,
+      receiptCount,
+      healthScore: computeUserHealthScore({
+        activityScore,
+        receiptCount,
+        subscriptionStatus: profile.subscription_status,
+      }),
+    };
+  });
+
+  const filteredTotal =
+    input.tier === 'family' || input.tier === 'premium' || input.tier === 'free'
+      ? users.length
+      : (count ?? 0);
+
   return {
-    users: (data ?? []) as ProfileRow[],
-    total: count ?? 0,
+    users,
+    total: filteredTotal,
     page,
     limit,
   };
@@ -888,9 +1156,12 @@ export type PlatformSettings = {
   maintenanceMode: boolean;
   maintenanceMessage: string;
   featureFlags: Record<string, unknown>;
+  alertSettings: AlertSettings;
+  disableLogins: boolean;
   adminEmails: string[];
   adminEmailsMasked: string[];
   stripeConfigured: boolean;
+  stripeMode: 'test' | 'live' | 'unknown';
   resendConfigured: boolean;
   updatedAt: string | null;
 };
@@ -1357,18 +1628,182 @@ export async function getPlatformSettings(): Promise<PlatformSettings> {
     console.warn('[admin/settings] platform_config read failed:', error.message);
   }
 
+  const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
+
   return {
     maintenanceMode: Boolean(data?.maintenance_mode),
     maintenanceMessage:
       (data?.maintenance_message as string) ??
       'Penny Pantry is undergoing maintenance. Please try again shortly.',
     featureFlags: (data?.feature_flags as Record<string, unknown>) ?? {},
+    alertSettings: normalizeAlertSettings(data?.alert_settings),
+    disableLogins: Boolean(data?.disable_logins),
     adminEmails,
     adminEmailsMasked,
-    stripeConfigured: Boolean(process.env.STRIPE_SECRET_KEY?.trim()),
+    stripeConfigured: Boolean(stripeKey),
+    stripeMode: resolveStripeMode(stripeKey),
     resendConfigured: Boolean(process.env.RESEND_API_KEY?.trim()),
     updatedAt: (data?.updated_at as string) ?? null,
   };
+}
+
+export async function getPlatformConfigFlags(): Promise<{
+  featureFlags: Record<string, unknown>;
+  disableLogins: boolean;
+}> {
+  const admin = getSupabaseAdmin();
+  const { data, error } = await admin
+    .from('platform_config')
+    .select('feature_flags, disable_logins')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    console.warn('[admin/settings] platform_config flags read failed:', error.message);
+    return { featureFlags: {}, disableLogins: false };
+  }
+
+  return {
+    featureFlags: (data?.feature_flags as Record<string, unknown>) ?? {},
+    disableLogins: Boolean(data?.disable_logins),
+  };
+}
+
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return parseAdminEmails().has(email.trim().toLowerCase());
+}
+
+export async function assertLoginsAllowed(user: User): Promise<void> {
+  const { disableLogins } = await getPlatformConfigFlags();
+  if (!disableLogins) return;
+
+  const email = resolveAuthUserEmail(user);
+  if (isAdminEmail(email)) return;
+
+  throw new Error('Logins are temporarily disabled. Please try again later.');
+}
+
+export async function assertSignupsAllowed(): Promise<void> {
+  const { featureFlags } = await getPlatformConfigFlags();
+  if (isFeatureFlagEnabled(featureFlags, 'new_signups_paused')) {
+    throw new Error('New signups are temporarily paused.');
+  }
+}
+
+export async function assertReceiptScanningAllowed(): Promise<void> {
+  const { featureFlags } = await getPlatformConfigFlags();
+  if (isFeatureFlagEnabled(featureFlags, 'receipt_scanning_paused')) {
+    throw new Error('Receipt scanning is temporarily paused.');
+  }
+}
+
+export async function logReceiptParseEvent(input: {
+  actorId?: string | null;
+  success: boolean;
+  provider: string;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  await logAuditEvent({
+    actorId: input.actorId ?? null,
+    eventType: input.success ? 'receipt.parse.success' : 'receipt.parse.failed',
+    metadata: {
+      provider: input.provider,
+      ...(input.metadata ?? {}),
+    },
+  });
+}
+
+export async function exportAdminCsv(
+  type: 'users' | 'subscriptions' | 'feedback' | 'receipts'
+): Promise<string> {
+  const admin = getSupabaseAdmin();
+
+  if (type === 'users') {
+    const { data } = await admin.from('profiles').select('*').order('created_at', { ascending: false }).limit(5000);
+    const headers = [
+      'id',
+      'email',
+      'role',
+      'locale',
+      'created_at',
+      'last_seen_at',
+      'subscription_status',
+      'plan_type',
+      'is_banned',
+    ];
+    const rows = (data ?? []).map((row) => [
+      row.id,
+      row.email,
+      row.role,
+      row.locale,
+      row.created_at,
+      row.last_seen_at,
+      row.subscription_status,
+      row.plan_type,
+      row.is_banned,
+    ]);
+    return rowsToCsv(headers, rows);
+  }
+
+  if (type === 'subscriptions') {
+    const payments = await getAdminPayments();
+    const headers = [
+      'product',
+      'userId',
+      'email',
+      'plan',
+      'status',
+      'amountMonthly',
+      'stripeCustomerId',
+      'stripeSubscriptionId',
+      'currentPeriodEnd',
+      'createdAt',
+    ];
+    const rows = payments.subscriptions.map((row) => [
+      row.product,
+      row.userId,
+      row.email,
+      row.plan,
+      row.status,
+      row.amountMonthly,
+      row.stripeCustomerId,
+      row.stripeSubscriptionId,
+      row.currentPeriodEnd,
+      row.createdAt,
+    ]);
+    return rowsToCsv(headers, rows);
+  }
+
+  if (type === 'feedback') {
+    const feedback = await listUserFeedback(5000);
+    const headers = ['id', 'user_id', 'email', 'category', 'status', 'message', 'created_at'];
+    const rows = feedback.map((row) => [
+      row.id,
+      row.user_id,
+      row.email,
+      row.category,
+      row.status,
+      row.message,
+      row.created_at,
+    ]);
+    return rowsToCsv(headers, rows);
+  }
+
+  const { data } = await admin
+    .from('workspace_receipts')
+    .select('id, workspace_id, store_name, receipt_date, created_at')
+    .order('created_at', { ascending: false })
+    .limit(5000);
+  const headers = ['id', 'workspace_id', 'store_name', 'receipt_date', 'created_at'];
+  const rows = (data ?? []).map((row) => [
+    row.id,
+    row.workspace_id,
+    row.store_name,
+    row.receipt_date,
+    row.created_at,
+  ]);
+  return rowsToCsv(headers, rows);
 }
 
 export async function updatePlatformSettings(input: {
@@ -1376,6 +1811,8 @@ export async function updatePlatformSettings(input: {
   maintenanceMode?: boolean;
   maintenanceMessage?: string;
   featureFlags?: Record<string, unknown>;
+  alertSettings?: AlertSettings;
+  disableLogins?: boolean;
 }): Promise<PlatformSettings> {
   const admin = getSupabaseAdmin();
   const patch: Record<string, unknown> = {
@@ -1388,6 +1825,8 @@ export async function updatePlatformSettings(input: {
     patch.maintenance_message = input.maintenanceMessage.trim() || 'Penny Pantry is undergoing maintenance.';
   }
   if (input.featureFlags) patch.feature_flags = input.featureFlags;
+  if (input.alertSettings) patch.alert_settings = input.alertSettings;
+  if (typeof input.disableLogins === 'boolean') patch.disable_logins = input.disableLogins;
 
   const { error } = await admin.from('platform_config').upsert({ id: 1, ...patch }, { onConflict: 'id' });
   if (error) throw new Error(error.message);
@@ -1398,6 +1837,8 @@ export async function updatePlatformSettings(input: {
     metadata: {
       maintenanceMode: input.maintenanceMode,
       featureFlags: input.featureFlags,
+      alertSettings: input.alertSettings,
+      disableLogins: input.disableLogins,
     },
   });
 
@@ -1407,13 +1848,21 @@ export async function updatePlatformSettings(input: {
 export async function getPublicPlatformStatus(): Promise<{
   maintenanceMode: boolean;
   maintenanceMessage: string;
+  disableLogins: boolean;
+  newSignupsPaused: boolean;
+  receiptScanningPaused: boolean;
+  priceComparePaused: boolean;
   activeMessages: Array<{ id: string; title: string; body: string; created_at: string }>;
 }> {
   const admin = getSupabaseAdmin();
   const now = new Date().toISOString();
 
   const [configRes, messagesRes] = await Promise.all([
-    admin.from('platform_config').select('maintenance_mode, maintenance_message').eq('id', 1).maybeSingle(),
+    admin
+      .from('platform_config')
+      .select('maintenance_mode, maintenance_message, disable_logins, feature_flags')
+      .eq('id', 1)
+      .maybeSingle(),
     admin
       .from('admin_messages')
       .select('id, title, body, created_at')
@@ -1423,11 +1872,17 @@ export async function getPublicPlatformStatus(): Promise<{
       .limit(5),
   ]);
 
+  const featureFlags = (configRes.data?.feature_flags as Record<string, unknown>) ?? {};
+
   return {
     maintenanceMode: Boolean(configRes.data?.maintenance_mode),
     maintenanceMessage:
       (configRes.data?.maintenance_message as string) ??
       'Penny Pantry is undergoing maintenance. Please try again shortly.',
+    disableLogins: Boolean(configRes.data?.disable_logins),
+    newSignupsPaused: isFeatureFlagEnabled(featureFlags, 'new_signups_paused'),
+    receiptScanningPaused: isFeatureFlagEnabled(featureFlags, 'receipt_scanning_paused'),
+    priceComparePaused: isFeatureFlagEnabled(featureFlags, 'price_compare_paused'),
     activeMessages: (messagesRes.data ?? []) as Array<{
       id: string;
       title: string;
