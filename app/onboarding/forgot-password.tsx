@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { forgotPassword, signInWithGoogle } from '@/src/services/authService';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -80,6 +81,10 @@ export default function ForgotPasswordScreen() {
     router.push('/onboarding/signup');
   }
 
+  function handleLogoHome() {
+    void navigateToOnboardingWelcome(router);
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -94,7 +99,13 @@ export default function ForgotPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
+        <PennyPantryLogo
+          variant="hero"
+          size={56}
+          style={styles.logo}
+          onPress={handleLogoHome}
+          accessibilityLabel={t('onboarding.flow.logoHomeA11y')}
+        />
 
         <Text style={styles.heading}>{t('auth.forgotPassword.heading')}</Text>
         <Text style={styles.subheading}>{t('auth.forgotPassword.subheading')}</Text>

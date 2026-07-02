@@ -42,8 +42,8 @@
     "noSpendingData": "Sin datos de gasto",
     "samplePrices": "Precios de ejemplo",
     "viewPlans": "Ver planes",
-    "unlockWith": "Desbloquea {{feature}} con {{plan}}",
-    "unlockFeature": "Desbloquea {{feature}}",
+    "unlockWith": "Deja de desperdiciar en {{feature}} — consigue {{plan}}",
+    "unlockFeature": "Deja de desperdiciar en {{feature}}",
     "withPlan": "con {{plan}}",
     "goPro": "Hazte Pro",
     "logOut": "¿Cerrar sesión?",
@@ -63,7 +63,7 @@
     "greetingEvening": "Buenas noches",
     "greetingSub": "Aquí tienes tu resumen inteligente de compras",
     "greetingSubFamily": "Espacio familiar — recibos y despensa compartidos del hogar",
-    "proBannerCompact": "Desbloquea alertas de precio y listas familiares — Pro desde {{price}}/mes",
+    "proBannerCompact": "Deja de recomprar lo que ya tienes — Pro desde {{price}}/mes",
     "budgetExceeded": "Presupuesto semanal superado por {{amount}}",
     "budgetThreshold": "Has usado el {{percent}}% de tu presupuesto semanal — te acercas al límite de alerta",
     "thisWeek": "Esta semana",
@@ -78,7 +78,9 @@
     "spendingOverview": "Resumen de gastos",
     "spendingOverviewSub": "Desglose por categoría de tus recibos guardados",
     "spendingOutsidePeriodHint": "Hay recibos guardados, pero ninguno cae en este período. Prueba Este año u otro rango.",
-    "underBudget": "¡Vas muy bien! Estás {{amount}} por debajo del presupuesto"
+    "underBudget": "¡Vas muy bien! Estás {{amount}} por debajo del presupuesto",
+    "pantry": "Despensa",
+    "moneyLeakSection": "Fuga de dinero"
   },
   "headerMenu": {
     "openMenu": "Abrir menú",
@@ -143,9 +145,28 @@
     "a11y": "Escanear recibo. Sube o escanea un recibo para extraer artículos, seguir precios y comparar tiendas."
   },
   "upgrade": {
-    "proComparisonHook": "Hazte Pro para estimaciones de precios en vivo en todas las tiendas",
-    "stopMissingDrops": "No te pierdas las bajadas de precio",
-    "proBannerSub": "Alertas en tiempo real, seguimiento de inflación y estimaciones de precios en vivo"
+    "proComparisonHook": "Deja de recomprar lo que ya tienes en la despensa — compara precios con Pro",
+    "stopMissingDrops": "Deja de recomprar lo que ya compraste",
+    "proBannerSub": "Seguimiento de fugas de dinero, alertas de recompra inteligente y despensa completa"
+  },
+  "moneyLeak": {
+    "title": "Informe de fuga de dinero",
+    "subtitle": "Basado en tu despensa, listas y recibos guardados",
+    "empty": "Agrega recibos y artículos de despensa para ver tu informe",
+    "headlineAtRisk": "{{amount}} en riesgo esta semana",
+    "headlineBlindSpots": "{{count}} puntos ciegos encontrados",
+    "headlineClear": "Sin fugas detectadas por ahora",
+    "noLeaks": "Tu despensa y listas están alineadas — sigue escaneando recibos.",
+    "upgradeCta": "Ver informe completo — Pro desde {{price}}/mes",
+    "spots": {
+      "overlapOne": "Ya en despensa: {{name}} en tu lista",
+      "overlapMany": "{{count}} artículos en tu lista ya están en la despensa",
+      "expiringOne": "1 artículo por vencer pronto",
+      "expiringMany": "{{count}} artículos por vencer pronto",
+      "lowStockOne": "1 artículo con poco stock",
+      "lowStockMany": "{{count}} artículos con poco stock",
+      "repeatRebuy": "Compraste {{name}} {{count}}× este mes — posible gasto duplicado"
+    }
   },
   "comparison": {
     "title": "Estimaciones de precios en vivo",
@@ -155,7 +176,7 @@
     "previewMeta": " · vista previa · artículo {{current}} de {{total}}",
     "comparisonsMeta": " · {{count}} comparaciones",
     "limitedMeta": " · {{shown}} de {{total}} · Mejora para comparación completa",
-    "limitedMetaLine": "{{shown}} de {{total}} · Mejora para comparación completa",
+    "limitedMetaLine": "{{shown}} de {{total}} · Prevención completa de fugas con Pro",
     "limitedStoresMetaLine": "{{shown}} de {{total}} tiendas · Mejora para ver todas",
     "limitedStoresMetaShort": "{{shown}} de {{total}} tiendas",
     "seeAllStoresPro": "Ver todas las tiendas con Pro",
@@ -346,6 +367,75 @@
     }
   },
   "onboarding": {
+    "flow": {
+      "backA11y": "Volver",
+      "logoHomeA11y": "Volver al inicio del onboarding",
+      "welcome": {
+        "title": "Deja de desperdiciar dinero en comestibles.",
+        "subtitle": "Penny Pantry ayuda a los hogares a detectar compras duplicadas, comida que caduca y fugas de dinero — antes de que lleguen a tu bolsillo.",
+        "getStarted": "Comenzar"
+      },
+      "goals": {
+        "title": "¿En qué te gustaría recibir ayuda?",
+        "subtitle": "Elige todas las que apliquen — personalizaremos tus primeros insights.",
+        "save_money": "Ahorrar dinero",
+        "reduce_waste": "Reducir desperdicio de comida",
+        "organize_pantry": "Organizar despensa",
+        "feed_family": "Alimentar mejor a la familia"
+      },
+      "try": {
+        "title": "Pruébalo ahora",
+        "subtitle": "Añade datos reales de comestibles para ver qué encuentra Penny Pantry.",
+        "noAccount": "No se requiere cuenta en este paso.",
+        "scan_receipt": "Escanear un recibo",
+        "scan_receiptBody": "Ve gastos y patrones de compra duplicada de un recibo real.",
+        "add_manual": "Añadir manualmente",
+        "add_manualBody": "Registra un artículo de despensa sin escanear.",
+        "opening": "Abriendo…",
+        "skip": "Omitir por ahora",
+        "skipStep": "Continuar sin datos"
+      },
+      "analyzing": {
+        "title": "Analizando tus comestibles…",
+        "msg1": "Buscando recompras duplicadas…",
+        "msg2": "Revisando solapamientos en despensa…",
+        "msg3": "Estimando dinero en riesgo…"
+      },
+      "value": {
+        "title": "Esto es lo que encontramos",
+        "headlineDefault": "Los hogares pierden dinero en comestibles cada semana",
+        "headlineSaveMoney": "Según tus datos — aquí puede estar la fuga de dinero",
+        "headlineReduceWaste": "Artículos en riesgo de desperdiciarse",
+        "headlineOrganize": "Solapamientos en despensa que podrían costarte",
+        "headlineFeedFamily": "Comprar mejor empieza con lo que ya tienes",
+        "labeledEstimate": "Estimación conservadora de tus datos guardados",
+        "conservativeEstimate": "Estimación típica de hogar — añade más datos para precisión",
+        "fallbackTitle": "Sigue escaneando para afinar este informe",
+        "fallbackBody": "Cada recibo y artículo de despensa hace tu informe de fugas de dinero más preciso.",
+        "noDataTitle": "Construyamos los insights de tu despensa",
+        "noDataSubtitle": "Añade algunos comestibles o escanea un recibo para recibir ahorros personalizados, control de gastos e información útil sobre tu despensa.",
+        "noDataPreviewTitle": "Sigue ahorrando automáticamente",
+        "noDataPreviewBody": "Pro vigila tu despensa de forma continua, te avisa antes de que la comida caduque, ayuda a evitar compras duplicadas y detecta oportunidades de ahorro cada vez que compras.",
+        "continue": "Descubre cómo Pro te ayuda a ahorrar"
+      },
+      "automation": {
+        "title": "Lo que Pro sigue haciendo por ti",
+        "subtitle": "Penny Pantry vigila tus comestibles para que tú no tengas que hacerlo.",
+        "expiryAlerts": "Alertas de caducidad antes de que la comida se desperdicie",
+        "duplicateCatch": "Avisos de recompra duplicada en tu lista de compras",
+        "leakTracking": "Seguimiento de fugas de dinero desde recibos y despensa",
+        "sharedLists": "Listas compartidas y sincronización para hogares",
+        "reminders": "Recordatorios de stock bajo y alertas de ofertas",
+        "note": "El plan gratuito muestra el valor — Pro y Hogar lo mantienen funcionando automáticamente.",
+        "continue": "Elige tu plan"
+      },
+      "subscription": {
+        "roiTitle": "Tus datos sugieren ahorros que vale la pena proteger",
+        "roiBody": "Estimamos {{amount}} en riesgo por tus comestibles. Pro desde {{proPrice}}/mes ayuda a detectarlo automáticamente.",
+        "continueSaving": "Seguir ahorrando automáticamente",
+        "comparePlans": "Comparar todos los planes"
+      }
+    },
     "slides": {
       "save": {
         "title1": "Ahorra dinero",
@@ -455,29 +545,33 @@
   },
   "paywall": {
     "title": "Elige tu plan",
-    "headline": "Ahorra en cada compra.",
-    "subhead": "Escaneos, alertas de precio y personalización Pro — elige tu plan.",
-    "proBadge": "Más popular",
+    "headline": "Deja de desperdiciar dinero en comida que ya compraste.",
+    "subhead": "Detecta recompras duplicadas, artículos por vencer y fugas de dinero antes de que lleguen a tu bolsillo.",
+    "proBadge": "Compradores individuales",
     "proShimmer": "Pro",
-    "outcomeTitle": "Lo que Pro desbloquea",
-    "outcomeSubtitle": "Convierte recibos en ahorros reales — sin adivinar.",
+    "recommendedBadge": "Recomendado",
+    "roiTitle": "Pro se paga solo",
+    "roiBody": "Los hogares desperdician un estimado de $25+/mes en compras duplicadas y comida que vence sin usarse. Penny Pantry te ayuda a detectarlo — por menos que un artículo olvidado.",
+    "roiFormula": "En riesgo $ = artículos duplicados en lista + recompras, precio de tus recibos guardados (estimación conservadora).",
+    "outcomeTitle": "Tu motor de prevención de pérdidas",
+    "outcomeSubtitle": "Convierte recibos en prevención de desperdicio — sin adivinar.",
     "outcomes": {
       "save": {
-        "title": "Deja de pagar de más",
-        "body": "Compara precios entre tiendas y arma el carrito más barato."
+        "title": "Prevención de desperdicio",
+        "body": "Alertas de vencimiento y seguimiento de despensa para que la comida no se pierda."
       },
       "track": {
-        "title": "Conoce tu gasto real",
-        "body": "Historial completo de precios y resumen mensual de gastos."
+        "title": "Recompra inteligente",
+        "body": "Detecta compras duplicadas antes de comprar lo que ya tienes."
       },
       "alerts": {
-        "title": "Detecta ofertas automáticamente",
-        "body": "Alertas inteligentes cuando bajan los productos que sigues."
+        "title": "Seguimiento de fugas",
+        "body": "Ve qué está en riesgo por solapamientos, recompras y artículos por vencer."
       }
     },
-    "proLead": "Todo lo Gratis, más:",
+    "proLead": "Tu motor de prevención de pérdidas:",
     "freePlan": "Gratis",
-    "freeTagline": "Empieza gratis",
+    "freeTagline": "Ve el valor — con puntos ciegos",
     "proPlan": "Pro",
     "forever": "para siempre",
     "perMonth": "/mes",
@@ -486,13 +580,14 @@
     "startTrial": "Prueba Pro 7 días",
     "startingTrial": "Iniciando prueba...",
     "trialSubtext": "Acceso Pro completo 7 días. Sin pago.",
+    "familyCtaSubtext": "Espacio compartido para el hogar — invita miembros gratis.",
     "subscribePro": "Suscribirse a Pro",
     "subscribeProPrice": "Suscribirse a Pro — {{price}}",
     "commitNote": "Cancela cuando quieras — sin contratos.",
     "continueFree": "Continuar con Gratis",
     "familySection": "¿Compartes con tu hogar?",
-    "familyTitle": "Espacio familiar",
-    "familySubtitle": "Una suscripción para tu hogar. Invita miembros gratis.",
+    "familyTitle": "Hogar",
+    "familySubtitle": "Una economía compartida del hogar. Invita miembros gratis.",
     "familySubscribe": "Suscribirse a Familiar",
     "subscribeFamilyPrice": "Suscribirse a Familiar — {{price}}",
     "familyJoin": "Crear o unirse a un hogar",
@@ -505,7 +600,7 @@
     "devPreviewBannerBody": "Omite Stripe — previsualiza el selector Personal | Mi hogar, la marca familiar y la UI de invitaciones en local.",
     "devPreviewButton": "Vista previa del espacio familiar (sin pago)",
     "devPreviewActive": "Vista previa familiar activa",
-    "familyLead": "Todo lo de Pro, más:",
+    "familyLead": "Una economía compartida del hogar:",
     "billingDisclaimer": {
       "stripe": "Pago seguro con Stripe. Administra o cancela en ajustes de suscripción.",
       "revenuecat": "Las suscripciones se facturan en App Store o Google Play. Adminístralas en ajustes del dispositivo.",
@@ -518,9 +613,11 @@
         "scans": "{{count}} escaneos de recibos/mes",
         "list": "Lista básica de compras",
         "history": "Historial de {{days}} días",
-        "alerts": "Alertas de precio manual",
+        "alerts": "Solo alertas de precio manual",
         "stores": "Seguimiento de {{count}} tiendas",
-        "pantry": "Despensa hasta {{count}} artículos"
+        "pantry": "Despensa hasta {{count}} artículos",
+        "noLeakReport": "Informe parcial de fugas (solo puntos ciegos)",
+        "limitedHistory": "Historial limitado — no ves patrones completos de fugas"
       },
       "proCompact": {
         "unlimitedScans": "Escaneos de recibos ilimitados",
@@ -535,6 +632,10 @@
         "onePayer": "Una suscripción para todos"
       },
       "pro": {
+        "wastePrevention": "Prevención de desperdicio — alertas de vencimiento y despensa",
+        "smartRebuy": "Recompra inteligente — detecta compras duplicadas",
+        "moneyLeakTracking": "Seguimiento de fugas — informe completo en riesgo",
+        "pantryAutomation": "Automatización de despensa — artículos ilimitados desde recibos",
         "unlimitedScans": "Escaneos de recibos ilimitados",
         "fullHistory": "Historial completo de precios",
         "smartAlerts": "Alertas inteligentes de ofertas",
@@ -552,7 +653,8 @@
         "customAvatarsDetail": "{{count}} avatares animados para tu perfil"
       },
       "family": {
-        "allProFeatures": "Todas las funciones Pro para cada miembro",
+        "allProFeatures": "Toda la prevención Pro para cada miembro",
+        "sharedEconomy": "Una economía compartida del hogar",
         "sharedLists": "Listas de compras compartidas para tu hogar",
         "liveSync": "Sincronización en vivo entre teléfonos",
         "inviteFree": "Invita miembros gratis — sin Pro",

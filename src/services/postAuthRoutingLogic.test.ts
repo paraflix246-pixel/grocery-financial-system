@@ -8,22 +8,22 @@ import {
 } from '@/src/services/postAuthRoutingLogic';
 
 describe('resolvePostOAuthRoute', () => {
-  it('routes admin users to admin on web', () => {
+  it('routes admin users to onboarding upgrade (same as non-admin)', () => {
     const result = resolvePostOAuthRoute(true, 'web');
-    assert.equal(result.href, '/admin');
-    assert.equal(result.reason, 'admin');
+    assert.equal(result.href, '/onboarding/upgrade');
+    assert.equal(result.reason, 'upgrade');
   });
 
-  it('routes admin users to home on native', () => {
+  it('routes native admin users to onboarding upgrade', () => {
     const result = resolvePostOAuthRoute(true, 'native');
-    assert.equal(result.href, '/(tabs)');
-    assert.equal(result.reason, 'admin');
+    assert.equal(result.href, '/onboarding/upgrade');
+    assert.equal(result.reason, 'upgrade');
   });
 
-  it('routes signup OAuth to join-household', () => {
+  it('routes signup OAuth to onboarding subscription', () => {
     const result = resolvePostOAuthRoute(false, 'web', 'signup');
-    assert.equal(result.href, '/onboarding/join-household');
-    assert.equal(result.reason, 'join_household');
+    assert.equal(result.href, '/onboarding/upgrade');
+    assert.equal(result.reason, 'upgrade');
   });
 
   it('routes signin OAuth to onboarding upgrade', () => {
@@ -40,8 +40,8 @@ describe('resolvePostOAuthRoute', () => {
 });
 
 describe('resolveAdminPaywallBypassRoute', () => {
-  it('sends web admins to admin dashboard', () => {
-    assert.equal(resolveAdminPaywallBypassRoute('web'), '/admin');
+  it('sends web admins to home tabs', () => {
+    assert.equal(resolveAdminPaywallBypassRoute('web'), '/(tabs)');
   });
 
   it('sends native admins to home tabs', () => {

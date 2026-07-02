@@ -1,308 +1,202 @@
-import React, { useMemo, useRef, useState } from 'react';
-import {
-  NativeScrollEvent,
-  NativeSyntheticEvent,
-  Platform,
-  Pressable,
-  ScrollView,
-  StatusBar,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useFocusEffect, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { OnboardingFlowShell } from '@/src/components/onboarding/OnboardingFlowShell';
+import { OnboardingSubscriptionScreen } from '@/src/components/onboarding/OnboardingSubscriptionScreen';
+import { AnalyzingStep } from '@/src/components/onboarding/steps/AnalyzingStep';
+import { AutomationPreviewStep } from '@/src/components/onboarding/steps/AutomationPreviewStep';
+import { GoalsStep } from '@/src/components/onboarding/steps/GoalsStep';
+import { TryProductStep } from '@/src/components/onboarding/steps/TryProductStep';
+import { ValueMomentStep } from '@/src/components/onboarding/steps/ValueMomentStep';
+import { WelcomeStep } from '@/src/components/onboarding/steps/WelcomeStep';
+import { continueAsGuest } from '@/src/services/authService';
 import {
-  FeatureSlideData,
-  OnboardingFeatureSlide,
-} from '@/src/components/onboarding/OnboardingFeatureSlide';
-import { OnboardingSignupSlide } from '@/src/components/onboarding/OnboardingSignupSlide';
-import { LanguagePicker } from '@/src/components/settings/AppearanceSettings';
-import { signInWithApple, signInWithGoogle } from '@/src/services/authService';
-import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
-import { setOAuthIntent } from '@/src/services/onboardingFlowState';
-import { useBudgetStore } from '@/src/store/useBudgetStore';
-import { OnboardingColors, OnboardingSlideAccents } from '@/src/theme/onboardingTheme';
-import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
+  completeOnboardingTry,
+  loadOnboardingProgress,
+  markOnboardingTryStarted,
+  resetOnboardingToWelcome,
+  saveOnboardingProgress,
+  setOnboardingStep,
+  skipOnboardingTryWithoutData,
+  toggleOnboardingGoal,
+  type OnboardingFirstAction,
+  type OnboardingGoal,
+  type OnboardingProgress,
+  type OnboardingStep,
+} from '@/src/services/onboardingFlowState';
+import {
+  getPreviousOnboardingStep,
+  resolveOnboardingStepOnLoad,
+  shouldRenderAnalyzingStep,
+} from '@/src/services/onboardingStepRouting';
 
-const SLIDE_COUNT = 4;
-
-export default function OnboardingScreen() {
+export default function OnboardingFlowScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const completeOnboarding = useBudgetStore((s) => s.completeOnboarding);
-  const { width: screenWidth } = useWindowDimensions();
-  const scrollRef = useRef<ScrollView>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [carouselHeight, setCarouselHeight] = useState(0);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [progress, setProgress] = useState<OnboardingProgress | null>(null);
+  const [tryBusy, setTryBusy] = useState(false);
 
-  const featureSlides: FeatureSlideData[] = useMemo(
-    () => [
-      {
-        key: 'save',
-        icon: { ios: 'banknote.fill', android: 'savings', web: 'savings' },
-        titleParts: [t('onboarding.slides.save.title1'), t('onboarding.slides.save.title2')],
-        subtitle: t('onboarding.slides.save.subtitle'),
-        accent: OnboardingSlideAccents.green,
-      },
-      {
-        key: 'compare',
-        icon: { ios: 'tag.fill', android: 'sell', web: 'sell' },
-        titleParts: [t('onboarding.slides.compare.title1'), t('onboarding.slides.compare.title2')],
-        subtitle: t('onboarding.slides.compare.subtitle'),
-        accent: OnboardingSlideAccents.yellow,
-      },
-      {
-        key: 'lists',
-        icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' },
-        titleParts: [t('onboarding.slides.lists.title1'), t('onboarding.slides.lists.title2')],
-        subtitle: t('onboarding.slides.lists.subtitle'),
-        accent: OnboardingSlideAccents.purple,
-      },
-    ],
-    [t]
+  const refreshProgress = useCallback(async () => {
+    const loaded = await loadOnboardingProgress();
+    const resolvedStep = resolveOnboardingStepOnLoad(loaded.step, loaded);
+    if (resolvedStep !== loaded.step) {
+      const corrected = await setOnboardingStep(resolvedStep);
+      setProgress(corrected);
+      setReady(true);
+      return corrected;
+    }
+    setProgress(loaded);
+    setReady(true);
+    return loaded;
+  }, []);
+
+  useEffect(() => {
+    void refreshProgress();
+  }, [refreshProgress]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshProgress().then((loaded) => {
+        if (loaded.tryInProgress && loaded.firstAction) {
+          void completeOnboardingTry().then(setProgress);
+        }
+      });
+    }, [refreshProgress])
   );
 
-  const isSignupSlide = activeIndex === SLIDE_COUNT - 1;
-  const showSkip = activeIndex < SLIDE_COUNT - 1;
+  const goToStep = useCallback(async (step: OnboardingStep) => {
+    const next = await setOnboardingStep(step);
+    setProgress(next);
+  }, []);
 
-  function scrollToIndex(index: number) {
-    const clamped = Math.min(Math.max(0, index), SLIDE_COUNT - 1);
-    scrollRef.current?.scrollTo({ x: clamped * Math.max(screenWidth, 1), animated: true });
-    setActiveIndex(clamped);
-  }
+  const handleLogoHome = useCallback(async () => {
+    const next = await resetOnboardingToWelcome();
+    setProgress(next);
+  }, []);
 
-  function handleScrollEnd(event: NativeSyntheticEvent<NativeScrollEvent>) {
-    const raw =
-      screenWidth > 0 ? Math.round(event.nativeEvent.contentOffset.x / screenWidth) : 0;
-    const index = Math.min(Math.max(0, raw), SLIDE_COUNT - 1);
-    if (index !== activeIndex) setActiveIndex(index);
-  }
+  const handleToggleGoal = useCallback(async (goal: OnboardingGoal) => {
+    const next = await toggleOnboardingGoal(goal);
+    setProgress(next);
+  }, []);
 
-  function handleSkip() {
-    scrollToIndex(SLIDE_COUNT - 1);
-  }
+  const ensureGuestIfNeeded = useCallback(async () => {
+    await continueAsGuest();
+  }, []);
 
-  function handleNext() {
-    scrollToIndex(activeIndex + 1);
-  }
+  const handleTryAction = useCallback(
+    async (action: OnboardingFirstAction) => {
+      setTryBusy(true);
+      try {
+        await ensureGuestIfNeeded();
+        await markOnboardingTryStarted(action);
 
-  function handleEmailSignup() {
-    router.push('/onboarding/signup');
-  }
-
-  function handleSignIn() {
-    router.push('/onboarding/signin');
-  }
-
-  async function handleGoogle() {
-    setAuthError(null);
-    setAuthLoading(true);
-    try {
-      await setOAuthIntent('signup');
-      await signInWithGoogle();
-      if (Platform.OS !== 'web') {
-        await completeOAuthAndRoute(router, completeOnboarding);
+        if (action === 'scan_receipt') {
+          router.push('/(tabs)/scan?onboarding=1' as Href);
+          return;
+        }
+        router.push('/pantry?onboarding=1' as Href);
+      } finally {
+        setTryBusy(false);
       }
-    } catch (e) {
-      setAuthError(e instanceof Error ? e.message : 'Google sign-in failed. Please try again.');
-    } finally {
-      setAuthLoading(false);
-    }
+    },
+    [ensureGuestIfNeeded, router]
+  );
+
+  const handleSkipTry = useCallback(async () => {
+    const next = await skipOnboardingTryWithoutData();
+    setProgress(next);
+  }, []);
+
+  const handleSkipGoals = useCallback(async () => {
+    await saveOnboardingProgress({ goals: ['save_money'], step: 3 });
+    setProgress(await loadOnboardingProgress());
+  }, []);
+
+  if (!ready || !progress) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
   }
 
-  async function handleApple() {
-    setAuthError(null);
-    setAuthLoading(true);
-    try {
-      await setOAuthIntent('signup');
-      await signInWithApple();
-      if (Platform.OS !== 'web') {
-        await completeOAuthAndRoute(router, completeOnboarding);
-      }
-    } catch (e) {
-      setAuthError(e instanceof Error ? e.message : 'Apple sign-in failed. Please try again.');
-    } finally {
-      setAuthLoading(false);
-    }
+  const step = progress.step;
+  const showAnalyzing = step === 4 && shouldRenderAnalyzingStep(progress);
+  const previousStep = getPreviousOnboardingStep(step, progress);
+
+  if (step === 7) {
+    return (
+      <OnboardingFlowShell
+        step={7}
+        dark
+        fullBleed
+        onBack={() => void goToStep(6)}
+      >
+        <OnboardingSubscriptionScreen embedded onLogoPress={() => void handleLogoHome()} />
+      </OnboardingFlowShell>
+    );
   }
 
   return (
-    <View style={[styles.root, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="dark-content" backgroundColor={OnboardingColors.background} />
+    <OnboardingFlowShell
+      step={step}
+      onBack={previousStep != null ? () => void goToStep(previousStep) : undefined}
+      onSkip={
+        step === 2
+          ? () => void handleSkipGoals()
+          : step === 3
+            ? () => void handleSkipTry()
+            : undefined
+      }
+      skipLabel={step === 3 ? t('onboarding.flow.try.skip') : undefined}
+    >
+      {step === 1 ? (
+        <WelcomeStep
+          onGetStarted={() => void goToStep(2)}
+          onSignIn={() => router.push('/onboarding/signin')}
+          onLogoPress={() => void handleLogoHome()}
+          logoAccessibilityLabel={t('onboarding.flow.logoHomeA11y')}
+        />
+      ) : null}
 
-      <View style={styles.topBar}>
-        <View style={styles.topBarSpacer} />
-        {showSkip ? (
-          <Pressable
-            onPress={handleSkip}
-            style={styles.skipBtn}
-            accessibilityRole="button"
-            accessibilityLabel={t('onboarding.skipA11y')}
-          >
-            <Text style={styles.skipText}>{t('common.skip')}</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.langSlot}>
-            <LanguagePicker compact />
-          </View>
-        )}
-      </View>
+      {step === 2 ? (
+        <GoalsStep
+          selectedGoals={progress.goals}
+          onToggleGoal={(goal) => void handleToggleGoal(goal)}
+          onContinue={() => void goToStep(3)}
+        />
+      ) : null}
 
-      <View
-        style={styles.carouselWrapper}
-        onLayout={(event) => setCarouselHeight(event.nativeEvent.layout.height)}
-      >
-        <ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={handleScrollEnd}
-          style={styles.scroll}
-        >
-          {carouselHeight > 0 &&
-            featureSlides.map((slide) => (
-              <View
-                key={slide.key}
-                style={[styles.slide, { width: screenWidth, height: carouselHeight }]}
-              >
-                <OnboardingFeatureSlide slide={slide} />
-              </View>
-            ))}
-          {carouselHeight > 0 ? (
-            <View style={[styles.slide, { width: screenWidth, height: carouselHeight }]}>
-              <OnboardingSignupSlide
-                loading={authLoading}
-                error={authError}
-                onEmailSignup={handleEmailSignup}
-                onGoogle={handleGoogle}
-                onApple={handleApple}
-                onSignIn={handleSignIn}
-              />
-            </View>
-          ) : null}
-        </ScrollView>
-      </View>
+      {step === 3 ? (
+        <TryProductStep
+          busy={tryBusy}
+          onSelect={(action) => void handleTryAction(action)}
+          onSkip={() => void handleSkipTry()}
+        />
+      ) : null}
 
-      <View
-        style={[
-          styles.footer,
-          { paddingBottom: getScreenBottomPadding(insets.bottom, isSignupSlide ? 12 : 20) },
-        ]}
-      >
-        {showSkip ? (
-          <Pressable
-            style={({ pressed }) => [styles.nextBtn, pressed && styles.nextBtnPressed]}
-            onPress={handleNext}
-            accessibilityRole="button"
-            accessibilityLabel={t('onboarding.nextA11y')}
-          >
-            <Text style={styles.nextBtnText}>{t('common.next')}</Text>
-          </Pressable>
-        ) : null}
+      {showAnalyzing ? (
+        <AnalyzingStep onComplete={() => void goToStep(5)} />
+      ) : null}
 
-        <View style={styles.dotsRow}>
-          {Array.from({ length: SLIDE_COUNT }, (_, index) => (
-            <Pressable
-              key={index}
-              onPress={() => scrollToIndex(index)}
-              style={[styles.dot, index === activeIndex ? styles.dotActive : styles.dotInactive]}
-              accessibilityRole="button"
-              accessibilityLabel={t('onboarding.goToSlide', { n: index + 1 })}
-            />
-          ))}
-        </View>
-      </View>
-    </View>
+      {step === 5 ? (
+        <ValueMomentStep
+          goals={progress.goals}
+          skippedTryWithoutData={progress.skippedTryWithoutData}
+          onContinue={() => void goToStep(6)}
+        />
+      ) : null}
+
+      {step === 6 ? (
+        <AutomationPreviewStep onContinue={() => void goToStep(7)} />
+      ) : null}
+    </OnboardingFlowShell>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: OnboardingColors.background,
-  },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    minHeight: 44,
-  },
-  topBarSpacer: {
-    width: 48,
-  },
-  langSlot: {
-    minWidth: 120,
-    alignItems: 'flex-end',
-  },
-  skipBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  skipText: {
-    color: OnboardingColors.textMuted,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  carouselWrapper: {
-    flex: 1,
-  },
-  scroll: {
-    flex: 1,
-  },
-  slide: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  footer: {
-    paddingHorizontal: 28,
-    paddingTop: 8,
-    maxWidth: 480,
-    width: '100%',
-    alignSelf: 'center',
-  },
-  nextBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: OnboardingColors.green,
-    borderRadius: 999,
-    paddingVertical: 16,
-    marginBottom: 16,
-  },
-  nextBtnPressed: {
-    opacity: 0.88,
-  },
-  nextBtnText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
-  },
-  dotActive: {
-    width: 24,
-    backgroundColor: OnboardingColors.green,
-  },
-  dotInactive: {
-    width: 8,
-    backgroundColor: OnboardingColors.border,
-  },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

@@ -20,7 +20,7 @@ export function buildPaywallHref(plan?: PaywallPlanId): '/paywall' | `/paywall?p
   return `${PAYWALL_ROUTE}?plan=${plan}`;
 }
 
-/** Resolve initial plan from `?plan=family|household`, `?family=1`, etc. Defaults to Pro. */
+/** Resolve initial plan from `?plan=family|household`, `?family=1`, etc. Defaults to Household. */
 export function parseInitialPaywallPlan(params: PaywallSearchParams): PaywallPlanId {
   const family = firstParam(params.family);
   if (family === '1' || family === 'true') return 'family';
@@ -30,11 +30,11 @@ export function parseInitialPaywallPlan(params: PaywallSearchParams): PaywallPla
   if (plan === 'pro') return 'pro';
   if (plan === 'free') return 'free';
 
-  return 'pro';
+  return 'family';
 }
 
 export const PAYWALL_PLAN_SCROLL_INDEX: Record<PaywallPlanId, number> = {
   free: 0,
-  pro: 1,
-  family: 2,
+  family: 1,
+  pro: 2,
 };

@@ -25,6 +25,7 @@ import {
   OnboardingPrimaryCta,
   OnboardingPrimaryCtaText,
 } from '@/src/theme/onboardingTheme';
+import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -65,7 +66,7 @@ export default function SignupScreen() {
         setAwaitingVerification(true);
         return;
       }
-      router.push('/onboarding/join-household');
+      router.push('/onboarding/upgrade');
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.signup.errorGeneric'));
     } finally {
@@ -107,6 +108,10 @@ export default function SignupScreen() {
     router.push('/onboarding/signin');
   }
 
+  function handleLogoHome() {
+    void navigateToOnboardingWelcome(router);
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -121,7 +126,13 @@ export default function SignupScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
+        <PennyPantryLogo
+          variant="hero"
+          size={56}
+          style={styles.logo}
+          onPress={handleLogoHome}
+          accessibilityLabel={t('onboarding.flow.logoHomeA11y')}
+        />
 
         {/* Heading */}
         <Text style={styles.heading}>{t('auth.signup.heading')}</Text>

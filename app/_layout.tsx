@@ -42,6 +42,8 @@ import {
 } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
+import { isOnboardingTryInProgressSync } from '@/src/services/onboardingFlowState';
+import { shouldBlockOnboardingRedirect } from '@/src/services/onboardingRoutingLogic';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { useListStore } from '@/src/store/useListStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
@@ -280,8 +282,20 @@ export default function RootLayout() {
     if (!onboardingReady || onboardingComplete || isPublicRoute || isOnboardingRoute) {
       return;
     }
+    const pathname = `/${segments.join('/')}`;
+    if (
+      shouldBlockOnboardingRedirect(
+        onboardingComplete,
+        isOnboardingTryInProgressSync(),
+        pathname,
+        isPublicRoute,
+        isOnboardingRoute
+      )
+    ) {
+      return;
+    }
     router.replace('/onboarding' as Href);
-  }, [onboardingReady, onboardingComplete, isPublicRoute, isOnboardingRoute, router]);
+  }, [onboardingReady, onboardingComplete, isPublicRoute, isOnboardingRoute, router, segments]);
 
   // Listen for Supabase auth state changes to handle token refresh and sign-out.
   useEffect(() => {

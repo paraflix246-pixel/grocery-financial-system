@@ -84,14 +84,14 @@ export function ProPlanFeaturesList({
     features ??
     PRO_PLAN_FEATURES.map((_, index) => {
       const keys = [
-        'paywall.features.pro.unlimitedScans',
+        'paywall.features.pro.wastePrevention',
+        'paywall.features.pro.smartRebuy',
+        'paywall.features.pro.moneyLeakTracking',
+        'paywall.features.pro.pantryAutomation',
         'paywall.features.pro.fullHistory',
         'paywall.features.pro.smartAlerts',
-        'paywall.features.pro.multiStore',
-        'paywall.features.pro.spendingOverview',
         'paywall.features.pro.cheapestCart',
         'paywall.features.pro.export',
-        'paywall.features.pro.unlimitedPantry',
         'paywall.features.pro.adFree',
         'paywall.features.pro.customThemes',
         'paywall.features.pro.customFonts',

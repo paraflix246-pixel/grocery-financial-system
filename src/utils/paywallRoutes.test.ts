@@ -18,7 +18,7 @@ describe('paywallRoutes', () => {
     assert.equal(parseInitialPaywallPlan({ plan: 'household' }), 'family');
     assert.equal(parseInitialPaywallPlan({ family: '1' }), 'family');
     assert.equal(parseInitialPaywallPlan({ family: 'true' }), 'family');
-    assert.equal(parseInitialPaywallPlan({}), 'pro');
+    assert.equal(parseInitialPaywallPlan({}), 'family');
     assert.equal(parseInitialPaywallPlan({ plan: 'pro' }), 'pro');
     assert.equal(parseInitialPaywallPlan({ plan: 'free' }), 'free');
   });

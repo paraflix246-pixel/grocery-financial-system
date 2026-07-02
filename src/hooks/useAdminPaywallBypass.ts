@@ -7,7 +7,7 @@ import { resolveAdminPaywallBypassRoute } from '@/src/services/postAuthRoutingLo
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 
 /**
- * Redirects admin users away from paywall / onboarding upgrade screens.
+ * Redirects admin users away from paywall / onboarding upgrade screens to home.
  */
 export function useAdminPaywallBypass(): void {
   const router = useRouter();

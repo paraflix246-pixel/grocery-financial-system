@@ -23,7 +23,6 @@ import {
   recordActivityTimestamp,
   setRememberMePreference,
 } from '@/src/services/authRoutingService';
-import { resolvePostOAuthRoute } from '@/src/services/postAuthRoutingLogic';
 import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
 import { setOAuthIntent, setOAuthReturnTo } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
@@ -32,6 +31,7 @@ import {
   OnboardingPrimaryCta,
   OnboardingPrimaryCtaText,
 } from '@/src/theme/onboardingTheme';
+import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 export default function SigninScreen() {
   const { t } = useTranslation();
@@ -90,8 +90,7 @@ export default function SigninScreen() {
         router.replace(resolveReturnPath());
       } else if (isAdminUser()) {
         await completeOnboarding();
-        const platform = Platform.OS === 'web' ? 'web' : 'native';
-        router.replace(resolvePostOAuthRoute(true, platform).href as Href);
+        router.replace('/(tabs)' as Href);
       } else {
         router.push('/onboarding/upgrade');
       }
@@ -170,6 +169,10 @@ export default function SigninScreen() {
     router.push('/onboarding/signup');
   }
 
+  function handleLogoHome() {
+    void navigateToOnboardingWelcome(router);
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -184,7 +187,13 @@ export default function SigninScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
+        <PennyPantryLogo
+          variant="hero"
+          size={56}
+          style={styles.logo}
+          onPress={handleLogoHome}
+          accessibilityLabel={t('onboarding.flow.logoHomeA11y')}
+        />
 
         {/* Heading */}
         <Text style={styles.heading}>{t('auth.signin.heading')}</Text>

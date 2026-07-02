@@ -42,8 +42,8 @@
     "noSpendingData": "No spending data",
     "samplePrices": "Sample prices",
     "viewPlans": "View plans",
-    "unlockWith": "Unlock {{feature}} with {{plan}}",
-    "unlockFeature": "Unlock {{feature}}",
+    "unlockWith": "Stop wasting on {{feature}} — get {{plan}}",
+    "unlockFeature": "Stop wasting on {{feature}}",
     "withPlan": "with {{plan}}",
     "goPro": "Go Pro",
     "logOut": "Log out?",
@@ -63,7 +63,7 @@
     "greetingEvening": "Good evening",
     "greetingSub": "Here's your smart shopping overview",
     "greetingSubFamily": "Family workspace — shared household receipts & pantry",
-    "proBannerCompact": "Unlock price alerts & family lists — Pro from {{price}}/mo",
+    "proBannerCompact": "Stop rebuying what you already have — Pro from {{price}}/mo",
     "budgetExceeded": "Weekly budget exceeded by {{amount}}",
     "budgetThreshold": "You've used {{percent}}% of your weekly budget — approaching your alert threshold",
     "thisWeek": "This Week",
@@ -78,7 +78,9 @@
     "spendingOverview": "Spending Overview",
     "spendingOverviewSub": "Category breakdown from saved receipts",
     "spendingOutsidePeriodHint": "Receipts are saved, but none fall in this period. Try This Year or another range.",
-    "underBudget": "You're doing great! You're {{amount}} under budget"
+    "underBudget": "You're doing great! You're {{amount}} under budget",
+    "pantry": "Pantry",
+    "moneyLeakSection": "Money Leak"
   },
   "headerMenu": {
     "openMenu": "Open menu",
@@ -143,9 +145,28 @@
     "a11y": "Scan Receipt. Upload or scan a receipt to extract items, track prices, and compare stores."
   },
   "upgrade": {
-    "proComparisonHook": "Go Pro for live price estimates across every store",
-    "stopMissingDrops": "Stop missing price drops",
-    "proBannerSub": "Real-time alerts, inflation tracking & live price estimates"
+    "proComparisonHook": "Stop rebuying items already in your pantry — compare store prices with Pro",
+    "stopMissingDrops": "Stop rebuying what you already bought",
+    "proBannerSub": "Money leak tracking, smart rebuy alerts & full pantry automation"
+  },
+  "moneyLeak": {
+    "title": "Money Leak Report",
+    "subtitle": "Based on your pantry, lists, and saved receipts",
+    "empty": "Add receipts and pantry items to see your leak report",
+    "headlineAtRisk": "{{amount}} at risk this week",
+    "headlineBlindSpots": "{{count}} blind spots found",
+    "headlineClear": "No leaks detected right now",
+    "noLeaks": "Your pantry and lists look aligned — keep scanning receipts to stay ahead.",
+    "upgradeCta": "See full leak report — Pro from {{price}}/mo",
+    "spots": {
+      "overlapOne": "Already in pantry: {{name}} on your list",
+      "overlapMany": "{{count}} items on your list are already in pantry",
+      "expiringOne": "1 item expiring soon",
+      "expiringMany": "{{count}} items expiring soon",
+      "lowStockOne": "1 item running low",
+      "lowStockMany": "{{count}} items running low",
+      "repeatRebuy": "Bought {{name}} {{count}}× this month — possible duplicate spend"
+    }
   },
   "comparison": {
     "title": "Live Price Estimates",
@@ -155,7 +176,7 @@
     "previewMeta": " · preview · item {{current}} of {{total}}",
     "comparisonsMeta": " · {{count}} comparisons",
     "limitedMeta": " · {{shown}} of {{total}} · Upgrade for full comparison",
-    "limitedMetaLine": "{{shown}} of {{total}} · Upgrade for full comparison",
+    "limitedMetaLine": "{{shown}} of {{total}} · See full leak prevention with Pro",
     "limitedStoresMetaLine": "{{shown}} of {{total}} stores · Upgrade for all stores",
     "limitedStoresMetaShort": "{{shown}} of {{total}} stores",
     "seeAllStoresPro": "See all stores with Pro",
@@ -346,6 +367,75 @@
     }
   },
   "onboarding": {
+    "flow": {
+      "backA11y": "Go back",
+      "logoHomeA11y": "Return to onboarding welcome",
+      "welcome": {
+        "title": "Stop wasting money on groceries.",
+        "subtitle": "Penny Pantry helps households catch duplicate buys, expiring food, and money leaks — before they hit your wallet.",
+        "getStarted": "Get Started"
+      },
+      "goals": {
+        "title": "What would you like help with?",
+        "subtitle": "Choose all that apply — we'll personalize your first insights.",
+        "save_money": "Save money",
+        "reduce_waste": "Reduce food waste",
+        "organize_pantry": "Organize pantry",
+        "feed_family": "Feed family better"
+      },
+      "try": {
+        "title": "Try it now",
+        "subtitle": "Add real grocery data so we can show you what Penny Pantry finds.",
+        "noAccount": "No account required for this step.",
+        "scan_receipt": "Scan a receipt",
+        "scan_receiptBody": "See spending and duplicate-buy patterns from a real receipt.",
+        "add_manual": "Add manually",
+        "add_manualBody": "Track a pantry item without scanning.",
+        "opening": "Opening…",
+        "skip": "Skip for now",
+        "skipStep": "Continue without data"
+      },
+      "analyzing": {
+        "title": "Analyzing your groceries…",
+        "msg1": "Checking for duplicate rebuys…",
+        "msg2": "Scanning pantry overlaps…",
+        "msg3": "Estimating money at risk…"
+      },
+      "value": {
+        "title": "Here's what we found",
+        "headlineDefault": "Households lose money on groceries every week",
+        "headlineSaveMoney": "Based on your data — here's where money may be leaking",
+        "headlineReduceWaste": "Items at risk of going to waste",
+        "headlineOrganize": "Pantry overlaps that could cost you",
+        "headlineFeedFamily": "Smarter shopping starts with what you already have",
+        "labeledEstimate": "Conservative estimate from your saved data",
+        "conservativeEstimate": "Typical household estimate — add more data for precision",
+        "fallbackTitle": "Keep scanning to sharpen this report",
+        "fallbackBody": "Each receipt and pantry item makes your money leak report more accurate.",
+        "noDataTitle": "Let's build your pantry insights",
+        "noDataSubtitle": "Add a few groceries or scan a receipt to receive personalized savings, spending, and pantry insights.",
+        "noDataPreviewTitle": "Keep saving automatically",
+        "noDataPreviewBody": "Pro continuously monitors your pantry, alerts you before food expires, helps prevent duplicate purchases, and uncovers opportunities to save money every time you shop.",
+        "continue": "See how Pro saves for you"
+      },
+      "automation": {
+        "title": "What Pro keeps doing for you",
+        "subtitle": "Penny Pantry watches your groceries so you don't have to.",
+        "expiryAlerts": "Expiry alerts before food goes to waste",
+        "duplicateCatch": "Duplicate rebuy warnings on your shopping list",
+        "leakTracking": "Money leak tracking from receipts and pantry",
+        "sharedLists": "Shared lists and sync for households",
+        "reminders": "Low-stock reminders and smart sale alerts",
+        "note": "Free tier shows the value — Pro and Household keep it running automatically.",
+        "continue": "Choose your plan"
+      },
+      "subscription": {
+        "roiTitle": "Your data suggests savings worth protecting",
+        "roiBody": "We estimate {{amount}} at risk from your groceries. Pro from {{proPrice}}/mo helps catch it automatically.",
+        "continueSaving": "Keep saving automatically",
+        "comparePlans": "Compare all plans"
+      }
+    },
     "slides": {
       "save": {
         "title1": "Save money",
@@ -455,29 +545,33 @@
   },
   "paywall": {
     "title": "Choose your plan",
-    "headline": "Save money every time you shop.",
-    "subhead": "Receipt scans, price alerts, and Pro personalization — pick the plan that fits.",
-    "proBadge": "Most popular",
+    "headline": "Stop wasting money on food you already bought.",
+    "subhead": "Catch duplicate rebuys, expiring pantry items, and money leaks before they hit your wallet.",
+    "proBadge": "Solo shoppers",
     "proShimmer": "Pro",
-    "outcomeTitle": "What Pro unlocks for you",
-    "outcomeSubtitle": "Turn receipts into real savings — not guesswork.",
+    "recommendedBadge": "Recommended",
+    "roiTitle": "Pro pays for itself",
+    "roiBody": "Households waste an estimated $25+/month on duplicate groceries and food that expires unused. Penny Pantry helps you catch it — for less than one forgotten item.",
+    "roiFormula": "At-risk $ = duplicate list items + repeat rebuys, priced from your saved receipts (conservative estimate).",
+    "outcomeTitle": "Your loss-prevention engine",
+    "outcomeSubtitle": "Turn receipts into waste prevention — not guesswork.",
     "outcomes": {
       "save": {
-        "title": "Stop overpaying",
-        "body": "Compare prices across stores and build the cheapest cart."
+        "title": "Waste prevention",
+        "body": "Expiry alerts and pantry tracking so food doesn't go to waste."
       },
       "track": {
-        "title": "Know your true spend",
-        "body": "Full price history and monthly spending breakdowns."
+        "title": "Smart rebuy",
+        "body": "Catch duplicate purchases before you buy what you already have."
       },
       "alerts": {
-        "title": "Catch deals automatically",
-        "body": "Smart sale alerts when tracked items drop."
+        "title": "Money leak tracking",
+        "body": "See what's at risk from overlaps, repeat buys, and expiring items."
       }
     },
-    "proLead": "Everything Free, plus:",
+    "proLead": "Your loss-prevention engine:",
     "freePlan": "Free",
-    "freeTagline": "Get started free",
+    "freeTagline": "See the value — with blind spots",
     "proPlan": "Pro",
     "forever": "forever",
     "perMonth": "/month",
@@ -486,13 +580,14 @@
     "startTrial": "Start 7-Day Pro Trial",
     "startingTrial": "Starting trial...",
     "trialSubtext": "Full Pro access for 7 days. No payment required.",
+    "familyCtaSubtext": "Shared household workspace — invite members free.",
     "subscribePro": "Subscribe to Pro",
     "subscribeProPrice": "Subscribe to Pro — {{price}}",
     "commitNote": "Cancel anytime — no contracts.",
     "continueFree": "Continue with Free",
     "familySection": "Need household sharing?",
-    "familyTitle": "Family workspace",
-    "familySubtitle": "One subscription for your household. Invite members free.",
+    "familyTitle": "Household",
+    "familySubtitle": "One shared household economy. Invite members free.",
     "familySubscribe": "Subscribe to Family",
     "subscribeFamilyPrice": "Subscribe to Family — {{price}}",
     "familyJoin": "Create or join a household",
@@ -505,7 +600,7 @@
     "devPreviewBannerBody": "Skip Stripe — preview the Personal | My Household switcher, Family branding, and invite UI locally.",
     "devPreviewButton": "Preview Family Workspace (no payment)",
     "devPreviewActive": "Family preview active",
-    "familyLead": "Everything in Pro, plus:",
+    "familyLead": "One shared household economy:",
     "billingDisclaimer": {
       "stripe": "Secure checkout powered by Stripe. Manage or cancel anytime from your subscription settings.",
       "revenuecat": "Subscriptions are billed through the App Store or Google Play. Manage or cancel in your device subscription settings.",
@@ -518,9 +613,11 @@
         "scans": "{{count}} receipt scans/month",
         "list": "Basic grocery list",
         "history": "{{days}}-day price history",
-        "alerts": "Manual price alerts",
+        "alerts": "Manual price alerts only",
         "stores": "{{count}} store tracking",
-        "pantry": "Pantry up to {{count}} items"
+        "pantry": "Pantry up to {{count}} items",
+        "noLeakReport": "Partial money leak report (blind spots only)",
+        "limitedHistory": "Limited history — can't see full leak patterns"
       },
       "proCompact": {
         "unlimitedScans": "Unlimited receipt scans",
@@ -535,6 +632,10 @@
         "onePayer": "One subscription covers all"
       },
       "pro": {
+        "wastePrevention": "Waste prevention — expiry & pantry alerts",
+        "smartRebuy": "Smart rebuy — catch duplicate purchases",
+        "moneyLeakTracking": "Money leak tracking — full at-risk report",
+        "pantryAutomation": "Pantry automation — unlimited items from receipts",
         "unlimitedScans": "Unlimited receipt scans",
         "fullHistory": "Full price history (all purchases)",
         "smartAlerts": "Smart sale alerts for tracked items",
@@ -552,7 +653,8 @@
         "customAvatarsDetail": "{{count}} animated avatars for your profile"
       },
       "family": {
-        "allProFeatures": "All Pro features for every household member",
+        "allProFeatures": "All Pro loss-prevention for every household member",
+        "sharedEconomy": "One shared household economy",
         "sharedLists": "Shared shopping lists for your household",
         "liveSync": "Live multi-user sync across phones",
         "inviteFree": "Invite members free — no Pro required",

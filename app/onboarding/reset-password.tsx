@@ -12,14 +12,17 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { getSession, resetPassword, notifyPasswordChanged } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 export default function OnboardingResetPasswordScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
@@ -98,6 +101,10 @@ export default function OnboardingResetPasswordScreen() {
     router.replace('/onboarding/signin');
   }
 
+  function handleLogoHome() {
+    void navigateToOnboardingWelcome(router);
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -112,7 +119,13 @@ export default function OnboardingResetPasswordScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
+        <PennyPantryLogo
+          variant="hero"
+          size={56}
+          style={styles.logo}
+          onPress={handleLogoHome}
+          accessibilityLabel={t('onboarding.flow.logoHomeA11y')}
+        />
 
         <Text style={styles.heading}>Set a new password</Text>
         <Text style={styles.subheading}>Choose a new password for your account.</Text>

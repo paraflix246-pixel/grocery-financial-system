@@ -4,7 +4,7 @@ export type PostAuthPlatform = 'web' | 'native';
 
 export type PostOAuthRouteResult = {
   href: string;
-  reason: 'admin' | 'join_household' | 'upgrade';
+  reason: 'join_household' | 'upgrade';
 };
 
 /** Where OAuth should land after provider sign-in (before role-specific routing). */
@@ -19,22 +19,14 @@ export function isPaywallPath(pathname: string): boolean {
 }
 
 export function resolvePostOAuthRoute(
-  isAdmin: boolean,
-  platform: PostAuthPlatform,
-  oauthIntent: OAuthIntent | null = null
+  _isAdmin: boolean,
+  _platform: PostAuthPlatform,
+  _oauthIntent: OAuthIntent | null = null
 ): PostOAuthRouteResult {
-  if (isAdmin) {
-    return {
-      href: platform === 'web' ? '/admin' : '/(tabs)',
-      reason: 'admin',
-    };
-  }
-  if (oauthIntent === 'signup') {
-    return { href: '/onboarding/join-household', reason: 'join_household' };
-  }
   return { href: '/onboarding/upgrade', reason: 'upgrade' };
 }
 
-export function resolveAdminPaywallBypassRoute(platform: PostAuthPlatform): string {
-  return platform === 'web' ? '/admin' : '/(tabs)';
+/** Admin users skip paywall but land on the main app — not /admin. */
+export function resolveAdminPaywallBypassRoute(_platform: PostAuthPlatform): string {
+  return '/(tabs)';
 }

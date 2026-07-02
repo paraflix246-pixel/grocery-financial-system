@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import type { Href } from 'expo-router';
 
-import { isAdminUser, syncUserProfile } from '@/src/services/admin/adminApiService';
+import { syncUserProfile } from '@/src/services/admin/adminApiService';
 import { recordActivityTimestamp } from '@/src/services/authRoutingService';
 import { syncAuthUserFromSession } from '@/src/services/authService';
 import { consumeOAuthIntent, consumeOAuthReturnTo } from '@/src/services/onboardingFlowState';
@@ -25,13 +25,7 @@ export async function completeOAuthAndRoute(
   const oauthIntent = await consumeOAuthIntent();
   const returnTo = await consumeOAuthReturnTo();
   const platform = Platform.OS === 'web' ? 'web' : 'native';
-  const route = resolvePostOAuthRoute(isAdminUser(), platform, oauthIntent);
-
-  if (route.reason === 'admin') {
-    await completeOnboarding();
-    router.replace(route.href as Href);
-    return;
-  }
+  const route = resolvePostOAuthRoute(false, platform, oauthIntent);
 
   if (route.reason === 'upgrade' && returnTo) {
     await completeOnboarding();

@@ -12,6 +12,26 @@ export {
   resetJoinHouseholdStepForTests,
 } from '@/src/services/onboardingJoinStepSession';
 
+export {
+  completeOnboardingTry,
+  DEFAULT_ONBOARDING_PROGRESS,
+  finishOnboardingTryAndReturn,
+  isOnboardingTryInProgressSync,
+  loadOnboardingProgress,
+  markOnboardingTryStarted,
+  ONBOARDING_STEP_COUNT,
+  resetOnboardingProgressForTests,
+  resetOnboardingToWelcome,
+  saveOnboardingProgress,
+  setOnboardingStep,
+  skipOnboardingTryWithoutData,
+  toggleOnboardingGoal,
+  type OnboardingFirstAction,
+  type OnboardingGoal,
+  type OnboardingProgress,
+  type OnboardingStep,
+} from '@/src/services/onboardingProgressState';
+
 const OAUTH_INTENT_KEY = '@pennypantry_oauth_intent_v1';
 const OAUTH_RETURN_TO_KEY = '@pennypantry_oauth_return_to_v1';
 

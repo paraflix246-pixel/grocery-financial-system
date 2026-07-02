@@ -1,5 +1,12 @@
 import { Image } from 'expo-image';
-import { StyleSheet, Text, View, type TextStyle, type ViewStyle } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 
 import { SmartCartColors } from '@/src/theme/smartCart';
 
@@ -18,6 +25,8 @@ type Props = {
   nameSize?: number;
   nameStyle?: TextStyle;
   style?: ViewStyle;
+  onPress?: () => void;
+  accessibilityLabel?: string;
 };
 
 const DEFAULT_SIZE: Record<Variant, number> = {
@@ -34,6 +43,8 @@ export function PennyPantryLogo({
   nameSize,
   nameStyle,
   style,
+  onPress,
+  accessibilityLabel = 'Penny Pantry',
 }: Props) {
   const imageSize = size ?? DEFAULT_SIZE[variant];
   const resolvedNameColor = nameColor ?? (variant === 'inline' ? SmartCartColors.primaryDark : '#7C3AED');
@@ -48,13 +59,19 @@ export function PennyPantryLogo({
         borderRadius: imageSize * 0.12,
       }}
       contentFit="contain"
-      accessibilityLabel="Penny Pantry"
+      accessible={!onPress}
+      accessibilityLabel={accessibilityLabel}
     />
   );
 
-  if (variant === 'inline' && showName) {
-    return (
-      <View style={[styles.inlineRow, style]} accessibilityRole="image" accessibilityLabel="Penny Pantry">
+  const content =
+    variant === 'inline' && showName ? (
+      <View
+        style={[styles.inlineRow, !onPress ? style : undefined]}
+        accessibilityRole={onPress ? undefined : 'image'}
+        accessibilityLabel={onPress ? undefined : accessibilityLabel}
+        importantForAccessibility={onPress ? 'no-hide-descendants' : 'auto'}
+      >
         {image}
         <Text
           style={[
@@ -66,18 +83,31 @@ export function PennyPantryLogo({
           Penny Pantry
         </Text>
       </View>
+    ) : (
+      <View
+        style={[
+          variant === 'hero' ? styles.heroContainer : styles.iconContainer,
+          !onPress ? style : undefined,
+        ]}
+        importantForAccessibility={onPress ? 'no-hide-descendants' : 'auto'}
+      >
+        {image}
+      </View>
     );
+
+  if (!onPress) {
+    return content;
   }
 
   return (
-    <View
-      style={[
-        variant === 'hero' ? styles.heroContainer : styles.iconContainer,
-        style,
-      ]}
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [style, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
     >
-      {image}
-    </View>
+      {content}
+    </Pressable>
   );
 }
 
@@ -102,4 +132,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
   },
+  pressed: { opacity: 0.88 },
 });

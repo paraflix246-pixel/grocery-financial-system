@@ -18,6 +18,7 @@ import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { markJoinHouseholdStepCompleted } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 export default function JoinHouseholdScreen() {
   const { t } = useTranslation();
@@ -55,6 +56,10 @@ export default function JoinHouseholdScreen() {
     router.push('/onboarding/signin');
   }
 
+  function handleLogoHome() {
+    void navigateToOnboardingWelcome(router);
+  }
+
   const heading = isPaywallFallback
     ? t('familyJoin.fallbackHeading')
     : t('familyJoin.onboardingHeading');
@@ -77,7 +82,13 @@ export default function JoinHouseholdScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <PennyPantryLogo variant="hero" size={56} style={styles.logo} />
+        <PennyPantryLogo
+          variant="hero"
+          size={56}
+          style={styles.logo}
+          onPress={handleLogoHome}
+          accessibilityLabel={t('onboarding.flow.logoHomeA11y')}
+        />
 
         <Text style={styles.heading}>{heading}</Text>
         <Text style={styles.subheading}>{subheading}</Text>
