@@ -16,6 +16,11 @@ import {
   isWorkspaceOwner,
   type ProScopeContext,
 } from '@/src/services/featureGateScopeLogic';
+import {
+  shouldShowProUpgradeBanner as resolveProUpgradeBannerVisibility,
+  type ProUpgradeBannerInput,
+} from '@/src/services/upgradeBannerLogic';
+import { isDevForceFreeCartPreviewActiveSync } from '@/src/services/devFreeCartPreview';
 import { useSubscriptionStore, type SubscriptionTier } from '@/src/store/useSubscriptionStore';
 import { useWorkspaceStore } from '@/src/store/useWorkspaceStore';
 
@@ -63,6 +68,19 @@ export function getProScopeContext(): ProScopeContext {
 /** Whether Pro perks apply in the current Personal | Family workspace scope. */
 export function hasProInCurrentScopeFromStores(): boolean {
   return hasProInCurrentScope(getProScopeContext());
+}
+
+/** Show Pro upgrade banners for guests, free users, and signed-in users without scope Pro. */
+export function shouldShowProUpgradeBanner(
+  input?: Partial<ProUpgradeBannerInput>
+): boolean {
+  return resolveProUpgradeBannerVisibility({
+    isAdmin: input?.isAdmin ?? isAdminUser(),
+    scopePro: input?.scopePro ?? hasProInCurrentScopeFromStores(),
+    tier: input?.tier ?? getSubscriptionTier(),
+    forceFreePreview:
+      input?.forceFreePreview ?? isDevForceFreeCartPreviewActiveSync(),
+  });
 }
 
 /** Personal Pro or trial — scope-aware; excludes workspace-only features. */

@@ -11,7 +11,7 @@ import { Text } from '@/components/Themed';
 
 import { PRO_UPGRADE_HOOK } from '@/src/constants/proPricing';
 
-import { useAdminStatus } from '@/src/hooks/useAdminStatus';
+import { useShouldShowProUpgradeBanner } from '@/src/hooks/useFeatureGate';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import {
   getProBannerBorder,
@@ -48,7 +48,7 @@ export function ProUpgradeBanner({
 }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isAdmin } = useAdminStatus();
+  const showUpgradeBanner = useShouldShowProUpgradeBanner();
   const planName = t('common.pro');
   const isCompact = variant === 'compact';
   const bannerTitle =
@@ -59,7 +59,7 @@ export function ProUpgradeBanner({
   const proBorder = useMemo(() => getProBannerBorder(), []);
   const proIconSurface = useMemo(() => getProBannerIconSurface(), []);
 
-  if (isAdmin && !ignoreAdminBypass) return null;
+  if (!showUpgradeBanner && !ignoreAdminBypass) return null;
 
   return (
     <Pressable

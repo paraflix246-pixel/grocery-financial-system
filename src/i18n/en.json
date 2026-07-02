@@ -309,28 +309,35 @@
     "clearFailed": "Clear failed scans"
   },
   "pantryInsights": {
+    "unlockWithPro": "Unlock with Pro",
     "expiryRisk": {
       "title": "Expiry risk",
       "value_one": "{{count}} item",
       "value_other": "{{count}} items",
       "subtitleOne": "{{names}} expires within 3 days",
-      "subtitleMany": "{{names}} expire within 3 days"
+      "subtitleMany": "{{names}} expire within 3 days",
+      "subtitleTeaserOne": "1 item expires soon — unlock with Pro",
+      "subtitleTeaserMany": "{{count}} items expire soon — unlock with Pro"
     },
     "repeatPurchase": {
       "title": "Repeat purchase",
       "value": "{{name}}",
-      "subtitle": "Bought {{count}} times across recent receipts"
+      "valueTeaser": "Frequent rebuy",
+      "subtitle": "Bought {{count}} times across recent receipts",
+      "subtitleTeaser": "Unlock with Pro to see which item"
     },
     "spendDelta": {
       "title": "Spend vs last month",
       "value": "{{pctLabel}}",
-      "subtitle": "{{current}} this month vs {{previous}} last month"
+      "subtitle": "{{current}} this month vs {{previous}} last month",
+      "subtitleTeaser": "Unlock with Pro for full spend breakdown"
     },
     "lowStock": {
       "title": "Running low",
       "value_one": "{{count}} item",
       "value_other": "{{count}} items",
-      "subtitle": "{{names}}"
+      "subtitle": "{{names}}",
+      "subtitleTeaser": "Unlock with Pro to see which items"
     }
   },
   "lists": {

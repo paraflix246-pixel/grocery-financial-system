@@ -11,7 +11,7 @@ import { AppHeader } from '@/src/components/AppHeader';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { useAdminStatus } from '@/src/hooks/useAdminStatus';
-import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
+import { useShouldShowProUpgradeBanner } from '@/src/hooks/useFeatureGate';
 import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { FamilyWorkspaceTheme } from '@/src/theme/familyWorkspaceTheme';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
@@ -95,7 +95,7 @@ export default function MoreScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const tier = useSubscriptionStore((s) => s.tier);
+  const showProUpgradeBanner = useShouldShowProUpgradeBanner();
   const { isAdmin } = useAdminStatus();
   const sections = useMenuSections();
   const fw = useFamilyWorkspaceScreenTheme();
@@ -145,7 +145,7 @@ export default function MoreScreen() {
         </View>
       ) : null}
 
-      {tier === 'free' && !isAdmin && (
+      {showProUpgradeBanner ? (
         <Pressable
           style={({ pressed }) => [styles.proBanner, pressed && styles.proBannerPressed]}
           onPress={() => router.push('/paywall' as never)}>
@@ -160,7 +160,7 @@ export default function MoreScreen() {
             size={16}
           />
         </Pressable>
-      )}
+      ) : null}
 
       {sections.map((section) => (
         <View key={section.id} style={styles.section}>
@@ -190,11 +190,11 @@ export default function MoreScreen() {
                 <View style={styles.menuText}>
                   <View style={styles.labelRow}>
                     <Text style={styles.menuLabel}>{label}</Text>
-                    {item.pro && tier === 'free' && (
+                    {item.pro && showProUpgradeBanner ? (
                       <View style={styles.proPill}>
                         <Text style={styles.proPillText}>PRO</Text>
                       </View>
-                    )}
+                    ) : null}
                   </View>
                   <Text style={styles.menuSub}>{subtitle}</Text>
                 </View>

@@ -309,28 +309,35 @@
     "clearFailed": "Borrar escaneos fallidos"
   },
   "pantryInsights": {
+    "unlockWithPro": "Desbloquear con Pro",
     "expiryRisk": {
       "title": "Riesgo de vencimiento",
       "value_one": "{{count}} artículo",
       "value_other": "{{count}} artículos",
       "subtitleOne": "{{names}} vence en 3 días",
-      "subtitleMany": "{{names}} vencen en 3 días"
+      "subtitleMany": "{{names}} vencen en 3 días",
+      "subtitleTeaserOne": "1 artículo vence pronto — desbloquea con Pro",
+      "subtitleTeaserMany": "{{count}} artículos vencen pronto — desbloquea con Pro"
     },
     "repeatPurchase": {
       "title": "Compra repetida",
       "value": "{{name}}",
-      "subtitle": "Comprado {{count}} veces en recibos recientes"
+      "valueTeaser": "Recompra frecuente",
+      "subtitle": "Comprado {{count}} veces en recibos recientes",
+      "subtitleTeaser": "Desbloquea con Pro para ver qué artículo"
     },
     "spendDelta": {
       "title": "Gasto vs mes pasado",
       "value": "{{pctLabel}}",
-      "subtitle": "{{current}} este mes vs {{previous}} el mes pasado"
+      "subtitle": "{{current}} este mes vs {{previous}} el mes pasado",
+      "subtitleTeaser": "Desbloquea con Pro para el desglose completo"
     },
     "lowStock": {
       "title": "Quedando poco",
       "value_one": "{{count}} artículo",
       "value_other": "{{count}} artículos",
-      "subtitle": "{{names}}"
+      "subtitle": "{{names}}",
+      "subtitleTeaser": "Desbloquea con Pro para ver qué artículos"
     }
   },
   "lists": {

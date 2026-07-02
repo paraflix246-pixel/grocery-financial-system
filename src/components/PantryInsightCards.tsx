@@ -1,17 +1,20 @@
+import { useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { InsightCard } from '@/src/components/InsightCard';
 import type { PantryInsightCard } from '@/src/services/pantryInsightService';
-import { SmartCartColors } from '@/src/theme/smartCart';
+import { buildPaywallHref } from '@/src/utils/paywallRoutes';
 
 type Props = {
   insights: PantryInsightCard[];
+  hasFullAccess?: boolean;
   onPressPantry?: () => void;
 };
 
-export function PantryInsightCards({ insights, onPressPantry }: Props) {
+export function PantryInsightCards({ insights, hasFullAccess = true, onPressPantry }: Props) {
   const { t } = useTranslation();
+  const router = useRouter();
   if (insights.length === 0) return null;
 
   const translateValue = (insight: PantryInsightCard) => {
@@ -20,6 +23,21 @@ export function PantryInsightCards({ insights, onPressPantry }: Props) {
       return t(insight.valueKey, { count, ...insight.valueParams });
     }
     return t(insight.valueKey, insight.valueParams ?? {});
+  };
+
+  const handlePress = (insight: PantryInsightCard) => {
+    if (!hasFullAccess) {
+      router.push(buildPaywallHref('pro') as never);
+      return;
+    }
+    onPressPantry?.();
+  };
+
+  const actionHintFor = (insight: PantryInsightCard) => {
+    if (!hasFullAccess) {
+      return t('pantryInsights.unlockWithPro');
+    }
+    return onPressPantry ? t('home.pantry') : undefined;
   };
 
   return (
@@ -31,8 +49,8 @@ export function PantryInsightCards({ insights, onPressPantry }: Props) {
           value={translateValue(insight)}
           subtitle={t(insight.subtitleKey, insight.subtitleParams ?? {})}
           variant={insight.variant}
-          onPress={onPressPantry}
-          actionHint={onPressPantry ? t('home.pantry') : undefined}
+          onPress={() => handlePress(insight)}
+          actionHint={actionHintFor(insight)}
         />
       ))}
     </View>

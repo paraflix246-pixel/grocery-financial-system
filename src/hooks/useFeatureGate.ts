@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRouter } from 'expo-router';
 
@@ -16,9 +16,14 @@ import {
 
   isWorkspaceGatedFeature,
 
+  shouldShowProUpgradeBanner,
+
   type GatedFeature,
 
 } from '@/src/services/featureGateService';
+
+import { useAdminStatus } from '@/src/hooks/useAdminStatus';
+import { useDevFreeCartPreview } from '@/src/hooks/useDevFreeCartPreview';
 
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 
@@ -104,5 +109,39 @@ export function useFeatureGate(feature: GatedFeature) {
 
   };
 
+}
+
+/** Reactive Pro upgrade banner visibility (guests, free, and non-Pro signed-in users). */
+export function useShouldShowProUpgradeBanner(): boolean {
+  const activeScope = useWorkspaceStore((s) => s.activeScope);
+  const isCurrentMember = useWorkspaceStore((s) => s.isCurrentMember);
+  const isCurrentOwner = useWorkspaceStore((s) => s.isCurrentOwner);
+  const hasActiveWorkspaceSub = useWorkspaceStore((s) => s.hasActiveWorkspaceSub);
+  const devRoleOverride = useWorkspaceStore((s) => s.devRoleOverride);
+  const tier = useSubscriptionStore((s) => s.tier);
+  const subscriptionSource = useSubscriptionStore((s) => s.subscriptionSource);
+  const { isAdmin } = useAdminStatus();
+  const { active: forceFreePreview } = useDevFreeCartPreview();
+
+  return useMemo(
+    () =>
+      shouldShowProUpgradeBanner({
+        isAdmin,
+        scopePro: hasProInCurrentScopeFromStores(),
+        tier,
+        forceFreePreview,
+      }),
+    [
+      activeScope,
+      devRoleOverride,
+      forceFreePreview,
+      hasActiveWorkspaceSub,
+      isAdmin,
+      isCurrentMember,
+      isCurrentOwner,
+      subscriptionSource,
+      tier,
+    ]
+  );
 }
 

@@ -65,16 +65,16 @@ import { useNotificationCenterStore } from '@/src/store/useNotificationCenterSto
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
 import { buildPantryInsights } from '@/src/services/pantryInsightService';
+import { applyPantryInsightTierLimit } from '@/src/services/pantryInsightTierLogic';
 import type { PantryInsightCard } from '@/src/services/pantryInsightService';
 import { loadPantryItems } from '@/src/services/pantryService';
 import { formatProMonthlyPrice } from '@/src/constants/proPricing';
-import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { formatHomeGreetingI18n, getGreetingFirstName, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { getAppAvatar } from '@/src/components/avatars/appAvatars';
 import { useAvatar } from '@/src/components/avatars/AvatarProvider';
 import { useFeatureGate } from '@/src/hooks/useFeatureGate';
-import { useAdminStatus } from '@/src/hooks/useAdminStatus';
+import { usePantryInsightAccess } from '@/src/hooks/usePantryInsightAccess';
 import { translateCategory } from '@/src/i18n/helpers';
 import { getTabScreenScrollBottomPadding } from '@/src/utils/safeAreaLayout';
 import { formatCurrency } from '@/src/utils/priceParser';
@@ -91,12 +91,11 @@ export default function HomeScreen() {
   const displayName = useSettingsStore((s) => s.settings?.displayName ?? '');
   const { avatarId } = useAvatar();
   const { unlocked: hasProAvatars } = useFeatureGate('custom_avatars');
+  const { hasFullAccess: hasFullPantryInsights } = usePantryInsightAccess();
   const notifyBudgetAlerts = useSettingsStore((s) => s.settings?.notifyBudgetAlerts ?? true);
   const showLivePriceEstimates = useSettingsStore((s) =>
     isLivePriceEstimatesEnabled(s.settings)
   );
-  const subscriptionTier = useSubscriptionStore((s) => s.tier);
-  const { isAdmin } = useAdminStatus();
   const spendingBadgeCount = useNotificationCenterStore((s) => s.spendingBadgeCount);
   const activeScope = useWorkspaceStore((s) => s.activeScope);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
@@ -249,6 +248,11 @@ export default function HomeScreen() {
     return `${base} 👋`;
   }, [displayName, t, hasProAvatars, avatarId]);
 
+  const gatedPantryInsights = useMemo(
+    () => applyPantryInsightTierLimit(pantryInsights, hasFullPantryInsights),
+    [pantryInsights, hasFullPantryInsights]
+  );
+
   const { blocking } = useFocusReload(load, { minRefocusMs: 5_000 });
 
   if (blocking) {
@@ -288,12 +292,10 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {subscriptionTier === 'free' && !isAdmin && !isWorkspaceView ? (
-        <ProUpgradeBanner
-          variant="compact"
-          message={t('home.proBannerCompact', { price: formatProMonthlyPrice() })}
-        />
-      ) : null}
+      <ProUpgradeBanner
+        variant="compact"
+        message={t('home.proBannerCompact', { price: formatProMonthlyPrice() })}
+      />
 
       {homeInsight && notifyBudgetAlerts && homeInsight.isOverBudget && (
         <StatusBanner
@@ -384,9 +386,10 @@ export default function HomeScreen() {
         />
       ) : null}
 
-      {!isWorkspaceView && pantryInsights.length > 0 ? (
+      {!isWorkspaceView && gatedPantryInsights.length > 0 ? (
         <PantryInsightCards
-          insights={pantryInsights}
+          insights={gatedPantryInsights}
+          hasFullAccess={hasFullPantryInsights}
           onPressPantry={() => router.push('/pantry' as never)}
         />
       ) : null}
