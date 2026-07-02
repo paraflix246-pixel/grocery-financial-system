@@ -58,12 +58,13 @@
     "more": "More"
   },
   "home": {
+    "badgeA11y": "{{label}}, {{count}} unread notifications",
     "greetingMorning": "Good morning",
     "greetingAfternoon": "Good afternoon",
     "greetingEvening": "Good evening",
     "greetingSub": "Here's your smart shopping overview",
     "greetingSubFamily": "Family workspace — shared household receipts & pantry",
-    "proBannerCompact": "Stop rebuying what you already have — Pro from {{price}}/mo",
+    "proBannerCompact": "Catch duplicate buys & pantry waste — Pro from {{price}}/mo",
     "budgetExceeded": "Weekly budget exceeded by {{amount}}",
     "budgetThreshold": "You've used {{percent}}% of your weekly budget — approaching your alert threshold",
     "thisWeek": "This Week",
@@ -86,7 +87,57 @@
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
     "pushNotifications": "Push notifications",
-    "priceAlertsInbox": "Price alerts inbox"
+    "priceAlertsInbox": "Price alerts inbox",
+    "notificationCenter": "Notifications"
+  },
+  "notificationCenter": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "clearAll": "Clear all",
+    "deleteOne": "Delete notification",
+    "emptyTitle": "You're all caught up",
+    "emptyBody": "Price alerts, pantry updates, money leak insights, and receipt status will appear here.",
+    "pantryRunningLow": {
+      "title": "Running low",
+      "bodyOne": "Pantry · 1 item · {{names}}",
+      "bodyMany": "Pantry · {{count}} items · {{names}}"
+    },
+    "pantryExpiring": {
+      "title": "Expiring soon",
+      "bodyOne": "Pantry · 1 item · {{names}}",
+      "bodyMany": "Pantry · {{count}} items · {{names}}"
+    },
+    "priceAlert": {
+      "title": "{{item}} price alert",
+      "body": "{{store}} · ${{price}} · {{detail}}"
+    },
+    "budget": {
+      "overTitle": "Over weekly budget",
+      "thresholdTitle": "Budget threshold reached",
+      "overBody": "Spent ${{spend}} of ${{budget}} this week",
+      "thresholdBody": "{{percent}}% of weekly budget used · ${{spend}} / ${{budget}}"
+    },
+    "receiptReady": {
+      "title": "Receipt ready",
+      "body": "Your receipt finished processing. Open Receipts to review."
+    },
+    "receiptProcessing": {
+      "title": "Processing receipt",
+      "body": "We're extracting items from your scan."
+    },
+    "receiptFailed": {
+      "title": "Receipt processing failed",
+      "body": "{{error}}"
+    },
+    "inApp": {
+      "title": "{{title}}",
+      "body": "{{body}}"
+    },
+    "moneyLeak": {
+      "title": "Money leak",
+      "upgradeTitle": "Money leak report",
+      "upgradeBody": "{{count}} blind spots found — see full report with Pro"
+    }
   },
   "categories": {
     "Groceries": "Groceries",
@@ -145,9 +196,9 @@
     "a11y": "Scan Receipt. Upload or scan a receipt to extract items, track prices, and compare stores."
   },
   "upgrade": {
-    "proComparisonHook": "Stop rebuying items already in your pantry — compare store prices with Pro",
-    "stopMissingDrops": "Stop rebuying what you already bought",
-    "proBannerSub": "Money leak tracking, smart rebuy alerts & full pantry automation"
+    "proComparisonHook": "Unlock the cheapest cart across stores with Pro",
+    "stopMissingDrops": "Stop missing price drops",
+    "proBannerSub": "Real-time alerts, inflation tracking & price estimates"
   },
   "moneyLeak": {
     "title": "Money Leak Report",
@@ -175,14 +226,14 @@
     "loadingPrices": "Loading store prices…",
     "previewMeta": " · preview · item {{current}} of {{total}}",
     "comparisonsMeta": " · {{count}} comparisons",
-    "limitedMeta": " · {{shown}} of {{total}} · Upgrade for full comparison",
-    "limitedMetaLine": "{{shown}} of {{total}} · See full leak prevention with Pro",
-    "limitedStoresMetaLine": "{{shown}} of {{total}} stores · Upgrade for all stores",
+    "limitedMeta": " · {{shown}} of {{total}} · Unlock cheapest cart with Pro",
+    "limitedMetaLine": "{{shown}} of {{total}} items · Unlock the cheapest cart across stores with Pro",
+    "limitedStoresMetaLine": "{{shown}} of {{total}} stores · Unlock cheapest cart with Pro",
     "limitedStoresMetaShort": "{{shown}} of {{total}} stores",
-    "seeAllStoresPro": "See all stores with Pro",
-    "unlockMoreStores_one": "Unlock {{count}} more store",
-    "unlockMoreStores_other": "Unlock {{count}} more stores",
-    "storeUpgradeA11y": "Upgrade to Pro to see {{count}} more stores",
+    "seeAllStoresPro": "Unlock cheapest cart with Pro",
+    "unlockMoreStores_one": "Unlock {{count}} more store with Pro",
+    "unlockMoreStores_other": "Unlock {{count}} more stores with Pro",
+    "storeUpgradeA11y": "Upgrade to Pro to unlock cheapest cart across {{count}} more stores",
     "previousItem": "Show previous item",
     "nextItem": "Show next item",
     "emptyNoPricesTitle": "No prices found",
@@ -316,6 +367,7 @@
     "title": "More",
     "subtitle": "Settings & Pro features",
     "sections": {
+      "trackAlerts": "Track & Alerts",
       "essentials": "Essentials",
       "proInsights": "Pro & Insights",
       "collaboration": "Collaboration"
@@ -326,6 +378,8 @@
       "spendingAnalytics": { "label": "Spending Analytics", "subtitle": "Trends and category breakdown" },
       "cartComparison": { "label": "Live Price Estimates", "subtitle": "Compare estimated store totals for your list" },
       "pantry": { "label": "Pantry", "subtitle": "Track items from your receipts" },
+      "stores": { "label": "Stores", "subtitle": "Browse stores from your receipts" },
+      "badgeA11y": "{{label}}, {{count}} unread notifications",
       "shoppingLists": { "label": "Shopping Lists", "subtitle": "Manage your grocery lists" },
       "scanReceipt": { "label": "Scan Receipt", "subtitle": "Capture or upload a receipt" },
       "pro": { "label": "Penny Pantry Pro", "subtitle": "Subscription & plan management" },
@@ -358,7 +412,7 @@
       "export_advanced": "Export spending data",
       "multi_user_sync": "Live multi-user sync across phones",
       "budget_forecasting": "Monthly spending overview",
-      "cheapest_basket": "Cheapest cart across stores",
+      "cheapest_basket": "overpaying at the wrong store",
       "api_access": "Multi-store price comparison",
       "pantry_unlimited": "Unlimited pantry tracking",
       "custom_themes": "Custom app themes & colors",
@@ -792,7 +846,7 @@
     "openLastListHint": "Resume the shopping list you viewed last",
     "livePriceEstimatesSection": "Live Price Estimates",
     "livePriceEstimates": "Show Live Price Estimates",
-    "livePriceEstimatesHint": "Compare estimated store totals on Home and in cart comparison",
+    "livePriceEstimatesHint": "Compare store totals on Home — Pro unlocks the cheapest cart across your full list",
     "scanning": "Receipt scanning",
     "scanningInfo": "Receipts are scanned automatically. Scanning usually takes 15–45 seconds; long receipts can take up to 2 minutes. Every scan opens for review before it's saved.",
     "appearance": "Appearance",

@@ -136,7 +136,7 @@ export default function ScanScreen() {
         stage={scanStage}
         header={
           <View style={[styles.processingHeader, { paddingTop: insets.top + 12 }]}>
-            <AppHeader notificationCount={0} />
+            <AppHeader />
           </View>
         }
       />
@@ -147,7 +147,7 @@ export default function ScanScreen() {
     <ScrollView
       style={styles.container}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 24 }]}>
-      <AppHeader notificationCount={0} />
+      <AppHeader />
 
       <MockupScreenTitle
         title="Scan Receipt"

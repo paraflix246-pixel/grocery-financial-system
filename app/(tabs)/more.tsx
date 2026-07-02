@@ -38,6 +38,24 @@ function useMenuSections(): MenuSection[] {
   return useMemo(
     () => [
       {
+        id: 'trackAlerts',
+        title: t('more.sections.trackAlerts'),
+        items: [
+          {
+            labelKey: 'more.items.pantry.label',
+            subtitleKey: 'more.items.pantry.subtitle',
+            icon: { ios: 'cabinet.fill', android: 'kitchen', web: 'kitchen' },
+            route: '/pantry',
+          },
+          {
+            labelKey: 'more.items.stores.label',
+            subtitleKey: 'more.items.stores.subtitle',
+            icon: { ios: 'storefront.fill', android: 'store', web: 'store' },
+            route: '/stores',
+          },
+        ],
+      },
+      {
         id: 'essentials',
         title: t('more.sections.essentials'),
         items: [
@@ -45,7 +63,6 @@ function useMenuSections(): MenuSection[] {
           { labelKey: 'more.items.budget.label', subtitleKey: 'more.items.budget.subtitle', icon: { ios: 'dollarsign.circle', android: 'payments', web: 'payments' }, route: '/settings/budget' },
           { labelKey: 'more.items.spendingAnalytics.label', subtitleKey: 'more.items.spendingAnalytics.subtitle', icon: { ios: 'chart.line.uptrend.xyaxis', android: 'trending_up', web: 'trending_up' }, route: '/spending-analytics' },
           { labelKey: 'more.items.cartComparison.label', subtitleKey: 'more.items.cartComparison.subtitle', icon: { ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' }, route: '/cart-comparison' },
-          { labelKey: 'more.items.pantry.label', subtitleKey: 'more.items.pantry.subtitle', icon: { ios: 'cabinet.fill', android: 'kitchen', web: 'kitchen' }, route: '/pantry' },
           { labelKey: 'more.items.shoppingLists.label', subtitleKey: 'more.items.shoppingLists.subtitle', icon: { ios: 'list.bullet', android: 'checklist', web: 'checklist' }, route: '/(tabs)/shopping-lists?browse=1' },
           { labelKey: 'more.items.scanReceipt.label', subtitleKey: 'more.items.scanReceipt.subtitle', icon: { ios: 'camera', android: 'photo_camera', web: 'photo_camera' }, route: '/(tabs)/scan' },
         ],
@@ -259,6 +276,8 @@ const styles = StyleSheet.create({
     backgroundColor: `${SmartCartColors.primary}15`,
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    overflow: 'visible',
   },
   menuText: { flex: 1 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

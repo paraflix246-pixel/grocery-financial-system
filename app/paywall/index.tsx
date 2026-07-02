@@ -24,7 +24,6 @@ import { APP_THEME_LIST } from '@/src/theme/appThemes';
 import {
   COMMIT_NOTE,
   CONTINUE_FREE_LABEL,
-  FAMILY_BADGE_LABEL,
   FAMILY_MONTHLY_PRICE,
   FAMILY_YEARLY_PRICE,
   FAMILY_YEARLY_PRICE_PER_MONTH,
@@ -156,14 +155,14 @@ function getProBullets(t: PaywallT): string[] {
     .join(', ');
 
   return [
-    t('paywall.features.pro.unlimitedScans'),
+    t('paywall.features.pro.wastePrevention'),
+    t('paywall.features.pro.smartRebuy'),
+    t('paywall.features.pro.moneyLeakTracking'),
+    t('paywall.features.pro.pantryAutomation'),
     t('paywall.features.pro.fullHistory'),
     t('paywall.features.pro.smartAlerts'),
-    t('paywall.features.pro.multiStore'),
-    t('paywall.features.pro.spendingOverview'),
     t('paywall.features.pro.cheapestCart'),
     t('paywall.features.pro.export'),
-    t('paywall.features.pro.unlimitedPantry'),
     t('paywall.features.pro.adFree'),
     t('paywall.features.pro.customThemesDetail', {
       count: APP_THEME_LIST.length,
@@ -180,6 +179,7 @@ function getProBullets(t: PaywallT): string[] {
 function getFamilyBullets(t: PaywallT): string[] {
   return [
     t('paywall.features.family.allProFeatures'),
+    t('paywall.features.family.sharedEconomy'),
     t('paywall.features.family.sharedLists'),
     t('paywall.features.family.liveSync'),
     t('paywall.features.family.inviteFree'),
@@ -193,6 +193,7 @@ function getFreeBullets(t: PaywallT): string[] {
     t('paywall.features.free.scans', { count: FREE_RECEIPT_SCAN_LIMIT }),
     t('paywall.features.free.list'),
     t('paywall.features.free.history', { days: FREE_PRICE_HISTORY_DAYS }),
+    t('paywall.features.free.noLeakReport'),
     t('paywall.features.free.alerts'),
     t('paywall.features.free.stores', { count: FREE_MAX_STORES }),
     t('paywall.features.free.pantry', { count: FREE_PANTRY_MAX_ITEMS }),
@@ -220,11 +221,21 @@ function FamilyBadge({ label }: { label: string }) {
   return (
     <View style={styles.familyBadgePill}>
       <SymbolView
-        name={{ ios: 'person.3.fill', android: 'groups', web: 'groups' }}
+        name={{ ios: 'star.fill', android: 'star', web: 'star' }}
         tintColor={FAMILY.accent}
         size={12}
       />
       <Text style={styles.familyBadgePillText}>{label}</Text>
+    </View>
+  );
+}
+
+function RoiBlock({ t }: { t: PaywallT }) {
+  return (
+    <View style={styles.roiBlock}>
+      <Text style={styles.roiTitle}>{t('paywall.roiTitle')}</Text>
+      <Text style={styles.roiBody}>{t('paywall.roiBody')}</Text>
+      <Text style={styles.roiFormula}>{t('paywall.roiFormula')}</Text>
     </View>
   );
 }
@@ -427,7 +438,7 @@ function FamilyPlanCard({
       selectedStyle={styles.familyCardSelected}
       width={width}>
       <View style={styles.planBadgeRow}>
-        <FamilyBadge label={FAMILY_BADGE_LABEL} />
+        <FamilyBadge label={t('paywall.recommendedBadge')} />
       </View>
       <Text style={[styles.planName, compact && styles.planNameCompact]}>{t('paywall.familyTitle')}</Text>
       <Text style={[styles.planTagline, styles.familyTagline, compact && styles.planTaglineCompact]}>
@@ -651,21 +662,21 @@ export default function PaywallScreen() {
         t={t}
         width={isCompact ? mobileCardWidth : undefined}
       />
-      <ProPlanCard
-        compact={isCompact}
-        selected={selectedPlan === 'pro'}
-        billing={billing}
-        onSelect={() => setSelectedPlan('pro')}
-        bullets={proBullets}
-        t={t}
-        width={isCompact ? mobileCardWidth : undefined}
-      />
       <FamilyPlanCard
         compact={isCompact}
         selected={selectedPlan === 'family'}
         billing={billing}
         onSelect={() => setSelectedPlan('family')}
         bullets={familyBullets}
+        t={t}
+        width={isCompact ? mobileCardWidth : undefined}
+      />
+      <ProPlanCard
+        compact={isCompact}
+        selected={selectedPlan === 'pro'}
+        billing={billing}
+        onSelect={() => setSelectedPlan('pro')}
+        bullets={proBullets}
         t={t}
         width={isCompact ? mobileCardWidth : undefined}
       />
@@ -688,6 +699,8 @@ export default function PaywallScreen() {
           <Text style={styles.heroTitle}>{t('paywall.headline')}</Text>
           <Text style={styles.heroSub}>{t('paywall.subhead')}</Text>
         </View>
+
+        <RoiBlock t={t} />
 
         {__DEV__ ? (
           <View style={styles.devPreviewBanner}>
@@ -840,6 +853,34 @@ const styles = StyleSheet.create({
     marginTop: 10,
     lineHeight: 22,
     maxWidth: 400,
+  },
+  roiBlock: {
+    marginBottom: 22,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.25)',
+    backgroundColor: 'rgba(34,197,94,0.06)',
+    gap: 6,
+  },
+  roiTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: GREEN,
+    textAlign: 'center',
+  },
+  roiBody: {
+    fontSize: 13,
+    color: TEXT_PRIMARY,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  roiFormula: {
+    fontSize: 11,
+    color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 16,
+    marginTop: 4,
   },
   devPreviewBanner: {
     marginBottom: 20,

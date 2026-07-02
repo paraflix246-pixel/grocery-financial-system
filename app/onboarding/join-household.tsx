@@ -17,7 +17,7 @@ import { JoinFamilyCodeForm } from '@/src/components/family/JoinFamilyCodeForm';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { markJoinHouseholdStepCompleted } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { getOnboardingBottomPadding, OnboardingColors } from '@/src/theme/onboardingTheme';
 import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 export default function JoinHouseholdScreen() {
@@ -77,7 +77,7 @@ export default function JoinHouseholdScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+          { paddingTop: insets.top + 16, paddingBottom: getOnboardingBottomPadding(insets.bottom) },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

@@ -29,7 +29,6 @@ import {
   shouldShowCartComparisonUpgradeBanner,
   shouldShowLimitedComparisonMeta,
 } from '@/src/services/cartComparisonLimitLogic';
-import { getFeatureLabelI18n } from '@/src/i18n/helpers';
 import { useListStore } from '@/src/store/useListStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { SmartCartColors, SmartCartTypography } from '@/src/theme/smartCart';
@@ -166,30 +165,15 @@ export function LivePriceEstimatesCollapsedHeader() {
 }
 
 function ComparisonUpgradeBanner({
-  showLimitedMeta,
-  comparisonLimit,
-  totalListItemCount,
   ignoreAdminBypass,
 }: {
-  showLimitedMeta: boolean;
-  comparisonLimit: number | null;
-  totalListItemCount: number;
   ignoreAdminBypass?: boolean;
 }) {
   const { t } = useTranslation();
-  const featureName = getFeatureLabelI18n(t, 'cheapest_basket');
-  const hook =
-    showLimitedMeta && comparisonLimit != null
-      ? t('comparison.limitedMetaLine', {
-          shown: comparisonLimit,
-          total: totalListItemCount,
-        })
-      : t('upgrade.proComparisonHook');
 
   return (
     <ProUpgradeBanner
-      featureName={featureName}
-      hook={hook}
+      title={t('upgrade.proComparisonHook')}
       ignoreAdminBypass={ignoreAdminBypass}
     />
   );
@@ -310,9 +294,6 @@ export const CheapestCartComparison = memo(function CheapestCartComparison({
   const upgradeBanner =
     showComparisonUpgradeBanner ? (
       <ComparisonUpgradeBanner
-        showLimitedMeta={showLimitedComparisonMeta}
-        comparisonLimit={comparisonLimit}
-        totalListItemCount={totalListItemCount}
         ignoreAdminBypass={cartAccess.forceFreePreview || !hasFullCartComparisonAccess}
       />
     ) : null;

@@ -1,4 +1,6 @@
-import type { AppThemeTokens } from '@/src/theme/appThemes';
+import { APP_THEMES, type AppThemeTokens } from '@/src/theme/appThemes';
+
+const PRO_BANNER_THEME = APP_THEMES.lavender_pro;
 
 function normalizeHex(hex: string): string {
   const raw = hex.replace('#', '');
@@ -78,4 +80,23 @@ export function getPromoBodyText(theme: AppThemeTokens): string {
 /** Secondary copy on primary-tinted promo / hero surfaces. */
 export function getPromoMutedText(theme: AppThemeTokens): string {
   return theme.textMuted;
+}
+
+/** Pro upgrade banner — lavender accent palette (independent of active app theme). */
+export const PRO_BANNER_ACCENT = PRO_BANNER_THEME.primary;
+
+export function getProBannerGradient(): [string, string, string] {
+  return [
+    mixWithWhite(PRO_BANNER_THEME.primary, 0.94),
+    mixWithWhite(PRO_BANNER_THEME.primary, 0.88),
+    mixWithWhite(PRO_BANNER_THEME.primary, 0.8),
+  ];
+}
+
+export function getProBannerBorder(): string {
+  return PRO_BANNER_THEME.border;
+}
+
+export function getProBannerIconSurface(): string {
+  return PRO_BANNER_THEME.surfaceElevated;
 }

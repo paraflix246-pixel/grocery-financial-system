@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { getSession, resetPassword, notifyPasswordChanged } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { getOnboardingBottomPadding, OnboardingColors } from '@/src/theme/onboardingTheme';
 import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 export default function OnboardingResetPasswordScreen() {
@@ -114,7 +114,7 @@ export default function OnboardingResetPasswordScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+          { paddingTop: insets.top + 16, paddingBottom: getOnboardingBottomPadding(insets.bottom) },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

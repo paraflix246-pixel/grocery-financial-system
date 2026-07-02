@@ -1,6 +1,6 @@
 import * as ImagePicker from 'expo-image-picker';
 import { SymbolView } from 'expo-symbols';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -25,6 +25,7 @@ import { applyBarcodeScan, promptBarcodeDestination } from '@/src/services/barco
 import { useReceiptProcessingQueue } from '@/src/services/receiptProcessingQueue';
 import { scanReceiptFromImage, shouldOpenPreview } from '@/src/services/receiptParsePipeline';
 import { getScanLimitStatus } from '@/src/services/scanLimitService';
+import { finishOnboardingTryAndReturn } from '@/src/services/onboardingFlowState';
 import { useScanStore } from '@/src/store/useScanStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { validateParsedReceipt } from '@/src/utils/receiptValidation';
@@ -245,10 +246,14 @@ function CameraCapture({
 export default function ScanScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { onboarding, mode } = useLocalSearchParams<{ onboarding?: string; mode?: string }>();
+  const isOnboardingTry = onboarding === '1';
   const insets = useSafeAreaInsets();
   const tier = useSubscriptionStore((s) => s.tier);
   const [processing, setProcessing] = useState(false);
-  const [scanMode, setScanMode] = useState<'receipt' | 'barcode'>('receipt');
+  const [scanMode, setScanMode] = useState<'receipt' | 'barcode'>(
+    mode === 'barcode' ? 'barcode' : 'receipt'
+  );
   const [scanStage, setScanStage] = useState<ReceiptScanStage>('preparing');
   const enqueueReceipt = useReceiptProcessingQueue((s) => s.enqueue);
   const [scanRemaining, setScanRemaining] = useState<number | null>(null);
@@ -362,22 +367,30 @@ export default function ScanScreen() {
         barcode: code.replace(/\D/g, ''),
         name: code,
       };
+      const finishIfOnboarding = async () => {
+        if (isOnboardingTry) {
+          await finishOnboardingTryAndReturn((href) => router.replace(href as never));
+        }
+      };
       promptBarcodeDestination(code, lookup.name, {
         onList: async () => {
           const result = await applyBarcodeScan(lookup, 'list');
           if (result.message) Alert.alert(t('scan.barcodeDetected'), result.message);
+          await finishIfOnboarding();
         },
         onPantry: async () => {
           const result = await applyBarcodeScan(lookup, 'pantry');
           if (result.message) Alert.alert(t('scan.barcodeDetected'), result.message);
+          await finishIfOnboarding();
         },
         onTrack: async () => {
           const result = await applyBarcodeScan(lookup, 'track');
           if (result.message) Alert.alert(t('scan.barcodeDetected'), result.message);
+          await finishIfOnboarding();
         },
       });
     },
-    [t]
+    [isOnboardingTry, router, t]
   );
 
   const pickImage = useCallback(async () => {

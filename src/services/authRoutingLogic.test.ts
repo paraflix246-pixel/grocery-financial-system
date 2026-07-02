@@ -19,9 +19,9 @@ function baseContext(overrides: Partial<AuthRoutingContext> = {}): AuthRoutingCo
 }
 
 describe('resolveInitialRoute', () => {
-  it('routes web admins with session to /admin', () => {
+  it('routes web admins with session to home tabs', () => {
     const result = resolveInitialRoute(baseContext({ isAdmin: true, platform: 'web' }));
-    assert.equal(result.href, '/admin');
+    assert.equal(result.href, '/(tabs)');
     assert.equal(result.reason, 'dashboard');
   });
 

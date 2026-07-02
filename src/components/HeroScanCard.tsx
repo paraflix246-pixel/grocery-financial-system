@@ -6,6 +6,8 @@ import { memo, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { NotificationCountBadge } from '@/src/components/NotificationCountBadge';
+import { useNotificationCenterStore } from '@/src/store/useNotificationCenterStore';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartRadius } from '@/src/theme/smartCart';
 import { darken, getHeroGradient } from '@/src/theme/themeColorUtils';
@@ -16,8 +18,15 @@ export const HeroScanCard = memo(function HeroScanCard() {
   const { t } = useTranslation();
   const router = useRouter();
   const { theme } = useAppTheme();
+  const receiptBadgeCount = useNotificationCenterStore((s) => s.receiptBadgeCount);
   const [bannerFailed, setBannerFailed] = useState(false);
   const goToScan = () => router.push('/(tabs)/scan');
+
+  const scanLabel = t('heroScan.scanNow');
+  const accessibilityLabel =
+    receiptBadgeCount > 0
+      ? t('home.badgeA11y', { label: t('heroScan.a11y'), count: receiptBadgeCount })
+      : t('heroScan.a11y');
 
   const heroGradient = useMemo(() => getHeroGradient(theme), [theme]);
   const cardStyles = useMemo(
@@ -41,7 +50,7 @@ export const HeroScanCard = memo(function HeroScanCard() {
       style={[styles.wrapper, cardStyles.wrapper]}
       onPress={goToScan}
       accessibilityRole="button"
-      accessibilityLabel={t('heroScan.a11y')}>
+      accessibilityLabel={accessibilityLabel}>
       <LinearGradient
         colors={heroGradient}
         start={{ x: 0, y: 0.5 }}
@@ -67,7 +76,8 @@ export const HeroScanCard = memo(function HeroScanCard() {
             size={24}
             tintColor={theme.primary}
           />
-          <Text style={[styles.scanButtonText, cardStyles.scanButtonText]}>{t('heroScan.scanNow')}</Text>
+          <Text style={[styles.scanButtonText, cardStyles.scanButtonText]}>{scanLabel}</Text>
+          {receiptBadgeCount > 0 ? <NotificationCountBadge count={receiptBadgeCount} size="md" /> : null}
         </View>
         <Text style={styles.secureText}>{t('heroScan.secure')}</Text>
       </View>
@@ -125,10 +135,12 @@ const styles = StyleSheet.create({
     gap: 9,
     paddingHorizontal: 19,
     paddingVertical: 10,
+    position: 'relative',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.14,
     shadowRadius: 10,
     elevation: 3,
+    overflow: 'visible',
   },
   scanButtonText: {
     fontSize: 16,

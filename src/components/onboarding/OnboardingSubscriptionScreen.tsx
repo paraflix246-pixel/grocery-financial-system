@@ -35,10 +35,10 @@ import {
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { FamilyWorkspaceTheme } from '@/src/theme/familyWorkspaceTheme';
+import { getOnboardingBottomPadding } from '@/src/theme/onboardingTheme';
 import { formatCurrency } from '@/src/utils/priceParser';
 import { buildPaywallHref } from '@/src/utils/paywallRoutes';
 import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
-import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 
 const BG = '#0F0F0F';
 const GREEN = '#22C55E';
@@ -126,7 +126,7 @@ export function OnboardingSubscriptionScreen({
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: embedded ? 0 : 16, paddingBottom: getScreenBottomPadding(insets.bottom) },
+          { paddingTop: embedded ? 0 : 16, paddingBottom: getOnboardingBottomPadding(insets.bottom) },
         ]}
         showsVerticalScrollIndicator={false}
       >

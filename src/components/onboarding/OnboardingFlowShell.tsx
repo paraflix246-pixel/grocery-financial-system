@@ -7,8 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LanguagePicker } from '@/src/components/settings/AppearanceSettings';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
 import { ONBOARDING_STEP_COUNT, type OnboardingStep } from '@/src/services/onboardingFlowState';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
-import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
+import { getOnboardingBottomPadding, OnboardingColors } from '@/src/theme/onboardingTheme';
 
 type Props = {
   step: OnboardingStep;
@@ -82,13 +81,21 @@ export function OnboardingFlowShell({
         )}
       </View>
 
-      <View style={[styles.body, fullBleed && styles.bodyFullBleed]}>{children}</View>
+      <View
+        style={[
+          styles.body,
+          fullBleed && styles.bodyFullBleed,
+          !footer && !fullBleed && { paddingBottom: getOnboardingBottomPadding(insets.bottom) },
+        ]}
+      >
+        {children}
+      </View>
 
       {footer ? (
         <View
           style={[
             styles.footer,
-            { paddingBottom: getScreenBottomPadding(insets.bottom, 16) },
+            { paddingBottom: getOnboardingBottomPadding(insets.bottom) },
           ]}
         >
           {footer}

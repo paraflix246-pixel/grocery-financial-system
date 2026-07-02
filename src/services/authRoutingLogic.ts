@@ -78,10 +78,6 @@ export function resolveInitialRoute(ctx: AuthRoutingContext): InitialRouteResult
       };
     }
 
-    if (ctx.isAdmin && ctx.platform === 'web') {
-      return { href: '/admin', reason: 'dashboard' };
-    }
-
     return { href: '/(tabs)', reason: 'dashboard' };
   }
 

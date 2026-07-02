@@ -7,18 +7,19 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/Themed';
 import { BackButton } from '@/src/components/BackButton';
 import { HeaderDropdownMenu } from '@/src/components/HeaderDropdownMenu';
+import { NotificationCenterSheet } from '@/src/components/NotificationCenterSheet';
+import { NotificationCountBadge } from '@/src/components/NotificationCountBadge';
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { useAdminStatus } from '@/src/hooks/useAdminStatus';
 import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
-import { getStoredUser, isSignedInAccount } from '@/src/services/authService';
+import { isSignedInAccount } from '@/src/services/authService';
 import { supabase } from '@/src/services/supabaseClient';
+import { useNotificationCenterStore } from '@/src/store/useNotificationCenterStore';
 import { SmartCartColors } from '@/src/theme/smartCart';
 import { confirmSignOut, shareApp } from '@/src/utils/accountMenuActions';
 import { signOutAndNavigate } from '@/src/utils/logoutRouting';
 
 type Props = {
-  notificationCount?: number;
-  onNotificationPress?: () => void;
   showBack?: boolean;
 };
 
@@ -29,23 +30,25 @@ type AnchorRect = {
   height: number;
 };
 
-export function AppHeader({ notificationCount = 0, onNotificationPress, showBack = true }: Props) {
+export function AppHeader({ showBack = true }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
   const { isAdmin } = useAdminStatus();
   const fw = useFamilyWorkspaceScreenTheme();
+  const unreadCount = useNotificationCenterStore((s) => s.unreadCount);
+  const refreshNotifications = useNotificationCenterStore((s) => s.refresh);
   const [isSignedIn, setIsSignedIn] = useState(false);
-  const [showSignIn, setShowSignIn] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState<AnchorRect | null>(null);
+  const [notificationAnchor, setNotificationAnchor] = useState<AnchorRect | null>(null);
   const menuTriggerRef = useRef<View>(null);
+  const notificationBellRef = useRef<View>(null);
   const iconTint = fw.isFamilyScope ? fw.primaryDark : SmartCartColors.text;
 
   const refreshAuth = useCallback(async () => {
     const signedIn = await isSignedInAccount();
-    const stored = await getStoredUser();
     setIsSignedIn(signedIn);
-    setShowSignIn(!signedIn && Boolean(stored?.isGuest));
   }, []);
 
   useEffect(() => {
@@ -60,7 +63,8 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
   useFocusEffect(
     useCallback(() => {
       void refreshAuth();
-    }, [refreshAuth]),
+      void refreshNotifications();
+    }, [refreshAuth, refreshNotifications]),
   );
 
   const openMenu = useCallback(() => {
@@ -72,6 +76,17 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
 
   const closeMenu = useCallback(() => {
     setMenuOpen(false);
+  }, []);
+
+  const openNotificationCenter = useCallback(() => {
+    notificationBellRef.current?.measureInWindow((x, y, width, height) => {
+      setNotificationAnchor({ x, y, width, height });
+      setNotificationCenterOpen(true);
+    });
+  }, []);
+
+  const closeNotificationCenter = useCallback(() => {
+    setNotificationCenterOpen(false);
   }, []);
 
   const menuItems = useMemo(
@@ -121,18 +136,14 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
       };
     }
 
-    if (showSignIn || !isSignedIn) {
-      return {
-        label: t('common.signIn'),
-        icon: { ios: 'person.crop.circle.badge.plus', android: 'login', web: 'login' } as const,
-        onPress: () => router.push('/onboarding/signin?returnTo=%2F(tabs)' as never),
-        primary: true,
-        accessibilityLabel: t('common.signIn'),
-      };
-    }
-
-    return null;
-  }, [isSignedIn, router, showSignIn, t]);
+    return {
+      label: t('common.signIn'),
+      icon: { ios: 'person.crop.circle.badge.plus', android: 'login', web: 'login' } as const,
+      onPress: () => router.push('/onboarding/signin?returnTo=%2F(tabs)' as never),
+      primary: true,
+      accessibilityLabel: t('common.signIn'),
+    };
+  }, [isSignedIn, router, t]);
 
   return (
     <>
@@ -161,15 +172,6 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
                 <Text style={styles.adminText}>{t('admin.nav.short')}</Text>
               </Pressable>
             ) : null}
-            {showSignIn ? (
-              <Pressable
-                style={styles.headerActionBtn}
-                accessibilityLabel={t('common.signIn')}
-                accessibilityRole="button"
-                onPress={() => router.push('/onboarding/signin?returnTo=%2F(tabs)' as never)}>
-                <Text style={styles.signInText}>{t('common.signIn')}</Text>
-              </Pressable>
-            ) : null}
             <View ref={menuTriggerRef} collapsable={false}>
               <Pressable
                 style={styles.iconBtn}
@@ -184,22 +186,21 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
                 />
               </Pressable>
             </View>
-            <Pressable
-              style={styles.iconBtn}
-              accessibilityLabel={t('headerMenu.priceAlertsInbox')}
-              accessibilityRole="button"
-              onPress={onNotificationPress ?? (() => router.push('/price-tracker?tab=alerts' as never))}>
-              <SymbolView
-                name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
-                tintColor={iconTint}
-                size={22}
-              />
-              {notificationCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{notificationCount > 9 ? '9+' : notificationCount}</Text>
-                </View>
-              )}
-            </Pressable>
+            <View ref={notificationBellRef} collapsable={false}>
+              <Pressable
+                style={styles.iconBtn}
+                accessibilityLabel={t('headerMenu.notificationCenter')}
+                accessibilityRole="button"
+                accessibilityState={{ expanded: notificationCenterOpen }}
+                onPress={openNotificationCenter}>
+                <SymbolView
+                  name={{ ios: 'bell', android: 'notifications', web: 'notifications' }}
+                  tintColor={iconTint}
+                  size={22}
+                />
+                <NotificationCountBadge count={unreadCount} />
+              </Pressable>
+            </View>
           </View>
         </View>
       </View>
@@ -216,6 +217,12 @@ export function AppHeader({ notificationCount = 0, onNotificationPress, showBack
           border: fw.border,
           primary: fw.primary,
         }}
+      />
+
+      <NotificationCenterSheet
+        visible={notificationCenterOpen}
+        onClose={closeNotificationCenter}
+        anchor={notificationAnchor}
       />
     </>
   );
@@ -234,7 +241,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rightSlot: {
-    minWidth: 120,
+    minWidth: 88,
     alignItems: 'flex-end',
     justifyContent: 'center',
     marginLeft: 'auto',
@@ -256,11 +263,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: SmartCartColors.primary,
   },
-  signInText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: SmartCartColors.primary,
-  },
   iconBtn: {
     width: 40,
     height: 40,
@@ -275,19 +277,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.4,
   },
-  badge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: SmartCartColors.primaryMid,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: SmartCartColors.background,
-  },
-  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
 });

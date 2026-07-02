@@ -7,6 +7,8 @@ import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/Themed';
+import { NotificationCountBadge } from '@/src/components/NotificationCountBadge';
+import { useNotificationCenterStore } from '@/src/store/useNotificationCenterStore';
 import { useListStore } from '@/src/store/useListStore';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { SmartCartColors, SmartCartRadius, SmartCartShadow, SmartCartTypography } from '@/src/theme/smartCart';
@@ -64,17 +66,23 @@ const SECONDARY_ACTIONS: Action[] = [
 function SecondaryActionCard({
   label,
   action,
+  badgeCount,
   onPress,
 }: {
   label: string;
   action: Action;
+  badgeCount: number;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
+  const accessibilityLabel =
+    badgeCount > 0 ? t('home.badgeA11y', { label, count: badgeCount }) : label;
+
   return (
     <Pressable
       style={({ pressed }) => [styles.secondaryCard, pressed && styles.secondaryCardPressed]}
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel}
       onPress={onPress}>
       <LinearGradient
         colors={[action.bgLight, action.bgDark]}
@@ -83,6 +91,7 @@ function SecondaryActionCard({
         style={styles.secondaryIconCircle}
         pointerEvents="none">
         <SymbolView name={action.icon} tintColor={action.color} size={20} />
+        {badgeCount > 0 ? <NotificationCountBadge count={badgeCount} /> : null}
       </LinearGradient>
       <Text style={styles.secondaryLabel}>{label}</Text>
     </Pressable>
@@ -94,6 +103,14 @@ export const QuickActionGrid = memo(function QuickActionGrid() {
   const router = useRouter();
   const { theme } = useAppTheme();
   const listCount = useListStore((s) => s.lists.length);
+  const shoppingListsBadgeCount = useNotificationCenterStore((s) => s.shoppingListsBadgeCount);
+  const pantryBadgeCount = useNotificationCenterStore((s) => s.pantryBadgeCount);
+  const storesBadgeCount = useNotificationCenterStore((s) => s.storesBadgeCount);
+
+  const secondaryBadgeCounts: Record<string, number> = {
+    pantry: pantryBadgeCount,
+    stores: storesBadgeCount,
+  };
 
   useEffect(() => {
     if (listCount === 0) {
@@ -139,6 +156,13 @@ export const QuickActionGrid = memo(function QuickActionGrid() {
   }
 
   const shoppingListsLabel = t('quickActions.shoppingLists');
+  const shoppingListsAccessibilityLabel =
+    shoppingListsBadgeCount > 0
+      ? t('home.badgeA11y', {
+          label: `${shoppingListsLabel}. ${listsSubtitle}`,
+          count: shoppingListsBadgeCount,
+        })
+      : `${shoppingListsLabel}. ${listsSubtitle}`;
 
   return (
     <View style={styles.grid}>
@@ -149,7 +173,7 @@ export const QuickActionGrid = memo(function QuickActionGrid() {
           pressed && styles.featuredCardPressed,
         ]}
         accessibilityRole="button"
-        accessibilityLabel={`${shoppingListsLabel}. ${listsSubtitle}`}
+        accessibilityLabel={shoppingListsAccessibilityLabel}
         onPress={handleOpenShoppingLists}>
         <LinearGradient
           colors={promoGradient}
@@ -162,6 +186,9 @@ export const QuickActionGrid = memo(function QuickActionGrid() {
               tintColor={theme.primary}
               size={24}
             />
+            {shoppingListsBadgeCount > 0 ? (
+              <NotificationCountBadge count={shoppingListsBadgeCount} />
+            ) : null}
           </View>
           <View style={styles.featuredCopy}>
             <Text style={[styles.featuredLabel, featuredStyles.label]}>{shoppingListsLabel}</Text>
@@ -188,6 +215,7 @@ export const QuickActionGrid = memo(function QuickActionGrid() {
             key={action.id}
             label={t(action.labelKey)}
             action={action}
+            badgeCount={secondaryBadgeCounts[action.id] ?? 0}
             onPress={() => router.push(action.route as never)}
           />
         ))}
@@ -231,6 +259,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     flexShrink: 0,
+    position: 'relative',
+    overflow: 'visible',
   },
   featuredCopy: {
     flex: 1,
@@ -289,6 +319,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 6,
+    position: 'relative',
+    overflow: 'visible',
   },
   secondaryLabel: {
     fontSize: 11,

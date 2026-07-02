@@ -1,6 +1,16 @@
 import type { User } from '@supabase/supabase-js';
 
 import {
+  buildChurnRiskList,
+  buildLastSeenBackfillUpdates,
+  computeActivityScoreFromSignals,
+  computeExclusiveTierCounts,
+  countOnlineUsers,
+  rankTopUsers,
+  resolvePlanTier,
+  type ProfileActivityRow,
+} from '@/src/services/admin/adminAnalyticsLogic';
+import {
   computeAbuseHeuristics,
   computeUserHealthScore,
   isFeatureFlagEnabled,
@@ -409,13 +419,6 @@ function buildCumulativeSeries(dailySignups: DailyCount[], baseBeforePeriod: num
   });
 }
 
-function resolvePlanTier(profile: Pick<ProfileRow, 'subscription_status' | 'plan_type'>): string {
-  if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
-    return profile.plan_type === 'yearly' ? 'Pro Yearly' : 'Pro';
-  }
-  return 'Free';
-}
-
 function estimateMrrFromStripePlans(
   subs: Array<{ plan: string | null; status: string }>
 ): number {
@@ -440,24 +443,137 @@ function estimateFamilyMrr(
   return Math.round(mrr * 100) / 100;
 }
 
-function computeRiskScore(daysInactive: number, planTier: string): number {
-  let score = Math.min(100, Math.round((daysInactive / 90) * 70));
-  if (planTier.startsWith('Pro')) score += 20;
-  return Math.min(100, score);
-}
-
 export function computeActivityScore(
   profile: Pick<ProfileRow, 'created_at' | 'last_seen_at' | 'subscription_status'>
 ): number {
-  const lastSeen = profile.last_seen_at ? new Date(profile.last_seen_at).getTime() : 0;
-  const daysSinceActive = lastSeen
-    ? Math.max(0, Math.floor((Date.now() - lastSeen) / (1000 * 60 * 60 * 24)))
-    : 999;
-  let score = Math.max(0, 100 - daysSinceActive * 3);
-  if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
-    score += 15;
+  return computeActivityScoreFromSignals({
+    lastSeenAt: profile.last_seen_at,
+    createdAt: profile.created_at,
+    subscriptionStatus: profile.subscription_status,
+  });
+}
+
+async function fetchAllAuthUsers(admin: ReturnType<typeof getSupabaseAdmin>): Promise<User[]> {
+  const users: User[] = [];
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 });
+    if (error) throw new Error(error.message);
+
+    const batch = data.users ?? [];
+    users.push(...batch);
+    if (batch.length < 1000) break;
+    page += 1;
   }
-  return Math.min(100, Math.round(score));
+
+  return users;
+}
+
+function buildAuthSignInMap(authUsers: User[]): Map<string, string | null> {
+  return new Map(authUsers.map((user) => [user.id, user.last_sign_in_at ?? null]));
+}
+
+async function fetchLatestAuditByActor(
+  admin: ReturnType<typeof getSupabaseAdmin>
+): Promise<Map<string, string>> {
+  const { data, error } = await admin
+    .from('audit_events')
+    .select('actor_id, created_at')
+    .not('actor_id', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(10000);
+
+  if (error) {
+    console.warn('[admin/analytics] audit activity lookup failed:', error.message);
+    return new Map();
+  }
+
+  const latestByActor = new Map<string, string>();
+  for (const row of data ?? []) {
+    const actorId = row.actor_id as string | null;
+    const createdAt = row.created_at as string | null;
+    if (!actorId || !createdAt || latestByActor.has(actorId)) continue;
+    latestByActor.set(actorId, createdAt);
+  }
+
+  return latestByActor;
+}
+
+async function backfillProfileLastSeen(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  signInByUserId: Map<string, string | null>,
+  auditByUserId: Map<string, string>
+): Promise<void> {
+  const { data: profiles, error } = await admin.from('profiles').select('id, last_seen_at');
+  if (error) throw new Error(error.message);
+
+  const updates = buildLastSeenBackfillUpdates({
+    profiles: (profiles ?? []) as Array<{ id: string; last_seen_at: string | null }>,
+    signInByUserId,
+    auditByUserId,
+  });
+
+  await Promise.all(
+    updates.map((update) =>
+      admin
+        .from('profiles')
+        .update({ last_seen_at: update.last_seen_at, updated_at: new Date().toISOString() })
+        .eq('id', update.id)
+    )
+  );
+}
+
+async function ensureProfilesForAllAuthUsers(
+  admin: ReturnType<typeof getSupabaseAdmin>,
+  authUsers: User[]
+): Promise<void> {
+  const { data: existingProfiles, error } = await admin.from('profiles').select('id');
+  if (error) throw new Error(error.message);
+
+  const existingIds = new Set((existingProfiles ?? []).map((row) => row.id as string));
+  const now = new Date().toISOString();
+
+  for (const user of authUsers) {
+    if (existingIds.has(user.id)) continue;
+
+    const email = resolveAuthUserEmail(user);
+    const role = resolveProfileRole(email);
+    const hasOnboardingColumn = await profilesHasOnboardingColumn(admin);
+    const insertRow: Record<string, unknown> = {
+      id: user.id,
+      email,
+      role,
+      signup_provider: extractSignupProvider(user),
+      created_at: user.created_at ?? now,
+      updated_at: now,
+      last_seen_at: user.last_sign_in_at ?? null,
+    };
+
+    if (hasOnboardingColumn) {
+      insertRow.onboarding_completed_at = null;
+    }
+
+    const { error: insertError } = await admin.from('profiles').insert(insertRow);
+    if (insertError) {
+      console.warn('[admin/analytics] profile insert failed for', user.id, insertError.message);
+    }
+  }
+}
+
+async function refreshProfileActivityData(): Promise<{
+  signInByUserId: Map<string, string | null>;
+  auditByUserId: Map<string, string>;
+}> {
+  const admin = getSupabaseAdmin();
+  const authUsers = await fetchAllAuthUsers(admin);
+  const signInByUserId = buildAuthSignInMap(authUsers);
+  const auditByUserId = await fetchLatestAuditByActor(admin);
+
+  await ensureProfilesForAllAuthUsers(admin, authUsers);
+  await backfillProfileLastSeen(admin, signInByUserId, auditByUserId);
+
+  return { signInByUserId, auditByUserId };
 }
 
 async function safeTableCount(table: string): Promise<number | null> {
@@ -474,28 +590,27 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
   const admin = getSupabaseAdmin();
   const todayStart = startOfUtcDay();
   const todayIso = todayStart.toISOString();
-  const onlineCutoff = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+  const onlineCutoffMs = Date.now() - 15 * 60 * 1000;
   const thirtyDaysAgo = new Date(todayStart);
   thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
   const thirtyDaysIso = thirtyDaysAgo.toISOString();
-  const inactiveCutoff = thirtyDaysIso;
+
+  const { signInByUserId, auditByUserId } = await refreshProfileActivityData();
 
   const baseStats = await getAdminStats();
 
   const [
-    onlineRes,
     pendingRes,
     paymentsTodayRes,
     receiptsTodayRes,
     totalReceiptsRes,
     sharedListsRes,
     priceRecordsRes,
-    familyActiveRes,
+    familyOwnersRes,
     profilesRecentRes,
     receiptsRecentRes,
     profilesBeforeRes,
-    topProfilesRes,
-    churnProfilesRes,
+    allProfilesRes,
     auditRes,
     stripeSubsRes,
     familySubsRes,
@@ -507,7 +622,6 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     signups1hRes,
     profilesForDomainsRes,
   ] = await Promise.all([
-    admin.from('profiles').select('id', { count: 'exact', head: true }).gte('last_seen_at', onlineCutoff),
     admin
       .from('profiles')
       .select('id', { count: 'exact', head: true })
@@ -527,23 +641,15 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     safeTableCount('price_records'),
     admin
       .from('workspaces')
-      .select('id', { count: 'exact', head: true })
+      .select('owner_user_id')
       .in('subscription_status', ['active', 'trialing']),
     admin.from('profiles').select('created_at').gte('created_at', thirtyDaysIso),
     admin.from('workspace_receipts').select('created_at').gte('created_at', thirtyDaysIso),
     admin.from('profiles').select('id', { count: 'exact', head: true }).lt('created_at', thirtyDaysIso),
     admin
       .from('profiles')
-      .select('id, email, plan_type, subscription_status, last_seen_at, created_at')
-      .order('last_seen_at', { ascending: false, nullsFirst: false })
-      .limit(10),
-    admin
-      .from('profiles')
-      .select('id, email, plan_type, subscription_status, last_seen_at')
-      .or(`last_seen_at.lt.${inactiveCutoff},last_seen_at.is.null`)
-      .eq('is_banned', false)
-      .order('last_seen_at', { ascending: true, nullsFirst: true })
-      .limit(15),
+      .select('id, email, plan_type, subscription_status, last_seen_at, created_at, is_banned')
+      .limit(5000),
     admin.from('audit_events').select('*').order('created_at', { ascending: false }).limit(25),
     admin.from('stripe_subscriptions').select('plan, status'),
     admin
@@ -577,10 +683,12 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     admin.from('profiles').select('email').not('email', 'is', null).limit(5000),
   ]);
 
-  const familyActive = familyActiveRes.error ? 0 : (familyActiveRes.count ?? 0);
-  const tierPro = baseStats.proCount;
-  const tierFamily = familyActive;
-  const tierFree = Math.max(0, baseStats.totalUsers - tierPro);
+  const allProfiles = (allProfilesRes.data ?? []) as ProfileActivityRow[];
+  const familyOwnerIds = new Set(
+    ((familyOwnersRes.data ?? []) as Array<{ owner_user_id: string }>).map((row) => row.owner_user_id)
+  );
+  const tierCounts = computeExclusiveTierCounts(allProfiles, familyOwnerIds);
+  const familyActive = familyOwnerIds.size;
 
   const dailySignups = buildDailySeries(
     (profilesRecentRes.data ?? []) as Array<{ created_at: string }>,
@@ -633,32 +741,9 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     if (count >= 3) highVolumeEmailDomains += 1;
   }
 
-  const topUsers: AdminTopUser[] = ((topProfilesRes.data ?? []) as ProfileRow[]).map((profile) => ({
-    id: profile.id,
-    email: profile.email,
-    planTier: resolvePlanTier(profile),
-    lastSeenAt: profile.last_seen_at,
-    activityScore: computeActivityScore(profile),
-  }));
-
-  const churnRisk: AdminChurnUser[] = ((churnProfilesRes.data ?? []) as ProfileRow[])
-    .slice(0, 10)
-    .map((profile) => {
-      const lastSeenMs = profile.last_seen_at ? new Date(profile.last_seen_at).getTime() : 0;
-      const daysInactive = lastSeenMs
-        ? Math.max(1, Math.floor((Date.now() - lastSeenMs) / (1000 * 60 * 60 * 24)))
-        : 90;
-      const planTier = resolvePlanTier(profile);
-      return {
-        id: profile.id,
-        email: profile.email,
-        planTier,
-        lastSeenAt: profile.last_seen_at,
-        daysInactive,
-        riskScore: computeRiskScore(daysInactive, planTier),
-      };
-    })
-    .sort((a, b) => b.riskScore - a.riskScore);
+  const topUsers = rankTopUsers(allProfiles, signInByUserId, auditByUserId, 10);
+  const churnRisk = buildChurnRiskList(allProfiles, signInByUserId, auditByUserId, { limit: 10 });
+  const onlineNow = countOnlineUsers(allProfiles, signInByUserId, auditByUserId, onlineCutoffMs);
 
   const hasStripeTable = !stripeSubsRes.error;
   const revenue30Day = hasStripeTable ? Math.round(totalMrr * 100) / 100 : 0;
@@ -682,11 +767,11 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
 
   return {
     ...baseStats,
-    onlineNow: onlineRes.error ? 0 : (onlineRes.count ?? 0),
+    onlineNow,
     receiptScansToday: receiptsTodayRes.error ? 0 : (receiptsTodayRes.count ?? 0),
     pendingSignups: pendingRes.error ? 0 : (pendingRes.count ?? 0),
     paymentsToday: paymentsTodayRes.error ? 0 : (paymentsTodayRes.count ?? 0),
-    premiumUsers: tierPro + tierFamily,
+    premiumUsers: tierCounts.tierPro + familyActive,
     systemHealth,
     revenue30Day,
     revenue30DayNote: hasStripeTable
@@ -694,9 +779,9 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
       : 'Stripe subscription data not available — apply migrations and connect billing',
     flaggedAccounts: baseStats.bannedCount,
     supportTickets,
-    tierFree,
-    tierPro,
-    tierFamily,
+    tierFree: tierCounts.tierFree,
+    tierPro: tierCounts.tierPro,
+    tierFamily: tierCounts.tierFamily,
     totalReceiptScans,
     completedParses,
     completionRate,
@@ -798,6 +883,7 @@ export async function listProfiles(
   input: AdminUserListFilters
 ): Promise<{ users: AdminProfileListItem[]; total: number; page: number; limit: number }> {
   const admin = getSupabaseAdmin();
+  const { signInByUserId, auditByUserId } = await refreshProfileActivityData();
   const page = Math.max(1, input.page ?? 1);
   const limit = Math.min(100, Math.max(1, input.limit ?? 25));
   const from = (page - 1) * limit;
@@ -899,7 +985,13 @@ export async function listProfiles(
   }
 
   const users: AdminProfileListItem[] = profiles.map((profile) => {
-    const activityScore = computeActivityScore(profile);
+    const activityScore = computeActivityScoreFromSignals({
+      lastSeenAt: profile.last_seen_at,
+      lastSignInAt: signInByUserId.get(profile.id) ?? null,
+      latestAuditAt: auditByUserId.get(profile.id) ?? null,
+      createdAt: profile.created_at,
+      subscriptionStatus: profile.subscription_status,
+    });
     const receiptCount = receiptCountByUser.get(profile.id) ?? 0;
     return {
       ...profile,

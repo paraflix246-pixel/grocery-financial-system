@@ -1,8 +1,10 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SymbolView } from 'expo-symbols';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  getOnboardingBottomPadding,
   OnboardingColors,
   OnboardingPrimaryCta,
   OnboardingPrimaryCtaText,
@@ -22,11 +24,15 @@ type Props = {
 
 export function AutomationPreviewStep({ onContinue }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
 
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: getOnboardingBottomPadding(insets.bottom) },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.title} accessibilityRole="header">
@@ -63,7 +69,7 @@ export function AutomationPreviewStep({ onContinue }: Props) {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingTop: 16, paddingBottom: 24, gap: 14 },
+  content: { paddingTop: 16, gap: 14 },
   title: {
     color: OnboardingColors.text,
     fontSize: 28,

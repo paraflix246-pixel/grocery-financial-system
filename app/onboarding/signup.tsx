@@ -21,6 +21,7 @@ import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
 import { setOAuthIntent } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import {
+  getOnboardingBottomPadding,
   OnboardingColors,
   OnboardingPrimaryCta,
   OnboardingPrimaryCtaText,
@@ -121,7 +122,7 @@ export default function SignupScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+          { paddingTop: insets.top + 16, paddingBottom: getOnboardingBottomPadding(insets.bottom) },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

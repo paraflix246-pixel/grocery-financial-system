@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MoneyLeakWidget } from '@/src/components/MoneyLeakWidget';
 import {
@@ -9,6 +10,7 @@ import {
 } from '@/src/services/onboardingValueInsights';
 import type { OnboardingGoal } from '@/src/services/onboardingFlowState';
 import {
+  getOnboardingBottomPadding,
   OnboardingColors,
   OnboardingPrimaryCta,
   OnboardingPrimaryCtaText,
@@ -22,6 +24,7 @@ type Props = {
 
 export function ValueMomentStep({ goals, skippedTryWithoutData = false, onContinue }: Props) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const [insights, setInsights] = useState<OnboardingValueInsights | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,7 +48,10 @@ export function ValueMomentStep({ goals, skippedTryWithoutData = false, onContin
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: getOnboardingBottomPadding(insets.bottom) },
+      ]}
       showsVerticalScrollIndicator={false}
     >
       <Text style={styles.title} accessibilityRole="header">
@@ -109,7 +115,7 @@ export function ValueMomentStep({ goals, skippedTryWithoutData = false, onContin
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  content: { paddingTop: 16, paddingBottom: 24, gap: 14 },
+  content: { paddingTop: 16, gap: 14 },
   title: {
     color: OnboardingColors.text,
     fontSize: 28,

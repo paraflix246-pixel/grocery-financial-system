@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PennyPantryLogo } from '@/src/components/PennyPantryLogo';
 import { forgotPassword, signInWithGoogle } from '@/src/services/authService';
-import { OnboardingColors } from '@/src/theme/onboardingTheme';
+import { getOnboardingBottomPadding, OnboardingColors } from '@/src/theme/onboardingTheme';
 import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 function isValidEmail(value: string) {
@@ -94,7 +94,7 @@ export default function ForgotPasswordScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+          { paddingTop: insets.top + 16, paddingBottom: getOnboardingBottomPadding(insets.bottom) },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}

@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
-import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -65,6 +65,7 @@ import { SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/s
 import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { useFocusReload } from '@/src/hooks/useFocusReload';
 import { PantryLimitError } from '@/src/services/tierLimits';
+import { finishOnboardingTryAndReturn } from '@/src/services/onboardingFlowState';
 import { promptPantryLimitReached } from '@/src/utils/promptPantryLimit';
 import { confirmDestructiveAction } from '@/src/utils/confirmDelete';
 import {
@@ -116,6 +117,8 @@ export default function PantryScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { onboarding, filter } = useLocalSearchParams<{ onboarding?: string; filter?: string }>();
+  const isOnboardingTry = onboarding === '1';
   const [items, setItems] = useState<PantryItemView[]>([]);
   const [pantryInsights, setPantryInsights] = useState<PantryInsightCard[]>([]);
   const [activeTab, setActiveTab] = useState('all');
@@ -155,6 +158,22 @@ export default function PantryScreen() {
   }, [activeScope, currentWorkspaceId, isWorkspaceView]);
 
   const { blocking } = useFocusReload(load);
+
+  useEffect(() => {
+    if (isOnboardingTry) {
+      setShowModal(true);
+    }
+  }, [isOnboardingTry]);
+
+  useEffect(() => {
+    if (filter === 'running_low') {
+      setActiveTab('running_low');
+      return;
+    }
+    if (filter === 'expiring_soon' || filter === 'expiring') {
+      setActiveTab('expiring');
+    }
+  }, [filter]);
 
   const statusFiltered = useMemo(() => {
     if (activeTab === 'running_low') return items.filter((i) => i.status === 'running_low');
@@ -401,6 +420,9 @@ export default function PantryScreen() {
       }
       closeModal();
       await load();
+      if (isOnboardingTry && !editingItem) {
+        await finishOnboardingTryAndReturn((href) => router.replace(href as never));
+      }
     } catch (error) {
       if (error instanceof PantryLimitError) {
         promptPantryLimitReached(() => router.push('/paywall' as never));

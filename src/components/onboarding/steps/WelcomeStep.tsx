@@ -63,7 +63,7 @@ export function WelcomeStep({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, justifyContent: 'space-between', paddingBottom: 8 },
+  root: { flex: 1, justifyContent: 'space-between' },
   hero: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 24 },
   logo: { marginBottom: 24 },
   title: {

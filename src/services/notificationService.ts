@@ -15,7 +15,7 @@ import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { endOfWeekISO, startOfWeekISO } from '@/src/utils/dateParser';
 import { isRunningLowByQuantity } from '@/src/utils/pantryStatus';
 
-type InAppNotification = {
+export type InAppNotification = {
   id: string;
   title: string;
   body: string;
@@ -67,6 +67,10 @@ export function subscribeInAppNotifications(
   return () => {
     listeners = listeners.filter((l) => l !== listener);
   };
+}
+
+export function getInAppNotificationQueue(): InAppNotification[] {
+  return [...inAppQueue];
 }
 
 function pushInApp(title: string, body: string): void {

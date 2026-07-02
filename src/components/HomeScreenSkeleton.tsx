@@ -24,7 +24,7 @@ export const HomeScreenSkeleton = memo(function HomeScreenSkeleton() {
   return (
     <PremiumScreenBackground>
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
-      <AppHeader showBack={false} notificationCount={0} />
+      <AppHeader showBack={false} />
 
       <SkeletonBlock height={28} width="70%" style={styles.greeting} />
       <SkeletonBlock height={14} width="55%" style={styles.greetingSub} />

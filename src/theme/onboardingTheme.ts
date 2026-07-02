@@ -1,4 +1,10 @@
+import { getScreenBottomPadding } from '@/src/utils/safeAreaLayout';
 import { SmartCartColors, SmartCartShadow } from '@/src/theme/smartCart';
+
+/** Bottom clearance for onboarding CTAs — matches paywall / stack screens. */
+export function getOnboardingBottomPadding(bottomInset: number): number {
+  return getScreenBottomPadding(bottomInset, 16);
+}
 
 export const OnboardingColors = {
   background: '#FFFFFF',

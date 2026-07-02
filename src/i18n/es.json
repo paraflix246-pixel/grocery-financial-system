@@ -58,12 +58,13 @@
     "more": "Más"
   },
   "home": {
+    "badgeA11y": "{{label}}, {{count}} notificaciones sin leer",
     "greetingMorning": "Buenos días",
     "greetingAfternoon": "Buenas tardes",
     "greetingEvening": "Buenas noches",
     "greetingSub": "Aquí tienes tu resumen inteligente de compras",
     "greetingSubFamily": "Espacio familiar — recibos y despensa compartidos del hogar",
-    "proBannerCompact": "Deja de recomprar lo que ya tienes — Pro desde {{price}}/mes",
+    "proBannerCompact": "Detecta recompras y desperdicio — Pro desde {{price}}/mes",
     "budgetExceeded": "Presupuesto semanal superado por {{amount}}",
     "budgetThreshold": "Has usado el {{percent}}% de tu presupuesto semanal — te acercas al límite de alerta",
     "thisWeek": "Esta semana",
@@ -86,7 +87,57 @@
     "openMenu": "Abrir menú",
     "closeMenu": "Cerrar menú",
     "pushNotifications": "Notificaciones push",
-    "priceAlertsInbox": "Bandeja de alertas de precio"
+    "priceAlertsInbox": "Bandeja de alertas de precio",
+    "notificationCenter": "Notificaciones"
+  },
+  "notificationCenter": {
+    "title": "Notificaciones",
+    "markAllRead": "Marcar todo como leído",
+    "clearAll": "Borrar todo",
+    "deleteOne": "Eliminar notificación",
+    "emptyTitle": "Estás al día",
+    "emptyBody": "Las alertas de precio, actualizaciones de despensa y el estado de recibos aparecerán aquí.",
+    "pantryRunningLow": {
+      "title": "Stock bajo",
+      "bodyOne": "Despensa · 1 artículo · {{names}}",
+      "bodyMany": "Despensa · {{count}} artículos · {{names}}"
+    },
+    "pantryExpiring": {
+      "title": "Por vencer",
+      "bodyOne": "Despensa · 1 artículo · {{names}}",
+      "bodyMany": "Despensa · {{count}} artículos · {{names}}"
+    },
+    "priceAlert": {
+      "title": "Alerta de precio: {{item}}",
+      "body": "{{store}} · ${{price}} · {{detail}}"
+    },
+    "budget": {
+      "overTitle": "Presupuesto semanal superado",
+      "thresholdTitle": "Umbral de presupuesto alcanzado",
+      "overBody": "Gastaste ${{spend}} de ${{budget}} esta semana",
+      "thresholdBody": "{{percent}}% del presupuesto semanal · ${{spend}} / ${{budget}}"
+    },
+    "receiptReady": {
+      "title": "Recibo listo",
+      "body": "Tu recibo terminó de procesarse. Abre Recibos para revisarlo."
+    },
+    "receiptProcessing": {
+      "title": "Procesando recibo",
+      "body": "Estamos extrayendo artículos de tu escaneo."
+    },
+    "receiptFailed": {
+      "title": "Error al procesar recibo",
+      "body": "{{error}}"
+    },
+    "inApp": {
+      "title": "{{title}}",
+      "body": "{{body}}"
+    },
+    "moneyLeak": {
+      "title": "Fuga de dinero",
+      "upgradeTitle": "Informe de fuga de dinero",
+      "upgradeBody": "{{count}} puntos ciegos — ve el informe completo con Pro"
+    }
   },
   "categories": {
     "Groceries": "Comestibles",
@@ -145,9 +196,9 @@
     "a11y": "Escanear recibo. Sube o escanea un recibo para extraer artículos, seguir precios y comparar tiendas."
   },
   "upgrade": {
-    "proComparisonHook": "Deja de recomprar lo que ya tienes en la despensa — compara precios con Pro",
-    "stopMissingDrops": "Deja de recomprar lo que ya compraste",
-    "proBannerSub": "Seguimiento de fugas de dinero, alertas de recompra inteligente y despensa completa"
+    "proComparisonHook": "Desbloquea el carrito más barato entre tiendas con Pro",
+    "stopMissingDrops": "No te pierdas las bajadas de precio",
+    "proBannerSub": "Alertas en tiempo real, seguimiento de inflación y estimaciones de precio"
   },
   "moneyLeak": {
     "title": "Informe de fuga de dinero",
@@ -175,14 +226,14 @@
     "loadingPrices": "Cargando precios de tiendas…",
     "previewMeta": " · vista previa · artículo {{current}} de {{total}}",
     "comparisonsMeta": " · {{count}} comparaciones",
-    "limitedMeta": " · {{shown}} de {{total}} · Mejora para comparación completa",
-    "limitedMetaLine": "{{shown}} de {{total}} · Prevención completa de fugas con Pro",
-    "limitedStoresMetaLine": "{{shown}} de {{total}} tiendas · Mejora para ver todas",
+    "limitedMeta": " · {{shown}} de {{total}} · Carrito más barato con Pro",
+    "limitedMetaLine": "{{shown}} de {{total}} artículos · Desbloquea el carrito más barato entre tiendas con Pro",
+    "limitedStoresMetaLine": "{{shown}} de {{total}} tiendas · Desbloquea el carrito más barato con Pro",
     "limitedStoresMetaShort": "{{shown}} de {{total}} tiendas",
-    "seeAllStoresPro": "Ver todas las tiendas con Pro",
-    "unlockMoreStores_one": "Desbloquea {{count}} tienda más",
-    "unlockMoreStores_other": "Desbloquea {{count}} tiendas más",
-    "storeUpgradeA11y": "Mejora a Pro para ver {{count}} tiendas más",
+    "seeAllStoresPro": "Desbloquea el carrito más barato con Pro",
+    "unlockMoreStores_one": "Desbloquea {{count}} tienda más con Pro",
+    "unlockMoreStores_other": "Desbloquea {{count}} tiendas más con Pro",
+    "storeUpgradeA11y": "Mejora a Pro para desbloquear el carrito más barato en {{count}} tiendas más",
     "previousItem": "Mostrar artículo anterior",
     "nextItem": "Mostrar siguiente artículo",
     "emptyNoPricesTitle": "No se encontraron precios",
@@ -316,6 +367,7 @@
     "title": "Más",
     "subtitle": "Ajustes y funciones Pro",
     "sections": {
+      "trackAlerts": "Seguimiento y alertas",
       "essentials": "Esenciales",
       "proInsights": "Pro e insights",
       "collaboration": "Colaboración"
@@ -326,6 +378,8 @@
       "spendingAnalytics": { "label": "Análisis de gastos", "subtitle": "Tendencias y desglose por categoría" },
       "cartComparison": { "label": "Estimaciones de precios en vivo", "subtitle": "Compara totales estimados por tienda de tu lista" },
       "pantry": { "label": "Despensa", "subtitle": "Sigue artículos de tus recibos" },
+      "stores": { "label": "Tiendas", "subtitle": "Explora tiendas de tus recibos" },
+      "badgeA11y": "{{label}}, {{count}} notificaciones sin leer",
       "shoppingLists": { "label": "Listas de compras", "subtitle": "Administra tus listas de compras" },
       "scanReceipt": { "label": "Escanear recibo", "subtitle": "Captura o sube un recibo" },
       "pro": { "label": "Penny Pantry Pro", "subtitle": "Suscripción y administración del plan" },
@@ -358,7 +412,7 @@
       "export_advanced": "Exportar datos de gastos",
       "multi_user_sync": "Sincronización multiusuario en vivo",
       "budget_forecasting": "Resumen mensual de gastos",
-      "cheapest_basket": "Carrito más barato entre tiendas",
+      "cheapest_basket": "pagar de más en la tienda equivocada",
       "api_access": "Comparación de precios multi-tienda",
       "pantry_unlimited": "Seguimiento ilimitado de despensa",
       "custom_themes": "Temas y colores personalizados",
@@ -792,7 +846,7 @@
     "openLastListHint": "Retomar la lista que viste por última vez",
     "livePriceEstimatesSection": "Estimaciones de precios en vivo",
     "livePriceEstimates": "Mostrar estimaciones de precios en vivo",
-    "livePriceEstimatesHint": "Compara totales estimados por tienda en Inicio y en la comparación del carrito",
+    "livePriceEstimatesHint": "Compara totales por tienda en Inicio — Pro desbloquea el carrito más barato de toda tu lista",
     "scanning": "Escaneo de recibos",
     "scanningInfo": "Los recibos se escanean automáticamente. Suele tardar 15–45 segundos; los largos hasta 2 minutos. Cada escaneo se revisa antes de guardarse.",
     "appearance": "Apariencia",

@@ -22,6 +22,7 @@ import { ForgottenItemsCard } from '@/src/components/ForgottenItemsCard';
 import { HeroScanCard } from '@/src/components/HeroScanCard';
 import { HomeScreenSkeleton } from '@/src/components/HomeScreenSkeleton';
 import { InsightCard } from '@/src/components/InsightCard';
+import { NotificationCountBadge } from '@/src/components/NotificationCountBadge';
 import { PantryInsightCards } from '@/src/components/PantryInsightCards';
 import { PlanComparisonModal } from '@/src/components/PlanComparisonModal';
 import { ReceiptProcessingBanner } from '@/src/components/ReceiptProcessingBanner';
@@ -60,12 +61,13 @@ import { getActiveList, createListItem } from '@/src/services/storageService';
 import { useFocusReload } from '@/src/hooks/useFocusReload';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
 import { useListStore } from '@/src/store/useListStore';
+import { useNotificationCenterStore } from '@/src/store/useNotificationCenterStore';
 import { useSettingsStore } from '@/src/store/useSettingsStore';
 import { getForgottenItemNudges } from '@/src/services/forgottenItemsService';
 import { buildPantryInsights } from '@/src/services/pantryInsightService';
 import type { PantryInsightCard } from '@/src/services/pantryInsightService';
 import { loadPantryItems } from '@/src/services/pantryService';
-import { PRO_MONTHLY_PRICE } from '@/src/constants/proPricing';
+import { formatProMonthlyPrice } from '@/src/constants/proPricing';
 import { useSubscriptionStore } from '@/src/store/useSubscriptionStore';
 import { formatHomeGreetingI18n, getGreetingFirstName, SmartCartColors, SmartCartRadius, SmartCartShadow } from '@/src/theme/smartCart';
 import { PremiumScreenBackground } from '@/src/components/PremiumScreenBackground';
@@ -95,6 +97,7 @@ export default function HomeScreen() {
   );
   const subscriptionTier = useSubscriptionStore((s) => s.tier);
   const { isAdmin } = useAdminStatus();
+  const spendingBadgeCount = useNotificationCenterStore((s) => s.spendingBadgeCount);
   const activeScope = useWorkspaceStore((s) => s.activeScope);
   const currentWorkspaceId = useWorkspaceStore((s) => s.currentWorkspaceId);
   const isWorkspaceView = activeScope === 'workspace';
@@ -270,11 +273,7 @@ export default function HomeScreen() {
           paddingBottom: Platform.OS === 'web' ? 0 : getTabScreenScrollBottomPadding(insets.bottom),
         },
       ]}>
-      <AppHeader
-        showBack={false}
-        notificationCount={priceAlerts.length}
-        onNotificationPress={() => router.push('/price-tracker?tab=alerts' as never)}
-      />
+      <AppHeader showBack={false} />
 
       <FamilyWorkspaceScopeAccent variant="both" />
 
@@ -292,7 +291,7 @@ export default function HomeScreen() {
       {subscriptionTier === 'free' && !isAdmin && !isWorkspaceView ? (
         <ProUpgradeBanner
           variant="compact"
-          message={t('home.proBannerCompact', { price: PRO_MONTHLY_PRICE.replace('$', '') })}
+          message={t('home.proBannerCompact', { price: formatProMonthlyPrice() })}
         />
       ) : null}
 
@@ -399,7 +398,12 @@ export default function HomeScreen() {
       <View style={[styles.analyticsRow, isWide && styles.analyticsRowWide]}>
         <View style={[styles.sectionCard, isWide && styles.analyticsHalf]}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>{t('home.spendingOverview')}</Text>
+            <View style={styles.sectionTitleBadgeWrap}>
+              <Text style={styles.sectionTitle}>{t('home.spendingOverview')}</Text>
+              {spendingBadgeCount > 0 ? (
+                <NotificationCountBadge count={spendingBadgeCount} size="md" />
+              ) : null}
+            </View>
             <SpendingPeriodSelector period={spendingPeriod} onPeriodChange={setSpendingPeriod} />
           </View>
           <Text style={styles.sectionSubtitle} muted>
@@ -480,6 +484,14 @@ const styles = StyleSheet.create({
     ...SmartCartShadow.card,
   },
   sectionTitle: { fontSize: 17, fontWeight: '700' },
+  sectionTitleBadgeWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+    position: 'relative',
+    overflow: 'visible',
+    paddingRight: 4,
+  },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',

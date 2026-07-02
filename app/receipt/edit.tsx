@@ -61,6 +61,7 @@ import { formatItemsSubtotalGapDetail } from '@/src/utils/receiptItemLabels';
 import { canonicalizeItemName } from '@/src/utils/itemCanonicalizer';
 import { getReceiptBannerWarnings, shouldShowInlineSubtotalGap, validateParsedReceipt } from '@/src/utils/receiptValidation';
 import { ScanLimitError, StoreLimitError } from '@/src/services/tierLimits';
+import { isOnboardingTryInProgressSync, finishOnboardingTryAndReturn } from '@/src/services/onboardingFlowState';
 import { promptScanLimitReached } from '@/src/utils/promptScanLimit';
 import { promptStoreLimitReached } from '@/src/utils/promptPantryLimit';
 
@@ -302,6 +303,10 @@ export default function EditReceiptScreen() {
       }
       invalidatePrimaryStoreCache();
       reset();
+      if (isOnboardingTryInProgressSync()) {
+        await finishOnboardingTryAndReturn((href) => router.replace(href as never));
+        return;
+      }
       router.replace({ pathname: '/receipt/link', params: { receiptId: receipt.id, fromSave: '1' } });
     } catch (error) {
       if (error instanceof ScanLimitError) {

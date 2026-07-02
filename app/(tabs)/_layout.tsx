@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/Themed';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
+import { NotificationCenterBootstrap } from '@/src/components/NotificationCenterBootstrap';
 import { useAppTheme } from '@/src/theme/AppThemeProvider';
 import { useFamilyWorkspaceScreenTheme } from '@/src/hooks/useFamilyWorkspaceScreenTheme';
 import { SmartCartColors, SmartCartShadow } from '@/src/theme/smartCart';
@@ -85,7 +86,9 @@ export default function TabLayout() {
         ];
 
   return (
-    <Tabs
+    <>
+      <NotificationCenterBootstrap />
+      <Tabs
       screenLayout={Platform.OS === 'web' ? WebTabScreenLayout : undefined}
       screenOptions={{
         headerShown,
@@ -178,6 +181,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    </>
   );
 }
 

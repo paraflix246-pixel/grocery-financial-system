@@ -227,15 +227,7 @@ export default function CartComparisonScreen() {
 
           {showCartComparisonBanner ? (
             <ProUpgradeBanner
-              featureName={getFeatureLabel('cheapest_basket')}
-              hook={
-                showLimitedListHint
-                  ? t('comparison.limitedMetaLine', {
-                      shown: comparisonLimit,
-                      total: totalListItemCount,
-                    })
-                  : t('upgrade.proComparisonHook')
-              }
+              title={t('upgrade.proComparisonHook')}
               ignoreAdminBypass={cartAccess.forceFreePreview || !fullCartComparison}
             />
           ) : null}

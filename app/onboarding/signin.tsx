@@ -26,11 +26,7 @@ import {
 import { completeOAuthAndRoute } from '@/src/services/onboardingOAuthRouting';
 import { setOAuthIntent, setOAuthReturnTo } from '@/src/services/onboardingFlowState';
 import { useBudgetStore } from '@/src/store/useBudgetStore';
-import {
-  OnboardingColors,
-  OnboardingPrimaryCta,
-  OnboardingPrimaryCtaText,
-} from '@/src/theme/onboardingTheme';
+import { getOnboardingBottomPadding, OnboardingColors, OnboardingPrimaryCta, OnboardingPrimaryCtaText } from '@/src/theme/onboardingTheme';
 import { navigateToOnboardingWelcome } from '@/src/utils/onboardingWelcomeNavigation';
 
 export default function SigninScreen() {
@@ -182,7 +178,7 @@ export default function SigninScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
+          { paddingTop: insets.top + 16, paddingBottom: getOnboardingBottomPadding(insets.bottom) },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
